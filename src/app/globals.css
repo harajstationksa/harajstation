@@ -1,0 +1,192 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════ */
+/* صامل Design Tokens                          */
+/* Terracotta #DB7759 · Sand #E3DACD · B/W     */
+/* ═══════════════════════════════════════════ */
+
+@theme {
+  /* Primary — Terracotta, with warm sand tints (#E3DACD) for light surfaces */
+  --color-primary-50: #faf7f2;
+  --color-primary-100: #f1eae1;
+  --color-primary-200: #e3dacd;
+  --color-primary-300: #ecb7a2;
+  --color-primary-400: #e39678;
+  --color-primary-500: #db7759;
+  --color-primary-600: #c75d3e;
+  --color-primary-700: #a64a30;
+  --color-primary-800: #863c28;
+  --color-primary-900: #6e3222;
+
+  /* Sand — the secondary brand tone, for quiet warm surfaces */
+  --color-sand-50: #faf7f2;
+  --color-sand-100: #f1eae1;
+  --color-sand-200: #e3dacd;
+  --color-sand-300: #d3c5b1;
+  --color-sand-400: #bda989;
+  --color-sand-500: #a68e68;
+
+  /* Semantic */
+  --color-success: #16a34a;
+  --color-warning: #eab308;
+  --color-info: #2563eb;
+  --color-danger: #dc2626;
+
+  /* Shadows */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-card-hover:
+    0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+
+  /* Animations */
+  --animate-fade-up: fade-up 0.4s ease both;
+  --animate-live-pulse: live-pulse 1.4s ease-in-out infinite;
+  --animate-pro-flame: pro-flame 2.4s ease-in-out infinite;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes live-pulse {
+    0%,
+    100% {
+      opacity: 1;
+      box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5);
+    }
+    50% {
+      opacity: 0.85;
+      box-shadow: 0 0 0 5px rgba(220, 38, 38, 0);
+    }
+  }
+
+  /* PRO flame: a gentle flicker — slight sway only, no glow/shadow */
+  @keyframes pro-flame {
+    0%,
+    100% {
+      transform: scale(1) rotate(-4deg);
+    }
+    50% {
+      transform: scale(1.1) rotate(4deg);
+    }
+  }
+}
+
+@theme inline {
+  --font-sans:
+    var(--font-ibm-arabic), var(--font-cairo), ui-sans-serif, system-ui,
+    -apple-system, "Segoe UI", sans-serif;
+  --font-display:
+    var(--font-cairo), var(--font-ibm-arabic), ui-sans-serif, system-ui,
+    sans-serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-white text-neutral-900 font-sans;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--color-primary-200);
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font-family: inherit;
+  }
+
+  /* a required field the user skipped or filled wrong lights up red as soon
+     as they interact with the form — no waiting for the server round-trip */
+  input:user-invalid,
+  select:user-invalid,
+  textarea:user-invalid {
+    border-color: #f87171;
+    box-shadow: 0 0 0 3px rgb(239 68 68 / 0.12);
+  }
+}
+
+@utility container-page {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 80rem;
+  padding-inline: 1rem;
+
+  @media (min-width: 640px) {
+    padding-inline: 1.5rem;
+  }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-5 font-semibold transition-colors duration-150 min-h-11 text-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none;
+}
+
+@utility btn-primary {
+  @apply btn bg-primary-500 text-white hover:bg-primary-600 active:bg-primary-700;
+}
+
+@utility btn-secondary {
+  @apply btn bg-white text-neutral-800 border border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50;
+}
+
+@utility btn-danger {
+  @apply btn bg-red-600 text-white hover:bg-red-700;
+}
+
+@utility btn-ghost {
+  @apply btn bg-transparent hover:bg-neutral-100;
+}
+
+@utility input {
+  @apply w-full rounded-lg border border-neutral-200 bg-white px-4 min-h-11 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20;
+}
+
+@utility card {
+  @apply bg-white border border-neutral-100 rounded-xl shadow-card;
+}
+
+@utility badge {
+  @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
+}
+
+/* rectangular label — the professional tag used on ad cards (sponsored/featured) */
+@utility tag {
+  @apply inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold leading-none;
+}
+
+/* quiet neutral chip — the default for metadata */
+@utility chip {
+  @apply inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-neutral-600;
+}
+
+/* small rectangular action button (row actions, toolbars) */
+@utility act-btn {
+  @apply inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer;
+}
+
+@utility section-title {
+  @apply font-display text-xl sm:text-2xl font-bold text-neutral-900;
+}
+
+/* header search input — rectangular */
+@utility input-pill {
+  @apply w-full rounded-lg border border-transparent bg-neutral-100 px-4 min-h-10 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:bg-white focus:border-neutral-300;
+}

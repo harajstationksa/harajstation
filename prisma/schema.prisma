@@ -1,0 +1,592 @@
+// حراج ستيشن — Marketplace & Auction Platform
+// PostgreSQL (Supabase) — DATABASE_URL is the pgbouncer pooler (runtime),
+// DIRECT_URL the session pooler (migrations).
+// NOTE: string fields with documented values are used instead of enums
+// (kept from the SQLite era). Values are validated in app code.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  // Email-first registration; phone is optional and can be added in settings.
+  // phoneVerified is reserved for future SMS-OTP gating of sensitive actions.
+  email         String    @unique
+  phone         String?   @unique
+  phoneVerified Boolean   @default(false)
+  passwordHash  String
+  city          String
+  avatarColor   String    @default("#DB7759")
+  avatarUrl     String?
+  // USER | ADMIN | MODERATOR | SUPPORT | ACCOUNTANT
+  role          String    @default("USER")
+  credibility   Int       @default(50)
+  successfulTx  Int       @default(0)
+  points        Int       @default(0)
+  lastDailyAt   DateTime?
+  isPro         Boolean   @default(false)
+  isBanned      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  listings      Listing[]
+  bids          Bid[]
+  favorites     Favorite[]
+  notifications Notification[]
+  credLogs      CredibilityLog[]
+  sales         Transaction[]    @relation("SellerTx")
+  purchases     Transaction[]    @relation("BuyerTx")
+  wonAuctions   Auction[]        @relation("AuctionWinner")
+  buyerConvs    Conversation[]   @relation("ConvBuyer")
+  sellerConvs   Conversation[]   @relation("ConvSeller")
+  messages      Message[]
+  evidences     Evidence[]
+  comments      Comment[]
+  reports       Report[]
+  reviewsGiven  Review[]         @relation("ReviewAuthor")
+  reviewsGotten Review[]         @relation("ReviewTarget")
+  stores        Store[]
+  campaigns     Campaign[]
+  pointTx       PointTransaction[]
+  resetTokens   PasswordResetToken[]
+  savedSearches SavedSearch[]
+  following     Follow[]         @relation("Following")
+  followers     Follow[]         @relation("Followers")
+  pushSubs      PushSubscription[]
+  proxyBids     ProxyBid[]
+  // manual ID verification (admin-reviewed) → «موثّق» badge
+  idVerified    Boolean   @default(false)
+  identityReq   IdentityVerification?
+  payments      Payment[]
+}
+
+// Manual identity verification: the user uploads an ID document (stored in a
+// private, non-web-served folder), staff reviews it from the admin panel and
+// approves or rejects. Approval sets User.idVerified → «موثّق» badge.
+model IdentityVerification {
+  id         String    @id @default(cuid())
+  userId     String    @unique
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // path relative to the private uploads root (never web-served directly)
+  docPath    String
+  // PENDING | APPROVED | REJECTED
+  status     String    @default("PENDING")
+  note       String? // rejection reason shown to the user
+  createdAt  DateTime  @default(now())
+  reviewedAt DateTime?
+}
+
+// Saved-search alert: the user saves a search («كامري 2020 الرياض») and gets
+// a notification whenever a newly published listing matches it.
+model SavedSearch {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  query     String    @default("") // raw search words ("" = any)
+  category  String    @default("") // category slug ("" = all)
+  city      String    @default("") // "" = all cities
+  // "" | STANDARD | AUCTION
+  type      String    @default("")
+  createdAt DateTime  @default(now())
+  lastHitAt DateTime? // last time a matching listing triggered an alert
+  hits      Int       @default(0)
+
+  @@index([userId])
+}
+
+// Follow a seller (their profile/store): followers are notified about every
+// new listing or auction the seller publishes.
+model Follow {
+  id         String   @id @default(cuid())
+  followerId String
+  follower   User     @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  sellerId   String
+  seller     User     @relation("Followers", fields: [sellerId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([followerId, sellerId])
+  @@index([sellerId])
+}
+
+// Web Push subscription — one row per browser/device the user enabled
+// notifications on. Dead endpoints (410) are pruned on send.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Proxy (agency) bidding: the bidder sets a private ceiling and the system
+// automatically outbids rivals on their behalf up to that amount.
+model ProxyBid {
+  id        String   @id @default(cuid())
+  auctionId String
+  auction   Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  bidderId  String
+  bidder    User     @relation(fields: [bidderId], references: [id], onDelete: Cascade)
+  maxAmount Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([auctionId, bidderId])
+  @@index([auctionId])
+}
+
+// Live-visitor presence: one row per unique visitor (IP/UA hash), refreshed
+// on every page view. "Online now" = lastSeenAt within the last 5 minutes.
+model Presence {
+  key        String   @id
+  userId     String?
+  userName   String?
+  lastSeenAt DateTime @default(now())
+
+  @@index([lastSeenAt])
+}
+
+// Forgot-password flow: single-use, short-lived reset tokens
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  slug      String     @unique
+  nameAr    String
+  nameEn    String
+  icon      String // lucide icon key, resolved in app
+  sortOrder Int        @default(0)
+  parentId  String?
+  parent    Category?  @relation("SubCats", fields: [parentId], references: [id])
+  children  Category[] @relation("SubCats")
+  listings  Listing[]
+}
+
+model Listing {
+  id           String    @id @default(cuid())
+  // human-readable reference, e.g. SM-100234 — searchable by admins
+  ref          String?   @unique
+  // STANDARD | AUCTION
+  type         String    @default("STANDARD")
+  title        String
+  description  String
+  price        Int? // null for auctions (price lives on Auction)
+  // NEW | USED | LIKE_NEW
+  condition    String    @default("USED")
+  city         String
+  neighborhood String?
+  images       String    @default("[]") // JSON string[] of image urls
+  // ACTIVE | PENDING | SOLD | EXPIRED | REMOVED
+  status       String    @default("ACTIVE")
+  isFeatured   Boolean   @default(false)
+  featuredUntil DateTime?
+  isPromoted   Boolean   @default(false)
+  promotedUntil DateTime?
+  views        Int       @default(0)
+  phone        String?
+  whatsapp     String?
+  showPhone    Boolean   @default(true)
+  // PICKUP | SHIPPING | DELIVERY (only for physical goods)
+  deliveryMethod String  @default("PICKUP")
+  // category-specific fields as JSON (brand/year/rooms/area/...)
+  attributes   String    @default("{}")
+  // normalized Arabic text (title + description + attributes) for smart search
+  searchText   String    @default("")
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime?
+
+  sellerId   String
+  seller     User     @relation(fields: [sellerId], references: [id])
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  storeId    String?
+  store      Store?   @relation(fields: [storeId], references: [id])
+
+  auction      Auction?
+  favorites    Favorite[]
+  transactions Transaction[]
+  convs        Conversation[]
+  comments     Comment[]
+  campaigns    Campaign[]
+  viewLogs     ListingView[]
+
+  @@index([status, type, createdAt])
+  @@index([categoryId, status])
+  @@index([city])
+}
+
+// One view per unique visitor (IP-derived key) — prevents reload inflation
+model ListingView {
+  id         String   @id @default(cuid())
+  listingId  String
+  listing    Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  visitorKey String
+  createdAt  DateTime @default(now())
+
+  @@unique([listingId, visitorKey])
+  @@index([listingId])
+}
+
+// One impression per unique visitor network (IP /24 subnet) per campaign —
+// page reloads by the same user never inflate the advertiser's numbers
+model CampaignImpression {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  visitorKey String
+  createdAt  DateTime @default(now())
+
+  @@unique([campaignId, visitorKey])
+  @@index([campaignId, createdAt])
+}
+
+// Smart promotion campaign — day-based: the listing stays sponsored (pinned
+// first in its category with a special frame) for `days` days. `delivered`
+// keeps counting unique visitors as a stat. `targetVisitors` survives only
+// for legacy visitor-based campaigns.
+model Campaign {
+  id             String    @id @default(cuid())
+  listingId      String
+  listing        Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  ownerId        String
+  owner          User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  targetVisitors Int       @default(0)
+  days           Int       @default(0)
+  endsAt         DateTime?
+  delivered      Int       @default(0)
+  notified       Int       @default(0)
+  // ad-analytics counters: times the sponsored card was served / clicked
+  impressions    Int       @default(0)
+  clicks         Int       @default(0)
+  pointsSpent    Int
+  // ACTIVE | COMPLETED | CANCELLED
+  status         String    @default("ACTIVE")
+  // optional geo-targeting: campaign focuses on buyers in this city ("" = all)
+  targetCity     String    @default("")
+  createdAt      DateTime  @default(now())
+  endedAt        DateTime?
+  impressionLogs CampaignImpression[]
+
+  @@index([status])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  body      String
+  isHidden  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([listingId, createdAt])
+}
+
+model Report {
+  id         String    @id @default(cuid())
+  reporterId String
+  reporter   User      @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  // LISTING | USER | COMMENT | MESSAGE
+  targetType String
+  targetId   String
+  reason     String
+  // OPEN | RESOLVED | DISMISSED
+  status     String    @default("OPEN")
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  @@index([status, createdAt])
+}
+
+// Mutual rating after a CONFIRMED transaction
+model Review {
+  id            String   @id @default(cuid())
+  transactionId String
+  authorId      String
+  author        User     @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  targetId      String
+  target        User     @relation("ReviewTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  rating        Int // 1..5
+  comment       String?
+  createdAt     DateTime @default(now())
+
+  @@unique([transactionId, authorId])
+  @@index([targetId])
+}
+
+// Admin-editable subscription packages
+model Plan {
+  id          String  @id @default(cuid())
+  key         String  @unique // FREE | PRO_MONTHLY | PRO_YEARLY | custom
+  name        String
+  price       Int
+  period      String  @default("")
+  features    String  @default("[]") // JSON string[]
+  maxListings Int     @default(10)
+  maxAuctions Int     @default(3)
+  maxStores   Int     @default(1)
+  dailyPoints Int     @default(5)
+  highlight   Boolean @default(false)
+  isActive    Boolean @default(true)
+  sortOrder   Int     @default(0)
+}
+
+// Admin-editable point recharge packages
+model PointPackage {
+  id        String  @id @default(cuid())
+  points    Int
+  bonus     Int     @default(0)
+  price     Int // SAR
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+}
+
+// Moyasar payments: one row per created invoice. Points are credited exactly
+// once when the invoice is confirmed paid (webhook or callback verification).
+model Payment {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packageId   String
+  points      Int // points + bonus credited on success
+  amount      Int // total charged in halalas (incl. 15% VAT)
+  // PENDING | PAID | FAILED
+  status      String    @default("PENDING")
+  invoiceId   String    @unique // Moyasar invoice id
+  createdAt   DateTime  @default(now())
+  paidAt      DateTime?
+
+  @@index([userId, createdAt])
+}
+
+// Point ledger — purchases, daily claims, campaign spends, admin adjustments
+model PointTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  delta     Int
+  reason    String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// Admin-tunable global settings (key/value)
+model Setting {
+  key   String @id
+  value String
+}
+
+model Store {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug        String    @unique
+  name        String
+  description String    @default("")
+  logoUrl     String?
+  bannerUrl   String?
+  createdAt   DateTime  @default(now())
+  listings    Listing[]
+
+  @@index([userId])
+}
+
+model BannedWord {
+  id        String   @id @default(cuid())
+  word      String   @unique // stored normalized
+  createdAt DateTime @default(now())
+}
+
+model Auction {
+  id            String   @id @default(cuid())
+  listingId     String   @unique
+  listing       Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  startPrice    Int
+  minIncrement  Int      @default(50)
+  buyNowPrice   Int?
+  terms         String?
+  endsAt        DateTime
+  extendedCount Int      @default(0)
+  // LIVE | ENDED | NO_SALE | CANCELLED
+  status        String   @default("LIVE")
+  winnerId      String?
+  winner        User?    @relation("AuctionWinner", fields: [winnerId], references: [id])
+  winningBid    Int?
+  bids          Bid[]
+  proxies       ProxyBid[]
+
+  @@index([status, endsAt])
+}
+
+model Bid {
+  id         String   @id @default(cuid())
+  auctionId  String
+  auction    Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  bidderId   String
+  bidder     User     @relation(fields: [bidderId], references: [id])
+  amount     Int
+  maskedName String // e.g. "صامل_482" — bidder privacy
+  createdAt  DateTime @default(now())
+
+  @@index([auctionId, amount])
+}
+
+// Mutual verification window after a sale/auction (48h)
+model Transaction {
+  id           String   @id @default(cuid())
+  listingId    String
+  listing      Listing  @relation(fields: [listingId], references: [id])
+  sellerId     String
+  seller       User     @relation("SellerTx", fields: [sellerId], references: [id])
+  buyerId      String
+  buyer        User     @relation("BuyerTx", fields: [buyerId], references: [id])
+  amount       Int
+  // AUCTION | STANDARD
+  source       String   @default("AUCTION")
+  // YES | NO (null = no answer yet)
+  sellerAnswer String?
+  buyerAnswer  String?
+  // PENDING | CONFIRMED | CANCELLED | DISPUTED | EXPIRED
+  status       String   @default("PENDING")
+  deadline     DateTime
+  createdAt    DateTime @default(now())
+  dispute      Dispute?
+
+  @@index([status, deadline])
+}
+
+model Dispute {
+  id                String      @id @default(cuid())
+  transactionId     String      @unique
+  transaction       Transaction @relation(fields: [transactionId], references: [id])
+  // OPEN | RESOLVED
+  status            String      @default("OPEN")
+  resolution        String?
+  // SELLER | BUYER
+  resolvedInFavorOf String?
+  createdAt         DateTime    @default(now())
+  resolvedAt        DateTime?
+  evidences         Evidence[]
+}
+
+model Evidence {
+  id        String   @id @default(cuid())
+  disputeId String
+  dispute   Dispute  @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  note      String?
+  fileUrl   String?
+  createdAt DateTime @default(now())
+}
+
+model Conversation {
+  id        String    @id @default(cuid())
+  listingId String
+  listing   Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  buyerId   String
+  buyer     User      @relation("ConvBuyer", fields: [buyerId], references: [id])
+  sellerId  String
+  seller    User      @relation("ConvSeller", fields: [sellerId], references: [id])
+  createdAt DateTime  @default(now())
+  messages  Message[]
+
+  @@unique([listingId, buyerId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id])
+  // encrypted at rest (AES-256-GCM, "enc:v1:" prefix) — decrypted only for
+  // the two conversation parties; legacy plaintext rows still readable
+  body           String
+  // optional image attachment (chat uploads)
+  imageUrl       String?
+  createdAt      DateTime     @default(now())
+  readAt         DateTime?
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // BID | OUTBID | ENDING_SOON | WON | SOLD | MESSAGE | CONFIRM | DISPUTE | ADMIN | SYSTEM
+  type      String
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, listingId])
+}
+
+model Banner {
+  id        String    @id @default(cuid())
+  title     String
+  imageUrl  String?
+  linkUrl   String?
+  // optional embed (AdSense / YouTube / TikTok iframe) — rendered instead of image
+  embedHtml String?
+  // HOME_TOP | HOME_MIDDLE | CATEGORY_TOP | AUCTION_SIDE
+  position  String    @default("HOME_TOP")
+  // ACTIVE | SCHEDULED | DISABLED
+  status    String    @default("ACTIVE")
+  startsAt  DateTime?
+  endsAt    DateTime?
+  clicks    Int       @default(0)
+  createdAt DateTime  @default(now())
+}
+
+model CredibilityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  delta     Int
+  reason    String
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  action    String
+  detail    String?
+  createdAt DateTime @default(now())
+}
