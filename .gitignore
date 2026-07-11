@@ -57,3 +57,6 @@ private-uploads/
 .design-sync/
 ds-bundle/
 *.tsbuildinfo
+
+# template is safe to commit
+!.env.example

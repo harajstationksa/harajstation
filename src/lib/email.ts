@@ -59,6 +59,26 @@ function shell(title: string, body: string) {
 </html>`;
 }
 
+export async function sendVerificationEmail(to: string, verifyUrl: string) {
+  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const link = `${site}${verifyUrl}`;
+  return sendEmail({
+    to,
+    subject: "أكّد بريدك الإلكتروني — حراج ستيشن",
+    html: shell(
+      "أهلاً بك في حراج ستيشن 👋",
+      `خطوة أخيرة: أكّد بريدك الإلكتروني بالضغط على الزر التالي — الرابط صالح لمدة 48 ساعة:
+       <div style="padding:20px 0;text-align:center">
+         <a href="${link}" style="background:#f97316;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:10px;font-weight:bold;display:inline-block">
+           تأكيد البريد الإلكتروني
+         </a>
+       </div>
+       أو انسخ الرابط التالي في المتصفح:<br/>
+       <span dir="ltr" style="color:#737373;font-size:12px;word-break:break-all">${link}</span>`
+    ),
+  });
+}
+
 export async function sendPasswordResetEmail(to: string, resetUrl: string) {
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const link = `${site}${resetUrl}`;

@@ -21,6 +21,8 @@ import { SponsoredCard } from "@/components/SponsoredCard";
 
 export const dynamic = "force-dynamic";
 
+const PAGE_SIZE = 24;
+
 export default async function CategoryPage({
   params,
   searchParams,
@@ -43,6 +45,7 @@ export default async function CategoryPage({
 
   const min = Number(str(sp.min)) || undefined;
   const max = Number(str(sp.max)) || undefined;
+  const page = Math.max(1, Number(str(sp.page)) || 1);
 
   const where = {
     status: "ACTIVE",
@@ -69,16 +72,28 @@ export default async function CategoryPage({
       where,
       include: cardInclude,
       orderBy: listingOrderBy(str(sp.sort)),
-      take: 48,
+      take: PAGE_SIZE,
+      skip: (page - 1) * PAGE_SIZE,
     }),
     db.listing.count({ where }),
   ]);
-  const pinned = shuffle(sponsored);
+  // sponsored pins show on the first page only — deeper pages are pure results
+  const pinned = page === 1 ? shuffle(sponsored) : [];
   const pinnedIds = new Set(pinned.map((l) => l.id));
   const rest = items.filter((l) => !pinnedIds.has(l.id));
 
   // ad analytics: one impression per unique visitor network — reloads don't count
   await recordImpressions(pinned.map((l) => l.campaigns[0]?.id ?? ""));
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pageLink = (p: number) => {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (typeof v === "string" && v && k !== "page") params.set(k, v);
+    }
+    if (p > 1) params.set("page", String(p));
+    return `/category/${category.slug}${params.size ? `?${params}` : ""}`;
+  };
 
   return (
     <div className="container-page py-6 pb-12 space-y-5">
@@ -155,6 +170,24 @@ export default async function CategoryPage({
             ) : (
               <ListingCard key={listing.id} listing={listing} />
             )
+          )}
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-4">
+          {page > 1 && (
+            <Link href={pageLink(page - 1)} className="btn-secondary">
+              {t.listingsPage.prev}
+            </Link>
+          )}
+          <span className="text-sm text-neutral-500">
+            {t.listingsPage.pageOf(page, totalPages)}
+          </span>
+          {page < totalPages && (
+            <Link href={pageLink(page + 1)} className="btn-secondary">
+              {t.listingsPage.next}
+            </Link>
           )}
         </div>
       )}

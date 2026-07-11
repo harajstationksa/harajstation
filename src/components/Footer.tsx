@@ -58,6 +58,7 @@ export async function Footer() {
         [f.pro, "/pro"],
         [f.trust, "/trust"],
         [f.terms, "/terms"],
+        [f.privacy, "/privacy"],
         [f.contact, "/contact"],
       ],
     },

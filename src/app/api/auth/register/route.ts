@@ -10,6 +10,7 @@ import {
 import { isValidDisplayName } from "@/lib/utils";
 import { CITIES } from "@/lib/constants";
 import { rateLimitGuard } from "@/lib/rate-limit";
+import { issueEmailVerification } from "@/lib/email-verify";
 
 // Email-first registration (phase 1). Phone is optional and added later from
 // account settings; the schema already carries phoneVerified for future
@@ -71,6 +72,9 @@ export async function POST(req: Request) {
       avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
     },
   });
+
+  // confirmation email — fire-and-forget so a mail hiccup never blocks signup
+  issueEmailVerification(user.id, email).catch(() => {});
 
   const token = await signSessionToken({
     sub: user.id,

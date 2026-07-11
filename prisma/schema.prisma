@@ -65,6 +65,21 @@ model User {
   idVerified    Boolean   @default(false)
   identityReq   IdentityVerification?
   payments      Payment[]
+  // set when the registration email is confirmed via the emailed link
+  emailVerifiedAt DateTime?
+  emailTokens     EmailVerificationToken[]
+}
+
+// Single-use, time-limited token mailed after registration to confirm the
+// address (same pattern as PasswordResetToken).
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 }
 
 // Manual identity verification: the user uploads an ID document (stored in a

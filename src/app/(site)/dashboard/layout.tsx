@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
+import { emailConfigured } from "@/lib/email";
 import { Avatar } from "@/components/Avatar";
 import { CredibilityBadge } from "@/components/CredibilityBadge";
 import { DashboardNav } from "@/components/DashboardNav";
+import { EmailVerifyBanner } from "@/components/EmailVerifyBanner";
 
 export default async function DashboardLayout({
   children,
@@ -13,6 +15,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="container-page py-6 pb-12">
+      {!user.emailVerifiedAt && emailConfigured() && <EmailVerifyBanner />}
       <div className="card p-4 sm:p-5 flex items-center gap-4 mb-6">
         <Avatar name={user.name} color={user.avatarColor} src={user.avatarUrl} pro={user.isPro} className="size-14 text-xl" />
         <div className="min-w-0 flex-1">
