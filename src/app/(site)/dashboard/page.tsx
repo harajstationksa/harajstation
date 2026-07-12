@@ -18,7 +18,8 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { finalizeExpiredAuctions } from "@/lib/auction";
 import { expirePendingTransactions } from "@/lib/credibility";
-import { formatSAR, timeAgo, trustLevel } from "@/lib/utils";
+import { expireProMemberships } from "@/lib/limits";
+import { formatDate, formatSAR, timeAgo, trustLevel } from "@/lib/utils";
 import { Avatar } from "@/components/Avatar";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 import { claimDailyAction } from "./actions";
@@ -28,6 +29,8 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "لوحة التحكم" };
 
 export default async function DashboardPage() {
+  // run before fetching the user so an expired promo shows correctly right away
+  await expireProMemberships();
   const user = await requireUser();
   await finalizeExpiredAuctions();
   await expirePendingTransactions();
@@ -108,6 +111,16 @@ export default async function DashboardPage() {
                 <Coins className="size-3" />
                 {user.points.toLocaleString("en-US")} نقطة
               </span>
+              {user.isPro && (
+                <span className="tag bg-white/10 text-primary-400 font-bold">
+                  PRO
+                  {user.proUntil && (
+                    <span className="font-normal text-neutral-300">
+                      حتى {formatDate(user.proUntil)}
+                    </span>
+                  )}
+                </span>
+              )}
             </div>
           </div>
         </div>

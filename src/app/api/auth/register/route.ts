@@ -11,6 +11,7 @@ import { isValidDisplayName } from "@/lib/utils";
 import { CITIES } from "@/lib/constants";
 import { rateLimitGuard } from "@/lib/rate-limit";
 import { issueEmailVerification } from "@/lib/email-verify";
+import { getFreeTierConfig } from "@/lib/settings";
 
 // Email-first registration (phase 1). Phone is optional and added later from
 // account settings; the schema already carries phoneVerified for future
@@ -63,6 +64,15 @@ export async function POST(req: Request) {
     );
   }
 
+  // launch promo: free PRO for N days when the admin switch is on
+  const freeTier = await getFreeTierConfig();
+  const proGrant = freeTier.enabled
+    ? {
+        isPro: true,
+        proUntil: new Date(Date.now() + freeTier.days * 24 * 60 * 60 * 1000),
+      }
+    : {};
+
   const user = await db.user.create({
     data: {
       name: parsed.data.name,
@@ -70,6 +80,7 @@ export async function POST(req: Request) {
       city: parsed.data.city,
       passwordHash: hashSync(parsed.data.password, 12),
       avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
+      ...proGrant,
     },
   });
 

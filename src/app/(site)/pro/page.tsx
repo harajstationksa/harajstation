@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { Check, Crown } from "lucide-react";
+import { Check, Crown, Gift } from "lucide-react";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { getFreeTierConfig } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -14,9 +15,10 @@ function currentPlanKey(user: { isPro: boolean } | null) {
 }
 
 export default async function ProPage() {
-  const [plans, user] = await Promise.all([
+  const [plans, user, freeTier] = await Promise.all([
     db.plan.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
     getCurrentUser(),
+    getFreeTierConfig(),
   ]);
   const activeKey = currentPlanKey(user);
 
@@ -31,6 +33,23 @@ export default async function ProPage() {
           ضاعف مبيعاتك مع إعلانات غير محدودة وأولوية في الظهور. الدفع عبر مدى،
           Apple Pay، أو STC Pay.
         </p>
+        {/* launch promo — visible while the admin free-tier switch is on */}
+        {freeTier.enabled && (
+          <div className="inline-flex items-center gap-2.5 text-sm font-semibold text-primary-700 bg-primary-50 border border-primary-100 rounded-xl px-4 py-3">
+            <Gift className="size-5 shrink-0 text-primary-500" />
+            <span>
+              عرض الإطلاق: عضوية برو مجانية لمدة {freeTier.days} يوم لكل حساب جديد!
+              {!user && (
+                <>
+                  {" "}
+                  <Link href="/register" className="underline font-bold">
+                    سجّل الآن
+                  </Link>
+                </>
+              )}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="grid md:grid-cols-3 gap-5 max-w-4xl mx-auto items-stretch">

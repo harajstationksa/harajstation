@@ -33,6 +33,9 @@ model User {
   points        Int       @default(0)
   lastDailyAt   DateTime?
   isPro         Boolean   @default(false)
+  // free-tier promo: when set, PRO expires at this date (cron flips isPro off).
+  // NULL = permanent PRO (granted manually by admin).
+  proUntil      DateTime?
   isBanned      Boolean   @default(false)
   createdAt     DateTime  @default(now())
 

@@ -12,6 +12,10 @@ const DEFAULTS: Record<string, string> = {
   SOCIAL_INSTAGRAM: "",
   SOCIAL_FACEBOOK: "",
   SOCIAL_SNAPCHAT: "",
+  // free-tier launch promo — admin-editable from /admin/plans: every new
+  // signup gets PRO for FREE_TIER_DAYS days while the switch is on
+  FREE_TIER_ENABLED: "0",
+  FREE_TIER_DAYS: "30",
   // «تواصل معنا» page — admin-editable from /admin/banners
   CONTACT_EMAIL: "support@harajstation.com",
   CONTACT_PHONE: "920000000",
@@ -27,6 +31,19 @@ export async function getCampaignDayOptions(): Promise<number[]> {
     .map((s) => parseInt(s, 10))
     .filter((n) => Number.isInteger(n) && n >= 1 && n <= 365);
   return days.length > 0 ? [...new Set(days)].sort((a, b) => a - b) : [3, 5, 7, 15, 30];
+}
+
+/** Launch promo: free PRO for every new signup while the admin switch is on. */
+export async function getFreeTierConfig(): Promise<{ enabled: boolean; days: number }> {
+  const [enabled, daysRaw] = await Promise.all([
+    getSetting("FREE_TIER_ENABLED"),
+    getSetting("FREE_TIER_DAYS"),
+  ]);
+  const days = parseInt(daysRaw, 10);
+  return {
+    enabled: enabled === "1",
+    days: Number.isInteger(days) && days >= 1 && days <= 365 ? days : 30,
+  };
 }
 
 export async function getSetting(key: string): Promise<string> {

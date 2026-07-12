@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { finalizeExpiredAuctions } from "@/lib/auction";
 import { finalizeExpiredCampaigns } from "@/lib/campaigns";
 import { expirePendingTransactions } from "@/lib/credibility";
+import { expireProMemberships } from "@/lib/limits";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,7 @@ export async function GET(req: Request) {
     ["auctions", finalizeExpiredAuctions],
     ["campaigns", finalizeExpiredCampaigns],
     ["transactions", expirePendingTransactions],
+    ["proMemberships", expireProMemberships],
   ];
   for (const [name, job] of jobs) {
     try {

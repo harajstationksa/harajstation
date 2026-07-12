@@ -1,8 +1,14 @@
-import { Plus, Trash2, Wallet } from "lucide-react";
+import { Gift, Plus, Trash2, Wallet } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireStaff } from "@/lib/auth";
+import { getFreeTierConfig } from "@/lib/settings";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
-import { createPlanAction, deletePlanAction, updatePlanAction } from "../actions";
+import {
+  createPlanAction,
+  deletePlanAction,
+  saveFreeTierAction,
+  updatePlanAction,
+} from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +18,12 @@ const CORE = ["FREE", "PRO_MONTHLY"];
 
 export default async function AdminPlansPage() {
   await requireStaff(["ADMIN"]);
-  const plans = await db.plan.findMany({ orderBy: { sortOrder: "asc" } });
+  const [plans, freeTier, activePromos] = await Promise.all([
+    db.plan.findMany({ orderBy: { sortOrder: "asc" } }),
+    getFreeTierConfig(),
+    // time-limited PRO = accounts granted by this promo (manual PRO has no expiry)
+    db.user.count({ where: { isPro: true, proUntil: { not: null } } }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -26,6 +37,58 @@ export default async function AdminPlansPage() {
           اليومية لكل مستخدم
         </p>
       </div>
+
+      {/* free-tier launch promo */}
+      <form
+        action={saveFreeTierAction}
+        className={`card p-5 space-y-4 ${freeTier.enabled ? "ring-2 ring-primary-500" : ""}`}
+      >
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h2 className="font-bold flex items-center gap-2">
+            <Gift className="size-5 text-primary-500" />
+            الفترة المجانية (Free Tier)
+            {freeTier.enabled ? (
+              <span className="badge bg-success text-white">مفعّلة</span>
+            ) : (
+              <span className="badge bg-neutral-100 text-neutral-500">متوقفة</span>
+            )}
+          </h2>
+          <span className="text-xs text-neutral-400">
+            {activePromos} حساب برو مؤقت نشط حالياً
+          </span>
+        </div>
+        <p className="text-sm text-neutral-500">
+          عند التفعيل يحصل كل حساب جديد على عضوية برو مجانية تلقائياً للمدة
+          المحددة، وتنتهي وحدها بعد انقضائها (يرجع الحساب للباقة المجانية).
+          إيقاف الخاصية لا يسحب العضويات الممنوحة سابقاً، ولا تتأثر حسابات برو
+          الدائمة الممنوحة يدوياً.
+        </p>
+        <div className="flex items-end gap-4 flex-wrap">
+          <label className="flex items-center gap-2 text-sm font-medium pb-2.5">
+            <input
+              type="checkbox"
+              name="enabled"
+              defaultChecked={freeTier.enabled}
+              className="size-4 accent-primary-500"
+            />
+            تفعيل الفترة المجانية
+          </label>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">مدة العضوية (بالأيام)</label>
+            <input
+              name="days"
+              className="input w-32"
+              dir="ltr"
+              type="number"
+              min={1}
+              max={365}
+              defaultValue={freeTier.days}
+              required
+            />
+          </div>
+          <button className="btn-primary">حفظ</button>
+        </div>
+      </form>
 
       <div className="grid gap-5">
         {plans.map((plan) => {

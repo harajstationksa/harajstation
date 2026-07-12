@@ -221,6 +221,8 @@ const ar = {
     demoAccounts: "حسابات تجريبية:",
     registerTitle: "حساب جديد",
     registerSub: "حياك في حراج ستيشن — انضم لآلاف البائعين والمشترين",
+    freeTierBanner: (days: number) =>
+      `عرض الإطلاق: عضوية برو مجانية لمدة ${days} يوم لكل حساب جديد!`,
     fullName: "الاسم الكامل",
     email: "البريد الإلكتروني",
     city: "المدينة",
@@ -495,6 +497,8 @@ const en: typeof ar = {
     demoAccounts: "Demo accounts:",
     registerTitle: "Create Account",
     registerSub: "Join thousands of buyers and sellers on Haraj Station",
+    freeTierBanner: (days: number) =>
+      `Launch offer: free PRO membership for ${days} days on every new account!`,
     fullName: "Full name",
     email: "Email",
     city: "City",

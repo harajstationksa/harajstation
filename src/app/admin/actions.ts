@@ -382,6 +382,28 @@ export async function saveContactInfoAction(formData: FormData) {
   revalidatePath("/contact");
 }
 
+/**
+ * Free-tier launch promo: while enabled, every new signup gets PRO for
+ * FREE_TIER_DAYS days (expiry handled by cron / dashboard visits).
+ * Toggling it off never revokes already-granted memberships.
+ */
+export async function saveFreeTierAction(formData: FormData) {
+  const staff = await requireStaff(["ADMIN"]);
+  const enabled = formData.get("enabled") === "on";
+  const daysRaw = parseInt(String(formData.get("days") ?? ""), 10);
+  const days = Number.isInteger(daysRaw) ? Math.min(365, Math.max(1, daysRaw)) : 30;
+  await setSetting("FREE_TIER_ENABLED", enabled ? "1" : "0");
+  await setSetting("FREE_TIER_DAYS", String(days));
+  await audit(
+    staff.id,
+    "UPDATE_FREE_TIER",
+    enabled ? `enabled — ${days} days of PRO per signup` : "disabled"
+  );
+  revalidatePath("/admin/plans");
+  revalidatePath("/register");
+  revalidatePath("/pro");
+}
+
 export async function addBannedWordAction(formData: FormData) {
   const staff = await requireStaff(["ADMIN"]);
   const { normalizeArabic } = await import("@/lib/arabic");
