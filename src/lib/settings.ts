@@ -13,7 +13,7 @@ const DEFAULTS: Record<string, string> = {
   SOCIAL_FACEBOOK: "",
   SOCIAL_SNAPCHAT: "",
   // «تواصل معنا» page — admin-editable from /admin/banners
-  CONTACT_EMAIL: "support@samel.sa",
+  CONTACT_EMAIL: "support@harajstation.com",
   CONTACT_PHONE: "920000000",
   CONTACT_WHATSAPP: "+966 50 000 0000",
   CONTACT_HOURS: "الأحد – الخميس، 9 صباحاً – 6 مساءً (توقيت السعودية)",

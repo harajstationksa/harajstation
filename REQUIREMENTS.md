@@ -96,8 +96,18 @@ SMTP_HOST=smtp-relay.brevo.com
 SMTP_PORT=587
 SMTP_USER=b1bc85001@smtp-brevo.com
 SMTP_PASS=xsmtpsib-...
-MAIL_FROM="حراج ستيشن <no-reply@harajstation.com>"
+MAIL_FROM="حراج ستيشن <noreply@harajstation.com>"
+MAIL_REPLY_TO="support@harajstation.com"
 ```
+
+**توزيع العناوين الرسمية:**
+
+| الصندوق | الاستخدام |
+|---|---|
+| `noreply@harajstation.com` | المرسل الرسمي لكل رسائل النظام (تأكيد البريد، استعادة كلمة المرور) |
+| `support@harajstation.com` | دعم المستخدمين — يظهر في صفحة «تواصل معنا» وذيل كل رسالة، والرد على رسائل النظام يصل إليه (Reply-To) |
+| `help@harajstation.com` | استفسارات الخصوصية وحقوق البيانات — مذكور في سياسة الخصوصية |
+| `admin@harajstation.com` | المراسلات الإدارية والتسجيل في الخدمات الخارجية (Moyasar، Brevo، Google...) |
 
 سأتولى: «نسيت كلمة المرور» بالبريد الحقيقي + تأكيد البريد عند التسجيل + إشعارات مهمة.
 
