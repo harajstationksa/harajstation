@@ -1,13 +1,32 @@
 /**
- * Transactional email via Resend's REST API (no SDK needed).
- * Configured when RESEND_API_KEY is set; senders must be on a domain
- * verified in the Resend dashboard (MAIL_FROM).
+ * Transactional email via SMTP (Brevo relay). Configured when the SMTP_*
+ * variables are set; the sender (MAIL_FROM) must be on a domain verified
+ * in the Brevo dashboard.
  */
 
-const API = "https://api.resend.com/emails";
+import nodemailer, { type Transporter } from "nodemailer";
 
 export function emailConfigured() {
-  return !!process.env.RESEND_API_KEY;
+  return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+}
+
+let transporter: Transporter | null = null;
+
+function getTransporter(): Transporter | null {
+  if (!emailConfigured()) return null;
+  if (!transporter) {
+    const port = Number(process.env.SMTP_PORT ?? 587);
+    transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port,
+      secure: port === 465, // 587 → STARTTLS
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+  }
+  return transporter;
 }
 
 export async function sendEmail(opts: {
@@ -15,25 +34,14 @@ export async function sendEmail(opts: {
   subject: string;
   html: string;
 }): Promise<boolean> {
-  const key = process.env.RESEND_API_KEY;
-  if (!key) return false;
+  const transport = getTransporter();
+  if (!transport) return false;
   const from = process.env.MAIL_FROM ?? "حراج ستيشن <no-reply@harajstation.com>";
   try {
-    const res = await fetch(API, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ from, to: [opts.to], subject: opts.subject, html: opts.html }),
-    });
-    if (!res.ok) {
-      console.error("resend error:", res.status, await res.text().catch(() => ""));
-      return false;
-    }
+    await transport.sendMail({ from, to: opts.to, subject: opts.subject, html: opts.html });
     return true;
   } catch (e) {
-    console.error("resend request failed:", e);
+    console.error("smtp send failed:", e);
     return false;
   }
 }

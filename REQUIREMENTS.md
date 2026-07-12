@@ -11,7 +11,7 @@
 |---|---|
 | الدومين harajstation.com | ✅ مستلم ومضبوط في `NEXT_PUBLIC_SITE_URL` |
 | Supabase PostgreSQL | ✅ **مربوط وشغال** — migrations + seed تمّا على القاعدة |
-| Resend (البريد) | ✅ **مربوط** — «نسيت كلمة المرور» يرسل بريداً حقيقياً (يتبقى: توثيق الدومين في لوحة Resend — أضف سجلات DNS التي تعطيك إياها) |
+| Brevo SMTP (البريد) | ✅ **مربوط** — «نسيت كلمة المرور» وتأكيد البريد يرسلان عبر SMTP (يتبقى: توثيق الدومين في لوحة Brevo — أضف سجلات DKIM/SPF في Spaceship) |
 | Moyasar (الدفع) | ✅ **مربوط** — فواتير + ضريبة 15% + صفحة تأكيد + webhook (يتبقى: ضبط الـ webhook في لوحة Moyasar — انظر أدناه) |
 | Cloudflare R2 | ✅ **مربوط ومختبَر** — رفع فعلي + قراءة من الرابط العام نجحا (2026-07-12) |
 | AUTH_SECRET / CRON_SECRET | ✅ مولّدة ومضبوطة في `.env` |
@@ -86,14 +86,17 @@ MOYASAR_SECRET_KEY=sk_live_...
 
 ---
 
-## 5️⃣ البريد الإلكتروني — Resend
+## 5️⃣ البريد الإلكتروني — Brevo (SMTP)
 
-سجّل في **resend.com** (مجاني حتى 3000 رسالة/شهر) ووثّق الدومين (سأرشدك لسجلات DNS).
+✅ **تم الربط** — سجّلت في **brevo.com** وسلّمت مفتاح SMTP. المتبقي: **توثيق الدومين harajstation.com** في لوحة Brevo (Senders & Domains → Domains) وإضافة سجلات DNS (DKIM/SPF) في Spaceship حتى لا تذهب الرسائل للسبام.
 
-**ما تسلّمه لي:**
+**القيم المستخدمة:**
 ```
-RESEND_API_KEY=re_...
-MAIL_FROM="حراج ستيشن <no-reply@yourdomain.com>"
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_PORT=587
+SMTP_USER=b1bc85001@smtp-brevo.com
+SMTP_PASS=xsmtpsib-...
+MAIL_FROM="حراج ستيشن <no-reply@harajstation.com>"
 ```
 
 سأتولى: «نسيت كلمة المرور» بالبريد الحقيقي + تأكيد البريد عند التسجيل + إشعارات مهمة.
@@ -175,7 +178,7 @@ node -e "console.log('CRON_SECRET=' + require('crypto').randomBytes(32).toString
 | `DATABASE_URL` | PostgreSQL + migrations + نقل البيانات |
 | مفاتيح R2 | الصور على تخزين سحابي دائم + CDN |
 | مفاتيح Moyasar | شحن نقاط حقيقي + فواتير + ضريبة |
-| `RESEND_API_KEY` | استعادة كلمة المرور بالبريد + تأكيد البريد |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | استعادة كلمة المرور بالبريد + تأكيد البريد (Brevo) |
 | مفاتيح Msegat | OTP الجوال + `phoneVerified` |
 | مفاتيح Google | دخول Google حقيقي |
 | `SENTRY_DSN` | تتبع الأخطاء |

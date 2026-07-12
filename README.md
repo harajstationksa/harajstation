@@ -12,7 +12,7 @@
 | قاعدة البيانات | PostgreSQL (Supabase) عبر Prisma 6 + migrations |
 | تخزين الصور | Cloudflare R2 (S3 API) — ضغط وتحويل WebP تلقائي + فحص magic bytes |
 | المدفوعات | Moyasar (فواتير + ضريبة 15% + webhook) |
-| البريد | Resend (استعادة كلمة المرور + تأكيد البريد) |
+| البريد | Brevo SMTP (استعادة كلمة المرور + تأكيد البريد) |
 | الإشعارات | Web Push (VAPID) + PWA |
 | الأمان | جلسات JWT (jose) بكوكيز HttpOnly + bcrypt + rate limiting + security headers + تشفير المحادثات عند التخزين (AES-256-GCM) |
 
@@ -39,7 +39,7 @@ CRON_SECRET                 # مفتاح نقطة /api/cron
 NEXT_PUBLIC_SITE_URL        # https://harajstation.com
 R2_*                        # تخزين الصور
 MOYASAR_*                   # الدفع
-RESEND_API_KEY / MAIL_FROM  # البريد
+SMTP_* / MAIL_FROM          # البريد (Brevo SMTP)
 NEXT_PUBLIC_VAPID_* / VAPID_* # إشعارات المتصفح
 ```
 

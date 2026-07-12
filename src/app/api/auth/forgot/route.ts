@@ -11,7 +11,7 @@ const TOKEN_TTL_MIN = 30;
 
 /**
  * Start the forgot-password flow. Always responds ok (no account
- * enumeration). With RESEND_API_KEY set the link is emailed; without it
+ * enumeration). With SMTP configured the link is emailed; without it
  * (local dev) the link is returned to the client and shown on-screen.
  */
 export async function POST(req: Request) {
