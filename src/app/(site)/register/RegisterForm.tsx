@@ -8,13 +8,20 @@ import { CITIES } from "@/lib/constants";
 import { useLang } from "@/components/LangProvider";
 import { SocialButtons } from "@/components/SocialButtons";
 
-export function RegisterForm({ freeTierDays }: { freeTierDays: number | null }) {
+export function RegisterForm({
+  freeTierDays,
+  initialRef = "",
+}: {
+  freeTierDays: number | null;
+  initialRef?: string;
+}) {
   const router = useRouter();
   const [form, setForm] = useState({
     name: "",
     email: "",
     city: "الرياض",
     password: "",
+    refCode: initialRef,
   });
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState("");
@@ -112,6 +119,18 @@ export function RegisterForm({ freeTierDays }: { freeTierDays: number | null }) 
               minLength={8}
             />
             <p className="text-xs text-neutral-400 mt-1">{a.passwordHint}</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">{a.referralLabel}</label>
+            <input
+              className="input"
+              dir="ltr"
+              value={form.refCode}
+              onChange={(e) => set("refCode", e.target.value.toUpperCase())}
+              placeholder="HS-XXXXXX"
+              maxLength={30}
+            />
+            <p className="text-xs text-neutral-400 mt-1">{a.referralHint}</p>
           </div>
 
           <label className="flex items-start gap-2.5 text-sm text-neutral-600 cursor-pointer">

@@ -17,6 +17,7 @@ import { CategoryIcon } from "@/components/CategoryIcon";
 import { EmptyState } from "@/components/EmptyState";
 import { FiltersBar } from "@/components/FiltersBar";
 import { ListingCard } from "@/components/ListingCard";
+import { SaveSearchButton } from "@/components/SaveSearchButton";
 import { SponsoredCard } from "@/components/SponsoredCard";
 
 export const dynamic = "force-dynamic";
@@ -115,7 +116,7 @@ export default async function CategoryPage({
         </span>
       </nav>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <span className="size-12 rounded-2xl bg-primary-50 text-primary-600 flex items-center justify-center">
           <CategoryIcon name={category.icon} className="size-6" />
         </span>
@@ -124,6 +125,14 @@ export default async function CategoryPage({
             {lang === "en" ? category.nameEn : category.nameAr}
           </h1>
           <p className="text-sm text-neutral-500">{total} {t.categoryPage.activeAds}</p>
+        </div>
+        {/* alert for anything new in this category (+ the active filters) */}
+        <div className="ms-auto">
+          <SaveSearchButton
+            category={category.slug}
+            city={str(sp.city) ?? ""}
+            type={str(sp.type) ?? ""}
+          />
         </div>
       </div>
 

@@ -198,7 +198,9 @@ function StoreEditor({
       <div>
         <label className="block text-sm font-medium mb-1.5">معرف المتجر (الرابط)</label>
         <div className="flex items-center gap-2" dir="ltr">
-          <span className="text-sm text-neutral-400">samel.sa/store/</span>
+          <span className="text-sm text-neutral-400">
+            {(process.env.NEXT_PUBLIC_SITE_URL ?? "https://harajstation.com").replace(/^https?:\/\//, "")}/store/
+          </span>
           <input
             className="input flex-1"
             value={form.slug}

@@ -1,5 +1,7 @@
 import { db } from "./db";
 import { adjustPoints } from "./points";
+import { awardReferralBonus } from "./referral";
+import { recordPromoRedemption } from "./promo";
 
 /**
  * Moyasar integration (invoice flow):
@@ -104,8 +106,20 @@ export async function confirmPayment(
     await adjustPoints(
       payment.userId,
       payment.points,
-      `شحن ${payment.points} نقطة — دفع إلكتروني`
+      payment.promoBonus > 0
+        ? `شحن ${payment.points} نقطة (منها ${payment.promoBonus} بونص كود خصم) — دفع إلكتروني`
+        : `شحن ${payment.points} نقطة — دفع إلكتروني`
     );
+    if (payment.promoCodeId && payment.promoBonus > 0) {
+      await recordPromoRedemption({
+        promoId: payment.promoCodeId,
+        userId: payment.userId,
+        bonusPoints: payment.promoBonus,
+        paymentId: payment.id,
+      });
+    }
+    // referral commission on the paid package (excluding the promo bonus)
+    await awardReferralBonus(payment.userId, payment.points - payment.promoBonus, payment.id);
   }
   return "paid";
 }

@@ -15,6 +15,7 @@ import { FavoriteButton } from "@/components/FavoriteButton";
 import { Gallery } from "@/components/Gallery";
 import { ListingCard } from "@/components/ListingCard";
 import { ReportButton } from "@/components/ReportButton";
+import { SaveSearchButton } from "@/components/SaveSearchButton";
 import { SectionHeader } from "@/components/SectionHeader";
 import { SellerCard } from "@/components/SellerCard";
 import { SharePanel } from "@/components/SharePanel";
@@ -235,6 +236,9 @@ export default async function ListingPage({
               />
               <ReportButton targetType="LISTING" targetId={listing.id} />
             </div>
+
+            {/* saved-search alert scoped to this listing's category + city */}
+            <SaveSearchButton category={cat.slug} city={listing.city} />
           </div>
 
           <SellerCard

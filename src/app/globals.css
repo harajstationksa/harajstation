@@ -41,6 +41,17 @@
   --animate-fade-up: fade-up 0.4s ease both;
   --animate-live-pulse: live-pulse 1.4s ease-in-out infinite;
   --animate-pro-flame: pro-flame 2.4s ease-in-out infinite;
+  /* hero spotlight carousel: story-style progress fill (duration = slide interval) */
+  --animate-spot-progress: spot-progress 6s linear forwards;
+
+  @keyframes spot-progress {
+    from {
+      width: 0%;
+    }
+    to {
+      width: 100%;
+    }
+  }
 
   @keyframes fade-up {
     from {

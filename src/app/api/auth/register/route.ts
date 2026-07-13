@@ -12,6 +12,7 @@ import { CITIES } from "@/lib/constants";
 import { rateLimitGuard } from "@/lib/rate-limit";
 import { issueEmailVerification } from "@/lib/email-verify";
 import { getFreeTierConfig } from "@/lib/settings";
+import { generateReferralCode } from "@/lib/referral";
 
 // Email-first registration (phase 1). Phone is optional and added later from
 // account settings; the schema already carries phoneVerified for future
@@ -23,6 +24,8 @@ const schema = z.object({
   city: z.enum(CITIES),
   password: z.string().min(8).max(100),
   acceptTerms: z.literal(true),
+  // optional referral code from an existing member (prefilled via ?ref=)
+  refCode: z.string().max(30).optional(),
 });
 
 const AVATAR_COLORS = [
@@ -73,6 +76,12 @@ export async function POST(req: Request) {
       }
     : {};
 
+  // referral link-up: a bad code never blocks the signup, it's just ignored
+  const refCode = (parsed.data.refCode ?? "").trim().toUpperCase();
+  const referrer = refCode
+    ? await db.user.findUnique({ where: { referralCode: refCode } })
+    : null;
+
   const user = await db.user.create({
     data: {
       name: parsed.data.name,
@@ -80,6 +89,8 @@ export async function POST(req: Request) {
       city: parsed.data.city,
       passwordHash: hashSync(parsed.data.password, 12),
       avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
+      referralCode: await generateReferralCode(),
+      referredById: referrer && !referrer.isBanned ? referrer.id : null,
       ...proGrant,
     },
   });

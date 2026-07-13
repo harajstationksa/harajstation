@@ -71,6 +71,62 @@ model User {
   // set when the registration email is confirmed via the emailed link
   emailVerifiedAt DateTime?
   emailTokens     EmailVerificationToken[]
+
+  // referral program: every user carries a shareable code; referredById links
+  // the invitee to their referrer forever — the referrer earns a percentage
+  // (admin-set) of every points purchase the invitee makes.
+  referralCode    String?  @unique
+  referredById    String?
+  referredBy      User?    @relation("Referrals", fields: [referredById], references: [id])
+  referrals       User[]   @relation("Referrals")
+  referralEarned  ReferralEarning[] @relation("ReferralEarner")
+  referralSourced ReferralEarning[] @relation("ReferralSource")
+  promoRedemptions PromoRedemption[]
+}
+
+// One row per referral commission: referrer earned `points` because the user
+// they invited (`referred`) completed a points purchase.
+model ReferralEarning {
+  id         String   @id @default(cuid())
+  referrerId String
+  referrer   User     @relation("ReferralEarner", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredId String
+  referred   User     @relation("ReferralSource", fields: [referredId], references: [id], onDelete: Cascade)
+  paymentId  String? // null for dev-mode (gateway-less) credits
+  points     Int
+  createdAt  DateTime @default(now())
+
+  @@index([referrerId, createdAt])
+}
+
+// Admin-created promo codes: applied during a points top-up, they add
+// `percent`% bonus points on top of the package total.
+model PromoCode {
+  id          String    @id @default(cuid())
+  code        String    @unique // stored uppercase
+  percent     Int // bonus % on the package points
+  maxUses     Int       @default(0) // 0 = unlimited
+  usedCount   Int       @default(0)
+  oncePerUser Boolean   @default(true)
+  expiresAt   DateTime? // null = never expires
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  redemptions PromoRedemption[]
+}
+
+// One row per confirmed promo use — enforces oncePerUser and feeds admin stats
+model PromoRedemption {
+  id          String    @id @default(cuid())
+  promoId     String
+  promo       PromoCode @relation(fields: [promoId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentId   String?   @unique // null for dev-mode credits
+  bonusPoints Int
+  createdAt   DateTime  @default(now())
+
+  @@index([promoId])
+  @@index([userId])
 }
 
 // Single-use, time-limited token mailed after registration to confirm the
@@ -392,6 +448,10 @@ model Payment {
   // PENDING | PAID | FAILED
   status      String    @default("PENDING")
   invoiceId   String    @unique // Moyasar invoice id
+  // promo code applied at checkout: promoBonus points are already included in
+  // `points`; the redemption row is recorded when the payment confirms.
+  promoCodeId String?
+  promoBonus  Int       @default(0)
   createdAt   DateTime  @default(now())
   paidAt      DateTime?
 

@@ -5,7 +5,16 @@ export const dynamic = "force-dynamic";
 
 export const metadata = { title: "حساب جديد" };
 
-export default async function RegisterPage() {
-  const freeTier = await getFreeTierConfig();
-  return <RegisterForm freeTierDays={freeTier.enabled ? freeTier.days : null} />;
+export default async function RegisterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ref?: string }>;
+}) {
+  const [freeTier, { ref }] = await Promise.all([getFreeTierConfig(), searchParams]);
+  return (
+    <RegisterForm
+      freeTierDays={freeTier.enabled ? freeTier.days : null}
+      initialRef={ref?.trim().toUpperCase().slice(0, 30) ?? ""}
+    />
+  );
 }

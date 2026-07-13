@@ -1,16 +1,20 @@
-import { Coins, Gift, Plus, Wallet } from "lucide-react";
+import { Coins, Plus, Wallet } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { timeAgo } from "@/lib/utils";
-import { ConfirmSubmit } from "@/components/ConfirmSubmit";
-import { buyPointsAction } from "./actions";
+import { RechargePackages } from "./RechargePackages";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = { title: "محفظة النقاط" };
 
-export default async function WalletPage() {
+export default async function WalletPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ promoError?: string }>;
+}) {
   const user = await requireUser();
+  const { promoError } = await searchParams;
 
   const [packages, ledger] = await Promise.all([
     db.pointPackage.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
@@ -48,29 +52,15 @@ export default async function WalletPage() {
           <Plus className="size-5 text-primary-500" />
           شحن النقاط
         </h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {packages.map((pkg) => (
-            <form key={pkg.id} action={buyPointsAction} className="card p-4 text-center space-y-2">
-              <input type="hidden" name="packageId" value={pkg.id} />
-              <p className="font-display font-extrabold text-2xl text-neutral-900">
-                {pkg.points.toLocaleString("en-US")}
-              </p>
-              <p className="text-xs text-neutral-500">نقطة</p>
-              {pkg.bonus > 0 && (
-                <span className="badge bg-green-50 text-green-700 mx-auto">
-                  <Gift className="size-3" />
-                  +{pkg.bonus} هدية
-                </span>
-              )}
-              <ConfirmSubmit
-                confirm={`شراء ${pkg.points} نقطة بمبلغ ${(pkg.price * 1.15).toFixed(2)} ر.س (شامل الضريبة)؟ سيتم تحويلك لصفحة الدفع الآمنة.`}
-                className="btn-primary w-full mt-1"
-              >
-                {pkg.price} ر.س
-              </ConfirmSubmit>
-            </form>
-          ))}
-        </div>
+        <RechargePackages
+          packages={packages.map((p) => ({
+            id: p.id,
+            points: p.points,
+            bonus: p.bonus,
+            price: p.price,
+          }))}
+          promoError={promoError}
+        />
         <p className="text-xs text-neutral-400 mt-2">
           الدفع الآمن عبر مدى / Visa / Apple Pay بواسطة Moyasar — يُضاف على السعر
           ضريبة القيمة المضافة 15%، وتُضاف النقاط فور تأكيد الدفع.

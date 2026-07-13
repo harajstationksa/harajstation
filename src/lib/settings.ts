@@ -16,6 +16,10 @@ const DEFAULTS: Record<string, string> = {
   // signup gets PRO for FREE_TIER_DAYS days while the switch is on
   FREE_TIER_ENABLED: "0",
   FREE_TIER_DAYS: "30",
+  // referral program — admin-editable from /admin/promos: the referrer earns
+  // REFERRAL_PERCENT% of every points purchase their invitee completes
+  REFERRAL_ENABLED: "1",
+  REFERRAL_PERCENT: "10",
   // «تواصل معنا» page — admin-editable from /admin/banners
   CONTACT_EMAIL: "support@harajstation.com",
   CONTACT_PHONE: "920000000",

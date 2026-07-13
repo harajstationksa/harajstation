@@ -13,6 +13,7 @@ import {
   Settings,
   ShieldCheck,
   Store,
+  UserPlus,
   Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ const items = [
   { href: "/dashboard/listings", label: "إعلاناتي ومزاداتي", icon: ListChecks },
   { href: "/dashboard/campaigns", label: "الحملات الإعلانية", icon: Megaphone },
   { href: "/dashboard/wallet", label: "محفظة النقاط", icon: Wallet },
+  { href: "/dashboard/referrals", label: "دعوة الأصدقاء", icon: UserPlus },
   { href: "/dashboard/messages", label: "الرسائل", icon: MessageSquare },
   { href: "/dashboard/verifications", label: "التحققات", icon: ShieldCheck },
   { href: "/dashboard/favorites", label: "المفضلة", icon: Heart },

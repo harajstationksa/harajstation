@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Link2, MessageCircle, QrCode, Share2, X as XIcon } from "lucide-react";
+import { Check, Link2, MessageCircle, QrCode, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * أزرار المشاركة — WhatsApp / X / نسخ الرابط / QR. The QR image is generated
- * server-side (SharePanel) and passed in as a data URL.
+ * أزرار المشاركة — WhatsApp / نسخ الرابط / QR / مشاركة النظام. The QR image
+ * is generated server-side (SharePanel) and passed in as a data URL.
+ * Mobile: 2×2 grid; desktop: single row.
  */
 export function ShareButtons({
   url,
@@ -45,14 +46,13 @@ export function ShareButtons({
   }
 
   const text = encodeURIComponent(`${title}\n${url}`);
-  const canNativeShare = typeof navigator !== "undefined" && !!navigator.share;
 
   const itemCls =
-    "flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-semibold transition-colors";
+    "inline-flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2.5 text-[13px] font-semibold transition-colors";
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         <a
           href={`https://wa.me/?text=${text}`}
           target="_blank"
@@ -61,15 +61,6 @@ export function ShareButtons({
         >
           <MessageCircle className="size-4 shrink-0" />
           واتساب
-        </a>
-        <a
-          href={`https://x.com/intent/post?text=${encodeURIComponent(title)}&url=${encodeURIComponent(url)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={cn(itemCls, "border-neutral-200 bg-neutral-900 text-white hover:bg-neutral-700")}
-        >
-          <XIcon className="size-4 shrink-0" />
-          X
         </a>
         <button
           type="button"
@@ -96,18 +87,20 @@ export function ShareButtons({
           aria-expanded={showQr}
         >
           <QrCode className="size-4 shrink-0" />
-          QR
+          رمز QR
         </button>
-        {canNativeShare && (
-          <button
-            type="button"
-            onClick={nativeShare}
-            className={cn(itemCls, "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 sm:hidden")}
-            aria-label="مشاركة"
-          >
-            <Share2 className="size-4 shrink-0" />
-          </button>
-        )}
+        {/* system share sheet — mobile only (desktop rarely supports it) */}
+        <button
+          type="button"
+          onClick={nativeShare}
+          className={cn(
+            itemCls,
+            "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 sm:hidden"
+          )}
+        >
+          <Share2 className="size-4 shrink-0" />
+          مشاركة
+        </button>
       </div>
 
       {showQr && (

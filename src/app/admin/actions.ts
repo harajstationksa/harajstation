@@ -404,6 +404,71 @@ export async function saveFreeTierAction(formData: FormData) {
   revalidatePath("/pro");
 }
 
+/**
+ * Referral program settings: on/off switch + the commission percentage the
+ * referrer earns on every points purchase made by users they invited.
+ */
+export async function saveReferralSettingsAction(formData: FormData) {
+  const staff = await requireStaff(["ADMIN"]);
+  const enabled = formData.get("enabled") === "on";
+  const percentRaw = parseInt(String(formData.get("percent") ?? ""), 10);
+  const percent = Number.isInteger(percentRaw) ? Math.min(100, Math.max(0, percentRaw)) : 10;
+  await setSetting("REFERRAL_ENABLED", enabled ? "1" : "0");
+  await setSetting("REFERRAL_PERCENT", String(percent));
+  await audit(
+    staff.id,
+    "UPDATE_REFERRAL",
+    enabled ? `enabled — ${percent}% commission per top-up` : "disabled"
+  );
+  revalidatePath("/admin/promos");
+  revalidatePath("/dashboard/referrals");
+}
+
+// ── Promo codes ──
+export async function createPromoCodeAction(formData: FormData) {
+  const staff = await requireStaff(["ADMIN"]);
+  const { normalizePromoCode } = await import("@/lib/promo");
+  const code = normalizePromoCode(String(formData.get("code") ?? ""));
+  const percent = parseInt(String(formData.get("percent") ?? ""), 10);
+  const maxUses = parseInt(String(formData.get("maxUses") ?? "0"), 10) || 0;
+  const expiresRaw = String(formData.get("expiresAt") ?? "").trim();
+  if (!/^[A-Z0-9-]{3,30}$/.test(code)) return;
+  if (!Number.isInteger(percent) || percent < 1 || percent > 100) return;
+  const expiresAt = expiresRaw ? new Date(expiresRaw) : null;
+  if (expiresAt && isNaN(expiresAt.getTime())) return;
+  await db.promoCode.upsert({
+    where: { code },
+    create: {
+      code,
+      percent,
+      maxUses: Math.max(0, maxUses),
+      oncePerUser: formData.get("oncePerUser") != null,
+      expiresAt,
+    },
+    update: {}, // existing code: no silent overwrite — delete it first
+  });
+  await audit(staff.id, "CREATE_PROMO", `${code} — ${percent}% (max ${maxUses || "∞"})`);
+  revalidatePath("/admin/promos");
+}
+
+export async function togglePromoCodeAction(formData: FormData) {
+  const staff = await requireStaff(["ADMIN"]);
+  const id = String(formData.get("promoId"));
+  const promo = await db.promoCode.findUnique({ where: { id } });
+  if (!promo) return;
+  await db.promoCode.update({ where: { id }, data: { isActive: !promo.isActive } });
+  await audit(staff.id, "TOGGLE_PROMO", `${promo.code} → ${promo.isActive ? "معطل" : "نشط"}`);
+  revalidatePath("/admin/promos");
+}
+
+export async function deletePromoCodeAction(formData: FormData) {
+  const staff = await requireStaff(["ADMIN"]);
+  const id = String(formData.get("promoId"));
+  const promo = await db.promoCode.delete({ where: { id } }).catch(() => null);
+  if (promo) await audit(staff.id, "DELETE_PROMO", promo.code);
+  revalidatePath("/admin/promos");
+}
+
 export async function addBannedWordAction(formData: FormData) {
   const staff = await requireStaff(["ADMIN"]);
   const { normalizeArabic } = await import("@/lib/arabic");

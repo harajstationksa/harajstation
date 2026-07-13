@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BadgePercent,
   Coins,
   Flag,
   Gavel,
@@ -36,6 +37,7 @@ const groups: {
     label: "التسويق",
     items: [
       { href: "/admin/campaigns", label: "الحملات الإعلانية", icon: Megaphone, roles: ["ADMIN", "MODERATOR"] },
+      { href: "/admin/promos", label: "الإحالة وأكواد الخصم", icon: BadgePercent, roles: ["ADMIN"] },
       { href: "/admin/banners", label: "إدارة البانرات", icon: ImageIcon, roles: ["ADMIN"] },
     ],
   },

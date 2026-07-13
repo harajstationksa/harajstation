@@ -98,28 +98,28 @@ export default async function AuctionPage({
   return (
     <div className="container-page py-6 pb-12">
       {/* breadcrumb */}
-      <nav className="flex items-center gap-1 text-sm text-neutral-500 mb-4">
+      <nav className="flex items-center gap-1 text-sm text-neutral-500 mb-4 flex-wrap">
         <Link href="/" className="hover:text-primary-600">{t.categoryPage.home}</Link>
-        <ChevronLeft className="size-3.5 ltr:rotate-180" />
+        <ChevronLeft className="size-3.5 ltr:rotate-180 shrink-0" />
         <Link href="/auctions" className="hover:text-primary-600">{t.nav.auctions}</Link>
-        <ChevronLeft className="size-3.5 ltr:rotate-180" />
+        <ChevronLeft className="size-3.5 ltr:rotate-180 shrink-0" />
         <span className="text-neutral-800 line-clamp-1">{listing.title}</span>
       </nav>
 
-      <div className="mb-5">
-        <h1 className="font-display font-bold text-2xl sm:text-3xl text-neutral-900">
+      <div className="mb-5 space-y-2.5">
+        <h1 className="font-display font-bold text-xl sm:text-3xl text-neutral-900 leading-snug">
           {listing.title}
         </h1>
-        <div className="flex items-center gap-4 mt-2 text-sm text-neutral-500">
-          <span className="flex items-center gap-1">
-            <MapPin className="size-4" />
+        <div className="flex flex-wrap items-center gap-1.5 text-sm">
+          <span className="badge bg-neutral-100 text-neutral-600">
+            <MapPin className="size-3.5" />
             {listing.city}
           </span>
-          <span className="flex items-center gap-1">
-            <Eye className="size-4" />
+          <span className="badge bg-neutral-100 text-neutral-600">
+            <Eye className="size-3.5" />
             {listing.views.toLocaleString("en-US")} {t.detail.views}
           </span>
-          <span suppressHydrationWarning>
+          <span className="badge bg-neutral-100 text-neutral-600" suppressHydrationWarning>
             {t.detail.published} {timeAgo(listing.createdAt, lang)}
           </span>
           {listing.ref && (
