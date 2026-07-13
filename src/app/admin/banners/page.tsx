@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { requireStaff } from "@/lib/auth";
 import { allSettings } from "@/lib/settings";
+import { BannerImageField } from "@/components/BannerImageField";
 import {
   createBannerAction,
   deleteBannerAction,
@@ -140,15 +141,13 @@ export default async function AdminBannersPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">رابط الصورة</label>
-            <input name="imageUrl" className="input" dir="ltr" placeholder="/images/showcase/cars.svg" />
-          </div>
-          <div>
             <label className="block text-sm font-medium mb-1.5">
               رابط الوجهة <span className="text-neutral-400">(اختياري)</span>
             </label>
             <input name="linkUrl" className="input" dir="ltr" placeholder="/auctions" />
           </div>
+
+          <BannerImageField />
         </div>
         <div>
           <label className="block text-sm font-medium mb-1.5">
