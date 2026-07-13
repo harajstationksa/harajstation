@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { rateLimitGuard } from "@/lib/rate-limit";
 
 const schema = z.object({ note: z.string().min(10).max(2000) });
 
@@ -9,6 +10,8 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
+  const limited = rateLimitGuard(req, "tx-evidence", 10, 10 * 60_000);
+  if (limited) return limited;
   const { id } = await ctx.params;
   const session = await getSession();
   if (!session) {

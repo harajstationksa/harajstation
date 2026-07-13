@@ -2,12 +2,16 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { notify } from "@/lib/notify";
+import { rateLimitGuard } from "@/lib/rate-limit";
 
 /** Follow a seller — new listings/auctions from them notify the follower. */
 export async function POST(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ sellerId: string }> }
 ) {
+  // followed sellers get a notification — keep the toggle un-spammable
+  const limited = rateLimitGuard(req, "follow", 20, 10 * 60_000);
+  if (limited) return limited;
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "سجّل دخولك أولاً" }, { status: 401 });

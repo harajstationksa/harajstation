@@ -6,6 +6,7 @@ import {
   sessionCookieOptions,
   signSessionToken,
 } from "@/lib/auth";
+import { rateLimitGuard } from "@/lib/rate-limit";
 
 /**
  * Social sign-in entry point — Google only.
@@ -27,6 +28,8 @@ function googleConfigured() {
 }
 
 export async function POST(req: Request) {
+  const limited = rateLimitGuard(req, "social-login", 10, 10 * 60_000);
+  if (limited) return limited;
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "مزوّد غير مدعوم" }, { status: 400 });

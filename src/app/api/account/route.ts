@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { isValidDisplayName, normalizeSaudiPhone } from "@/lib/utils";
 import { CITIES } from "@/lib/constants";
+import { rateLimitGuard } from "@/lib/rate-limit";
 
 const schema = z.object({
   name: z.string().min(2).max(60),
@@ -15,6 +16,8 @@ const schema = z.object({
 });
 
 export async function PATCH(req: Request) {
+  const limited = rateLimitGuard(req, "account-update", 10, 10 * 60_000);
+  if (limited) return limited;
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });

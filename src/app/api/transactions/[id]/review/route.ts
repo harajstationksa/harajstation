@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { notify } from "@/lib/notify";
+import { rateLimitGuard } from "@/lib/rate-limit";
 
 const schema = z.object({
   rating: z.number().int().min(1).max(5),
@@ -13,6 +14,8 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
+  const limited = rateLimitGuard(req, "tx-review", 10, 10 * 60_000);
+  if (limited) return limited;
   const { id } = await ctx.params;
   const session = await getSession();
   if (!session) {

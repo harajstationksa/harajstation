@@ -5,17 +5,21 @@ import { NextResponse } from "next/server";
  * Good for a single-instance deployment; swap the Map for Redis when the
  * app runs on more than one server.
  */
-const buckets = new Map<string, number[]>();
+type Bucket = { hits: number[]; windowMs: number };
+
+const buckets = new Map<string, Bucket>();
 let lastSweep = Date.now();
 
 function sweep() {
-  // drop stale buckets occasionally so memory stays bounded
+  // drop stale buckets occasionally so memory stays bounded — a bucket only
+  // dies once its newest hit falls outside its OWN window, otherwise daily
+  // budgets would silently reset after a few idle minutes
   const now = Date.now();
   if (now - lastSweep < 60_000) return;
   lastSweep = now;
-  for (const [k, hits] of buckets) {
-    if (hits.length === 0 || hits[hits.length - 1] < now - 15 * 60_000) {
-      buckets.delete(k);
+  for (const [key, b] of buckets) {
+    if (b.hits.length === 0 || b.hits[b.hits.length - 1] <= now - b.windowMs) {
+      buckets.delete(key);
     }
   }
 }
@@ -24,13 +28,13 @@ function sweep() {
 export function isRateLimited(key: string, limit: number, windowMs: number): boolean {
   sweep();
   const now = Date.now();
-  const hits = (buckets.get(key) ?? []).filter((t) => t > now - windowMs);
+  const hits = (buckets.get(key)?.hits ?? []).filter((t) => t > now - windowMs);
   if (hits.length >= limit) {
-    buckets.set(key, hits);
+    buckets.set(key, { hits, windowMs });
     return true;
   }
   hits.push(now);
-  buckets.set(key, hits);
+  buckets.set(key, { hits, windowMs });
   return false;
 }
 
@@ -42,6 +46,20 @@ export function clientIp(req: Request): string {
     h.get("x-real-ip") ??
     h.get("x-forwarded-for")?.split(",")[0].trim() ??
     "local"
+  );
+}
+
+/** Standard 429 with a Retry-After hint. */
+export function tooManyRequests(
+  windowMs: number,
+  message = "محاولات كثيرة — انتظر قليلاً ثم حاول مجدداً"
+): NextResponse {
+  return NextResponse.json(
+    { error: message },
+    {
+      status: 429,
+      headers: { "Retry-After": String(Math.ceil(windowMs / 1000)) },
+    }
   );
 }
 
@@ -59,10 +77,7 @@ export function rateLimitGuard(
   windowMs: number
 ): NextResponse | null {
   if (isRateLimited(`${scope}:${clientIp(req)}`, limit, windowMs)) {
-    return NextResponse.json(
-      { error: "محاولات كثيرة — انتظر قليلاً ثم حاول مجدداً" },
-      { status: 429 }
-    );
+    return tooManyRequests(windowMs);
   }
   return null;
 }

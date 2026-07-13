@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { getPlanLimits } from "@/lib/limits";
 import { findBannedWord } from "@/lib/moderation";
+import { rateLimitGuard } from "@/lib/rate-limit";
 
 const schema = z.object({
   storeId: z.string().optional(), // present = edit; absent = create
@@ -16,6 +17,8 @@ const schema = z.object({
 
 /** Create a new store (within plan limit) or edit an existing one. */
 export async function POST(req: Request) {
+  const limited = rateLimitGuard(req, "store-write", 10, 10 * 60_000);
+  if (limited) return limited;
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });

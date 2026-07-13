@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { rateLimitGuard } from "@/lib/rate-limit";
 
 export async function POST(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ listingId: string }> }
 ) {
+  const limited = rateLimitGuard(req, "favorite", 60, 10 * 60_000);
+  if (limited) return limited;
   const { listingId } = await ctx.params;
   const session = await getSession();
   if (!session) {

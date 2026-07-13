@@ -5,6 +5,7 @@
  */
 
 import nodemailer, { type Transporter } from "nodemailer";
+import { isRateLimited } from "./rate-limit";
 
 export function emailConfigured() {
   return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
@@ -29,6 +30,14 @@ function getTransporter(): Transporter | null {
   return transporter;
 }
 
+/** Per-inbox ceiling: 5 mails/hour and 12/day, whatever the caller. */
+function mailBombGuard(to: string): boolean {
+  return (
+    isRateLimited(`mail:h:${to}`, 5, 60 * 60_000) ||
+    isRateLimited(`mail:d:${to}`, 12, 24 * 3_600_000)
+  );
+}
+
 export async function sendEmail(opts: {
   to: string;
   subject: string;
@@ -36,6 +45,16 @@ export async function sendEmail(opts: {
 }): Promise<boolean> {
   const transport = getTransporter();
   if (!transport) return false;
+
+  // Last line of defence against mail bombing: the routes are IP-limited, but
+  // an attacker rotating IPs could still flood one inbox with verification /
+  // reset mails. Cap it here, at the single point every mail passes through.
+  const to = opts.to.toLowerCase().trim();
+  if (mailBombGuard(to)) {
+    console.warn("email suppressed — recipient over quota:", to);
+    return false;
+  }
+
   // official mailboxes: noreply@ sends, replies are routed to support@
   const from = process.env.MAIL_FROM ?? "حراج ستيشن <noreply@harajstation.com>";
   const replyTo = process.env.MAIL_REPLY_TO ?? "support@harajstation.com";

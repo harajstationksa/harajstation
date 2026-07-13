@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
+import { rateLimitGuard } from "@/lib/rate-limit";
 
 const schema = z.object({
   listingId: z.string().min(1),
@@ -11,6 +12,8 @@ const schema = z.object({
 
 /** Find-or-create a conversation about a listing; returns its id. */
 export async function POST(req: Request) {
+  const limited = rateLimitGuard(req, "conv-create", 15, 10 * 60_000);
+  if (limited) return limited;
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: "سجّل دخولك للمراسلة" }, { status: 401 });

@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { notify } from "@/lib/notify";
 import { applyProxyBids } from "@/lib/proxy-bid";
 import { formatSAR } from "@/lib/utils";
+import { rateLimitGuard } from "@/lib/rate-limit";
 
 const schema = z.object({ maxAmount: z.number().int().positive() });
 
@@ -13,6 +14,8 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
+  const limited = rateLimitGuard(req, "proxy-bid", 15, 60_000);
+  if (limited) return limited;
   const { id } = await ctx.params;
   const session = await getSession();
   if (!session) {

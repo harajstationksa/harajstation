@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { rateLimitGuard } from "@/lib/rate-limit";
 
 const schema = z.object({
   endpoint: z.string().url().max(1000),
@@ -13,6 +14,8 @@ const schema = z.object({
 
 /** Register (or re-register) this browser for Web Push. */
 export async function POST(req: Request) {
+  const limited = rateLimitGuard(req, "push-sub", 10, 10 * 60_000);
+  if (limited) return limited;
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "سجّل دخولك أولاً" }, { status: 401 });

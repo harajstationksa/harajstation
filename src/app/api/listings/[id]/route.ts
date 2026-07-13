@@ -7,6 +7,7 @@ import { findBannedWord } from "@/lib/moderation";
 import { saveImages } from "@/lib/uploads";
 import { parseImages } from "@/lib/utils";
 import { CITIES } from "@/lib/constants";
+import { rateLimitGuard } from "@/lib/rate-limit";
 
 const schema = z.object({
   title: z.string().min(4).max(100),
@@ -21,6 +22,8 @@ export async function PATCH(
   req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
+  const limited = rateLimitGuard(req, "listing-edit", 20, 10 * 60_000);
+  if (limited) return limited;
   const { id } = await ctx.params;
   const user = await getCurrentUser();
   if (!user) {

@@ -7,6 +7,7 @@ import { adjustPoints } from "@/lib/points";
 import { getSettingInt } from "@/lib/settings";
 import { targetAudience } from "@/lib/targeting";
 import { CITIES } from "@/lib/constants";
+import { isRateLimited } from "@/lib/rate-limit";
 
 /**
  * Launch a day-based promotion campaign for one of the user's listings.
@@ -16,6 +17,10 @@ import { CITIES } from "@/lib/constants";
  */
 export async function createCampaignAction(formData: FormData) {
   const user = await requireUser();
+  // each campaign notifies up to 200 people — cap the blast radius per account
+  if (isRateLimited(`campaign:${user.id}`, 6, 60 * 60_000)) {
+    return { error: "أنشأت حملات كثيرة خلال وقت قصير — انتظر قليلاً ثم حاول مجدداً" };
+  }
   const listingId = String(formData.get("listingId"));
   const days = Number(formData.get("days"));
   // optional geo focus: "" = the whole kingdom

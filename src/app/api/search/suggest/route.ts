@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { normalizeArabic } from "@/lib/arabic";
 import { expandQuery, matchCategorySlugs } from "@/lib/search-smart";
+import { rateLimitGuard } from "@/lib/rate-limit";
 
 export async function GET(req: Request) {
+  // three DB queries per call — cap scripted hammering, typing stays smooth
+  const limited = rateLimitGuard(req, "suggest", 60, 60_000);
+  if (limited) return limited;
   const url = new URL(req.url);
   const q = url.searchParams.get("q")?.trim() ?? "";
   if (q.length < 2) return NextResponse.json({ suggestions: [] });

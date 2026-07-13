@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { rateLimitGuard } from "@/lib/rate-limit";
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
+  const limited = rateLimitGuard(req, "saved-search-del", 30, 10 * 60_000);
+  if (limited) return limited;
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "سجّل دخولك أولاً" }, { status: 401 });

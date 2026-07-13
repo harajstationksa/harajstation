@@ -7,6 +7,7 @@ import { notify } from "@/lib/notify";
 import { adjustPoints } from "@/lib/points";
 import { getSettingInt } from "@/lib/settings";
 import { getPlanLimits } from "@/lib/limits";
+import { isRateLimited } from "@/lib/rate-limit";
 
 export async function featureWithPointsAction(formData: FormData) {
   const user = await requireUser();
@@ -56,6 +57,9 @@ export async function markSoldAction(formData: FormData) {
 /** Relist a sold/expired listing back to active (owner only). */
 export async function relistAction(formData: FormData) {
   const user = await requireUser();
+  // relisting resets createdAt, so the listing jumps back to the top of
+  // "الأحدث" — cap it so nobody can bump-spam the feed in a loop
+  if (isRateLimited(`relist:${user.id}`, 20, 24 * 3_600_000)) return;
   const id = String(formData.get("listingId"));
   const listing = await db.listing.findUnique({ where: { id } });
   if (!listing || listing.sellerId !== user.id) return;

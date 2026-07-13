@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { rateLimitGuard } from "@/lib/rate-limit";
+import { isRateLimited, rateLimitGuard } from "@/lib/rate-limit";
 import { emailConfigured, sendPasswordResetEmail } from "@/lib/email";
 
 const schema = z.object({ email: z.string().email() });
@@ -24,6 +24,16 @@ export async function POST(req: Request) {
   }
 
   const email = parsed.data.email.toLowerCase().trim();
+  // per-address cap so a rotating-IP attacker can't mail-bomb one inbox.
+  // Keyed on the *submitted* address and checked before any lookup, so it
+  // still reveals nothing about whether the account exists.
+  if (isRateLimited(`forgot:mail:${email}`, 3, 60 * 60_000)) {
+    return NextResponse.json(
+      { error: "طلبت رابط الاستعادة عدة مرات — راجع بريدك أو انتظر ساعة" },
+      { status: 429, headers: { "Retry-After": "3600" } }
+    );
+  }
+
   const user = await db.user.findUnique({ where: { email } });
   if (!user || user.isBanned) {
     // same response shape as success — reveals nothing

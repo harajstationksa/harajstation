@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { CITIES } from "@/lib/constants";
+import { rateLimitGuard } from "@/lib/rate-limit";
 
 const MAX_SAVED_SEARCHES = 20;
 
@@ -15,6 +16,8 @@ const schema = z.object({
 
 /** Save a search → the user gets notified when a matching listing lands. */
 export async function POST(req: Request) {
+  const limited = rateLimitGuard(req, "saved-search", 10, 10 * 60_000);
+  if (limited) return limited;
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "سجّل دخولك أولاً" }, { status: 401 });

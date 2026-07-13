@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { evaluateTransaction } from "@/lib/credibility";
+import { rateLimitGuard } from "@/lib/rate-limit";
 
 const schema = z.object({ answer: z.enum(["YES", "NO"]) });
 
@@ -10,6 +11,8 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
+  const limited = rateLimitGuard(req, "tx-confirm", 10, 10 * 60_000);
+  if (limited) return limited;
   const { id } = await ctx.params;
   const session = await getSession();
   if (!session) {

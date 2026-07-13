@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { findBannedWord } from "@/lib/moderation";
 import { notify } from "@/lib/notify";
+import { isRateLimited, rateLimitGuard } from "@/lib/rate-limit";
 
 const schema = z.object({ body: z.string().min(2).max(1000) });
 
@@ -11,10 +12,19 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
+  const limited = rateLimitGuard(req, "comment", 6, 60_000);
+  if (limited) return limited;
   const { id } = await ctx.params;
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: "سجّل دخولك للتعليق" }, { status: 401 });
+  }
+  // per-account budget too — comments notify sellers, so IP-hopping must not help
+  if (isRateLimited(`comment:u:${session.sub}`, 30, 60 * 60_000)) {
+    return NextResponse.json(
+      { error: "تجاوزت حد التعليقات مؤقتاً — حاول لاحقاً" },
+      { status: 429 }
+    );
   }
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
