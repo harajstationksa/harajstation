@@ -60,6 +60,13 @@ const FIELD_LABEL: Record<string, string> = {
 
 function describeIssue(issue: z.ZodIssue, value: unknown): string {
   const len = typeof value === "string" ? value.length : 0;
+
+  // An untouched field is the common case, and "must be at least 1 characters —
+  // you wrote 0" is a strange thing to say to someone who simply hasn't filled
+  // it in yet.
+  const empty = value == null || (typeof value === "string" && value.trim() === "");
+  if (empty) return "لم تملأ هذا الحقل";
+
   if (issue.code === "too_small") {
     return `يجب أن يكون ${issue.minimum} أحرف على الأقل — كتبت ${len}`;
   }
