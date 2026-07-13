@@ -60,3 +60,6 @@ ds-bundle/
 
 # template is safe to commit
 !.env.example
+
+# local db snapshots — never commit
+backups/
