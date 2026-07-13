@@ -133,14 +133,18 @@ async function Categories() {
         <Link
           key={cat.id}
           href={`/category/${cat.slug}`}
-          className="flex flex-col items-center gap-2.5 py-3 px-1 text-center group"
+          className="group flex flex-col items-center gap-2.5 py-2 px-1 text-center"
         >
-          <CategoryIcon
-            name={cat.icon}
-            className="size-7 sm:size-8 text-neutral-950 group-hover:text-primary-600 transition-colors"
-            strokeWidth={1.75}
-          />
-          <span className="font-semibold text-[11px] sm:text-xs text-neutral-900 leading-tight">
+          {/* the icon sits on a soft tile instead of floating in bold black —
+              the row reads as a quiet index, and colour is saved for hover */}
+          <span className="flex size-12 sm:size-14 items-center justify-center rounded-2xl bg-neutral-50 ring-1 ring-neutral-100 transition-colors duration-200 group-hover:bg-primary-50 group-hover:ring-primary-100">
+            <CategoryIcon
+              name={cat.icon}
+              className="size-5.5 sm:size-6 text-neutral-500 transition-colors duration-200 group-hover:text-primary-600"
+              strokeWidth={1.5}
+            />
+          </span>
+          <span className="text-[11px] sm:text-xs font-medium text-neutral-600 leading-tight transition-colors duration-200 group-hover:text-neutral-900">
             {lang === "en" ? cat.nameEn : cat.nameAr}
           </span>
         </Link>

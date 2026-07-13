@@ -54,8 +54,8 @@ export function CategoriesSkeleton() {
   return (
     <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-11 gap-2 sm:gap-3 animate-pulse">
       {Array.from({ length: 11 }, (_, i) => (
-        <div key={i} className="flex flex-col items-center gap-2.5 py-3 px-1">
-          <div className="size-7 sm:size-8 rounded-lg bg-neutral-200/80" />
+        <div key={i} className="flex flex-col items-center gap-2.5 py-2 px-1">
+          <div className="size-12 sm:size-14 rounded-2xl bg-neutral-100" />
           <Bar className="h-3 w-12" />
         </div>
       ))}
