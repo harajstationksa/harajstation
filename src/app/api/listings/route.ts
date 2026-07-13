@@ -16,7 +16,7 @@ import { generateListingRef } from "@/lib/ref";
 import { alertSavedSearches } from "@/lib/saved-search";
 
 import { saveImages, MAX_FILE } from "@/lib/uploads";
-import { rateLimitGuard } from "@/lib/rate-limit";
+import { isRateLimited, rateLimitGuard } from "@/lib/rate-limit";
 
 // category icon → fallback placeholder image
 const FALLBACK: Record<string, string> = {
@@ -70,7 +70,12 @@ function describeIssue(issue: z.ZodIssue, value: unknown): string {
 }
 
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "listing-create", 10, 10 * 60_000);
+  // A flood guard, not a publishing quota. It has to be generous: filling this
+  // form wrong is normal — a missing field, a bad price, try again — and a limit
+  // that counts rejected attempts locks an honest seller out of a form they are
+  // still learning. The real anti-spam cap is on listings actually created (see
+  // below), which is what a spammer is after and what costs us anything.
+  const limited = rateLimitGuard(req, "listing-attempt", 40, 10 * 60_000);
   if (limited) return limited;
 
   const user = await getCurrentUser();
@@ -243,6 +248,16 @@ export async function POST(req: Request) {
         );
       }
     }
+  }
+
+  // Everything checks out, so this request is about to become a real listing —
+  // charge it against the publishing cap now, before we spend time storing
+  // images. Keyed by account, because that is the thing a spammer has to burn.
+  if (isRateLimited(`listing-publish:${user.id}`, 10, 10 * 60_000)) {
+    return NextResponse.json(
+      { error: "نشرت إعلانات كثيرة خلال وقت قصير — انتظر قليلاً ثم أضف إعلانك التالي" },
+      { status: 429 }
+    );
   }
 
   // image uploads
