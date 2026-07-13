@@ -1,17 +1,34 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useLang } from "@/components/LangProvider";
 import { SocialButtons } from "@/components/SocialButtons";
 
+// the Google routes bounce failures back here as ?error=…
+const SOCIAL_ERRORS: Record<string, string> = {
+  google: "تعذّر تسجيل الدخول عبر Google — حاول مرة أخرى",
+  google_unverified: "بريد حساب Google غير مؤكد لدى Google نفسها",
+  banned: "هذا الحساب محظور.",
+};
+
 export default function LoginPage() {
+  // useSearchParams needs a boundary above it
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const socialError = SOCIAL_ERRORS[useSearchParams().get("error") ?? ""] ?? "";
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(socialError);
   const [loading, setLoading] = useState(false);
   const { t } = useLang();
   const a = t.auth;

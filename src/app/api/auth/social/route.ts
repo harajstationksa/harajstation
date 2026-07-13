@@ -6,26 +6,24 @@ import {
   sessionCookieOptions,
   signSessionToken,
 } from "@/lib/auth";
+import { googleConfigured } from "@/lib/google-oauth";
 import { rateLimitGuard } from "@/lib/rate-limit";
 
 /**
  * Social sign-in entry point — Google only.
  *
- * Production: swap the demo-provisioning block for a redirect to Google's
- * OAuth consent screen, then verify the returned id_token in the callback and
- * upsert the user by verified email. Needs GOOGLE_CLIENT_ID +
- * GOOGLE_CLIENT_SECRET; when they're absent (dev/demo) we provision a
- * deterministic account so the whole flow is exercisable end-to-end.
+ * With GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET set, this hands off to the real
+ * OAuth flow (google/start -> Google -> google/callback).
+ *
+ * Without them there is a local-dev shortcut that provisions a fixed account so
+ * the button can be exercised offline. It is refused in production: signing
+ * anyone who clicks the button into a shared account would be an open door.
  */
 const schema = z.object({
   provider: z.literal("google"),
 });
 
 const AVATAR_COLORS = ["#db7759", "#0ea5e9", "#8b5cf6", "#10b981", "#ec4899"];
-
-function googleConfigured() {
-  return !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET;
-}
 
 export async function POST(req: Request) {
   const limited = rateLimitGuard(req, "social-login", 10, 10 * 60_000);
@@ -36,12 +34,17 @@ export async function POST(req: Request) {
   }
 
   if (googleConfigured()) {
-    // Real OAuth is configured — hand off to Google's consent screen.
-    // (Callback route verifies id_token and upserts the user.)
     return NextResponse.json({ redirect: "/api/auth/social/google/start" });
   }
 
-  // ── Demo provisioning (no OAuth creds present) ──
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { error: "تسجيل الدخول عبر Google غير مفعّل حالياً — استخدم البريد وكلمة المرور" },
+      { status: 503 }
+    );
+  }
+
+  // ── local dev only: no OAuth credentials present ──
   const email = "google.user@samel.social";
   let user = await db.user.findUnique({ where: { email } });
   if (!user) {
@@ -50,7 +53,6 @@ export async function POST(req: Request) {
         name: "مستخدم Google",
         email,
         city: "الرياض",
-        // random unusable password — social accounts sign in via provider only
         passwordHash: `oauth:google:${crypto.randomUUID()}`,
         avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
       },
