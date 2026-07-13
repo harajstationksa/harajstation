@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Bell, Plus } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getNavCategories } from "@/lib/categories";
 import { STAFF_ROLES } from "@/lib/constants";
 import { getLang, STR } from "@/lib/i18n";
 import { LanguageToggle } from "./LanguageToggle";
@@ -12,11 +13,7 @@ import { UserMenu } from "./UserMenu";
 export async function Header() {
   const [user, categories, lang] = await Promise.all([
     getCurrentUser(),
-    db.category.findMany({
-      where: { parentId: null },
-      orderBy: { sortOrder: "asc" },
-      select: { slug: true, nameAr: true, nameEn: true },
-    }),
+    getNavCategories(),
     getLang(),
   ]);
   const t = STR[lang];

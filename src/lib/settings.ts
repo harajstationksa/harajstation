@@ -50,9 +50,27 @@ export async function getFreeTierConfig(): Promise<{ enabled: boolean; days: num
   };
 }
 
+/**
+ * Settings are read on nearly every render (footer links, contact details, the
+ * free-tier banner…) but only change when an admin saves the form. Reading them
+ * per key meant a database round trip each time — painful when the database is
+ * not next door. Hold the whole table for a minute instead, and drop it the
+ * moment a setting is written so the admin sees their change immediately.
+ */
+const TTL_MS = 60_000;
+let cached: { at: number; map: Record<string, string> } | null = null;
+
+async function settingsMap(): Promise<Record<string, string>> {
+  if (cached && Date.now() - cached.at < TTL_MS) return cached.map;
+  const rows = await db.setting.findMany();
+  const map = { ...DEFAULTS } as Record<string, string>;
+  for (const r of rows) map[r.key] = r.value;
+  cached = { at: Date.now(), map };
+  return map;
+}
+
 export async function getSetting(key: string): Promise<string> {
-  const row = await db.setting.findUnique({ where: { key } });
-  return row?.value ?? DEFAULTS[key] ?? "";
+  return (await settingsMap())[key] ?? DEFAULTS[key] ?? "";
 }
 
 export async function getSettingInt(key: string, fallback = 0): Promise<number> {
@@ -67,11 +85,9 @@ export async function setSetting(key: string, value: string) {
     create: { key, value },
     update: { value },
   });
+  cached = null;
 }
 
 export async function allSettings() {
-  const rows = await db.setting.findMany();
-  const map = { ...DEFAULTS } as Record<string, string>;
-  for (const r of rows) map[r.key] = r.value;
-  return map;
+  return { ...(await settingsMap()) };
 }
