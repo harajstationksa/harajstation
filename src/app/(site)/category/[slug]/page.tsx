@@ -10,7 +10,7 @@ import {
   sponsoredInclude,
 } from "@/lib/campaigns";
 import { listingOrderBy, str, type SP } from "@/lib/listing-query";
-import { Suspense } from "react";
+import { cache, Suspense } from "react";
 import { AuctionCard } from "@/components/AuctionCard";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { EmptyState } from "@/components/EmptyState";
@@ -18,10 +18,58 @@ import { FiltersBar } from "@/components/FiltersBar";
 import { ListingCard } from "@/components/ListingCard";
 import { SaveSearchButton } from "@/components/SaveSearchButton";
 import { SponsoredCard } from "@/components/SponsoredCard";
+import { CardGridSkeleton } from "@/components/Skeletons";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 24;
+
+/**
+ * The ads for this category. Shared by the count and the grid via cache(), so
+ * the two streamed sections run the queries once between them.
+ */
+const loadAds = cache(async (slug: string, sp: SP) => {
+  const min = Number(str(sp.min)) || undefined;
+  const max = Number(str(sp.max)) || undefined;
+  const page = Math.max(1, Number(str(sp.page)) || 1);
+
+  const where = {
+    status: "ACTIVE",
+    ...(str(sp.city) ? { city: str(sp.city) } : {}),
+    ...(str(sp.condition) ? { condition: str(sp.condition) } : {}),
+    ...(str(sp.type) ? { type: str(sp.type) } : {}),
+    ...(min || max ? { price: { gte: min, lte: max } } : {}),
+    category: { OR: [{ slug }, { parent: { slug } }] },
+  };
+
+  // sponsored (campaign-funded) listings in this category: always pinned at the
+  // top with the sponsored frame, in a fresh random rotation on every refresh
+  // so no funded ad is favored over another
+  const [sponsored, items, total] = await Promise.all([
+    db.listing.findMany({
+      where: { ...where, isPromoted: true },
+      include: sponsoredInclude,
+    }),
+    db.listing.findMany({
+      where,
+      include: cardInclude,
+      orderBy: listingOrderBy(str(sp.sort)),
+      take: PAGE_SIZE,
+      skip: (page - 1) * PAGE_SIZE,
+    }),
+    db.listing.count({ where }),
+  ]);
+
+  // sponsored pins show on the first page only — deeper pages are pure results
+  const pinned = page === 1 ? shuffle(sponsored) : [];
+  const pinnedIds = new Set(pinned.map((l) => l.id));
+  const rest = items.filter((l) => !pinnedIds.has(l.id));
+
+  // ad analytics: one impression per unique visitor network — reloads don't count
+  await recordImpressions(pinned.map((l) => l.campaigns[0]?.id ?? ""));
+
+  return { pinned, rest, total, page };
+});
 
 export default async function CategoryPage({
   params,
@@ -42,57 +90,6 @@ export default async function CategoryPage({
     },
   });
   if (!category) notFound();
-
-  const min = Number(str(sp.min)) || undefined;
-  const max = Number(str(sp.max)) || undefined;
-  const page = Math.max(1, Number(str(sp.page)) || 1);
-
-  const where = {
-    status: "ACTIVE",
-    ...(str(sp.city) ? { city: str(sp.city) } : {}),
-    ...(str(sp.condition) ? { condition: str(sp.condition) } : {}),
-    ...(str(sp.type) ? { type: str(sp.type) } : {}),
-    ...(min || max ? { price: { gte: min, lte: max } } : {}),
-    category: {
-      OR: [{ slug: category.slug }, { parent: { slug: category.slug } }],
-    },
-  };
-
-
-  // sponsored (campaign-funded) listings in this category: always pinned at
-  // the top with the sponsored frame, in a fresh random rotation on every
-  // refresh so no funded ad is favored over another
-  const [sponsored, items, total] = await Promise.all([
-    db.listing.findMany({
-      where: { ...where, isPromoted: true },
-      include: sponsoredInclude,
-    }),
-    db.listing.findMany({
-      where,
-      include: cardInclude,
-      orderBy: listingOrderBy(str(sp.sort)),
-      take: PAGE_SIZE,
-      skip: (page - 1) * PAGE_SIZE,
-    }),
-    db.listing.count({ where }),
-  ]);
-  // sponsored pins show on the first page only — deeper pages are pure results
-  const pinned = page === 1 ? shuffle(sponsored) : [];
-  const pinnedIds = new Set(pinned.map((l) => l.id));
-  const rest = items.filter((l) => !pinnedIds.has(l.id));
-
-  // ad analytics: one impression per unique visitor network — reloads don't count
-  await recordImpressions(pinned.map((l) => l.campaigns[0]?.id ?? ""));
-
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const pageLink = (p: number) => {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (typeof v === "string" && v && k !== "page") params.set(k, v);
-    }
-    if (p > 1) params.set("page", String(p));
-    return `/category/${category.slug}${params.size ? `?${params}` : ""}`;
-  };
 
   return (
     <div className="container-page py-6 pb-12 space-y-5">
@@ -122,7 +119,11 @@ export default async function CategoryPage({
           <h1 className="section-title">
             {lang === "en" ? category.nameEn : category.nameAr}
           </h1>
-          <p className="text-sm text-neutral-500">{total} {t.categoryPage.activeAds}</p>
+          <Suspense
+            fallback={<div className="h-5 w-24 mt-1 rounded-md bg-neutral-200/80 animate-pulse" />}
+          >
+            <AdCount slug={category.slug} sp={sp} />
+          </Suspense>
         </div>
         {/* alert for anything new in this category (+ the active filters) */}
         <div className="ms-auto">
@@ -152,34 +153,69 @@ export default async function CategoryPage({
         <FiltersBar basePath={`/category/${category.slug}`} />
       </Suspense>
 
-      {pinned.length === 0 && rest.length === 0 ? (
-        <EmptyState
-          title={t.categoryPage.emptyTitle}
-          hint={t.categoryPage.emptyHint}
-          action={
-            <Link href="/sell" className="btn-primary mt-2">
-              {t.categoryPage.addYourAd}
-            </Link>
-          }
-        />
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {pinned.map((listing) => (
-            <SponsoredCard
-              key={listing.id}
-              listing={listing}
-              campaignId={listing.campaigns[0]?.id}
-            />
-          ))}
-          {rest.map((listing) =>
-            listing.type === "AUCTION" ? (
-              <AuctionCard key={listing.id} listing={listing} />
-            ) : (
-              <ListingCard key={listing.id} listing={listing} />
-            )
-          )}
-        </div>
-      )}
+      <Suspense fallback={<CardGridSkeleton count={12} />}>
+        <Ads slug={category.slug} sp={sp} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function AdCount({ slug, sp }: { slug: string; sp: SP }) {
+  const { t } = await getT();
+  const { total } = await loadAds(slug, sp);
+  return (
+    <p className="text-sm text-neutral-500">
+      {total} {t.categoryPage.activeAds}
+    </p>
+  );
+}
+
+async function Ads({ slug, sp }: { slug: string; sp: SP }) {
+  const { t } = await getT();
+  const { pinned, rest, total, page } = await loadAds(slug, sp);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const pageLink = (p: number) => {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (typeof v === "string" && v && k !== "page") params.set(k, v);
+    }
+    if (p > 1) params.set("page", String(p));
+    return `/category/${slug}${params.size ? `?${params}` : ""}`;
+  };
+
+  if (pinned.length === 0 && rest.length === 0) {
+    return (
+      <EmptyState
+        title={t.categoryPage.emptyTitle}
+        hint={t.categoryPage.emptyHint}
+        action={
+          <Link href="/sell" className="btn-primary mt-2">
+            {t.categoryPage.addYourAd}
+          </Link>
+        }
+      />
+    );
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {pinned.map((listing) => (
+          <SponsoredCard
+            key={listing.id}
+            listing={listing}
+            campaignId={listing.campaigns[0]?.id}
+          />
+        ))}
+        {rest.map((listing) =>
+          listing.type === "AUCTION" ? (
+            <AuctionCard key={listing.id} listing={listing} />
+          ) : (
+            <ListingCard key={listing.id} listing={listing} />
+          )
+        )}
+      </div>
 
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 pt-4">
@@ -198,6 +234,6 @@ export default async function CategoryPage({
           )}
         </div>
       )}
-    </div>
+    </>
   );
 }

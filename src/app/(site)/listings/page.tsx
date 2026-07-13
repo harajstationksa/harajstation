@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Suspense } from "react";
+import { cache, Suspense } from "react";
 import { LayoutGrid } from "lucide-react";
 import { db } from "@/lib/db";
 import { cardInclude } from "@/lib/types";
@@ -20,6 +20,7 @@ import { FiltersBar } from "@/components/FiltersBar";
 import { ListingCard } from "@/components/ListingCard";
 import { SaveSearchButton } from "@/components/SaveSearchButton";
 import { SponsoredCard } from "@/components/SponsoredCard";
+import { CardGridSkeleton } from "@/components/Skeletons";
 
 export const dynamic = "force-dynamic";
 
@@ -27,13 +28,14 @@ export const metadata = { title: "تصفح الإعلانات" };
 
 const PAGE_SIZE = 24;
 
-export default async function ListingsPage({
-  searchParams,
-}: {
-  searchParams: Promise<SP>;
-}) {
-  const { t } = await getT();
-  const sp = await searchParams;
+/**
+ * All the data this page needs, in one pass.
+ *
+ * Wrapped in React's cache() so the three streamed sections below — the result
+ * count, the suggested categories and the grid — share a single execution
+ * instead of each re-running the queries (and re-recording ad impressions).
+ */
+const loadResults = cache(async (sp: SP) => {
   const page = Math.max(1, Number(str(sp.page)) || 1);
   const where = buildListingWhere(sp);
   const q = str(sp.q);
@@ -95,16 +97,21 @@ export default async function ListingsPage({
     }
   }
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  return { items, total, sponsored, suggestedCats, page };
+});
 
-  const pageLink = (p: number) => {
-    const params = new URLSearchParams();
-    for (const [k, v] of Object.entries(sp)) {
-      if (typeof v === "string" && v && k !== "page") params.set(k, v);
-    }
-    if (p > 1) params.set("page", String(p));
-    return `/listings${params.size ? `?${params}` : ""}`;
-  };
+/**
+ * The shell — heading, filters, layout — renders straight away from the URL
+ * alone. Everything that needs the database streams in underneath it.
+ */
+export default async function ListingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SP>;
+}) {
+  const { t } = await getT();
+  const sp = await searchParams;
+  const q = str(sp.q);
 
   return (
     <div className="container-page py-6 pb-12 space-y-5">
@@ -113,9 +120,11 @@ export default async function ListingsPage({
           <h1 className="section-title">
             {q ? `${t.listingsPage.resultsFor} «${q}»` : t.listingsPage.title}
           </h1>
-          <p className="text-sm text-neutral-500 mt-1">
-            {total} {t.listingsPage.adsCount}
-          </p>
+          <Suspense
+            fallback={<div className="h-5 w-24 mt-1.5 rounded-md bg-neutral-200/80 animate-pulse" />}
+          >
+            <ResultCount sp={sp} />
+          </Suspense>
         </div>
         {(q || str(sp.category) || str(sp.city) || str(sp.type)) && (
           <SaveSearchButton
@@ -127,53 +136,95 @@ export default async function ListingsPage({
         )}
       </div>
 
-      {/* smart search: the query implies these categories — offer them */}
-      {suggestedCats.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-500">
-            <LayoutGrid className="size-3.5" />
-            {t.listingsPage.browseInCategory}
-          </span>
-          {suggestedCats.map((c) => (
-            <Link
-              key={c.id}
-              href={`/category/${c.slug}`}
-              className="inline-flex items-center gap-1.5 rounded-full border border-primary-200 bg-primary-50 px-3.5 py-1.5 text-sm font-semibold text-primary-800 hover:bg-primary-100 transition-colors"
-            >
-              <CategoryIcon name={c.icon} className="size-4" />
-              {c.nameAr}
-            </Link>
-          ))}
-        </div>
-      )}
+      <Suspense fallback={null}>
+        <SuggestedCategories sp={sp} />
+      </Suspense>
 
       <Suspense>
         <FiltersBar />
       </Suspense>
 
-      {sponsored.length === 0 && items.length === 0 ? (
-        <EmptyState
-          title={t.listingsPage.emptyTitle}
-          hint={t.listingsPage.emptyHint}
-        />
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {sponsored.map((listing) => (
-            <SponsoredCard
-              key={listing.id}
-              listing={listing}
-              campaignId={listing.campaigns[0]?.id}
-            />
-          ))}
-          {items.map((listing) =>
-            listing.type === "AUCTION" ? (
-              <AuctionCard key={listing.id} listing={listing} />
-            ) : (
-              <ListingCard key={listing.id} listing={listing} />
-            )
-          )}
-        </div>
-      )}
+      <Suspense fallback={<CardGridSkeleton count={12} />}>
+        <Results sp={sp} />
+      </Suspense>
+    </div>
+  );
+}
+
+async function ResultCount({ sp }: { sp: SP }) {
+  const { t } = await getT();
+  const { total } = await loadResults(sp);
+  return (
+    <p className="text-sm text-neutral-500 mt-1">
+      {total} {t.listingsPage.adsCount}
+    </p>
+  );
+}
+
+/** smart search: the query implies these categories — offer them */
+async function SuggestedCategories({ sp }: { sp: SP }) {
+  const { t } = await getT();
+  const { suggestedCats } = await loadResults(sp);
+  if (suggestedCats.length === 0) return null;
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-500">
+        <LayoutGrid className="size-3.5" />
+        {t.listingsPage.browseInCategory}
+      </span>
+      {suggestedCats.map((c) => (
+        <Link
+          key={c.id}
+          href={`/category/${c.slug}`}
+          className="inline-flex items-center gap-1.5 rounded-full border border-primary-200 bg-primary-50 px-3.5 py-1.5 text-sm font-semibold text-primary-800 hover:bg-primary-100 transition-colors"
+        >
+          <CategoryIcon name={c.icon} className="size-4" />
+          {c.nameAr}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+async function Results({ sp }: { sp: SP }) {
+  const { t } = await getT();
+  const { items, total, sponsored, page } = await loadResults(sp);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  const pageLink = (p: number) => {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) {
+      if (typeof v === "string" && v && k !== "page") params.set(k, v);
+    }
+    if (p > 1) params.set("page", String(p));
+    return `/listings${params.size ? `?${params}` : ""}`;
+  };
+
+  if (sponsored.length === 0 && items.length === 0) {
+    return (
+      <EmptyState title={t.listingsPage.emptyTitle} hint={t.listingsPage.emptyHint} />
+    );
+  }
+
+  return (
+    <>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {sponsored.map((listing) => (
+          <SponsoredCard
+            key={listing.id}
+            listing={listing}
+            campaignId={listing.campaigns[0]?.id}
+          />
+        ))}
+        {items.map((listing) =>
+          listing.type === "AUCTION" ? (
+            <AuctionCard key={listing.id} listing={listing} />
+          ) : (
+            <ListingCard key={listing.id} listing={listing} />
+          )
+        )}
+      </div>
 
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 pt-4">
@@ -192,6 +243,6 @@ export default async function ListingsPage({
           )}
         </div>
       )}
-    </div>
+    </>
   );
 }

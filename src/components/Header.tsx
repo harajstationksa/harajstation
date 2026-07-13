@@ -11,15 +11,12 @@ import { SearchBar } from "./SearchBar";
 import { UserMenu } from "./UserMenu";
 
 export async function Header() {
-  const [user, categories, lang] = await Promise.all([
-    getCurrentUser(),
-    getNavCategories(),
-    getLang(),
-  ]);
+  // Everything here is free: the categories are cached in memory and the
+  // language comes from a cookie. Who is signed in costs two database round
+  // trips, so it streams in separately (Account, below) rather than holding the
+  // entire page — header, content and all — behind it.
+  const [categories, lang] = await Promise.all([getNavCategories(), getLang()]);
   const t = STR[lang];
-  const unread = user
-    ? await db.notification.count({ where: { userId: user.id, readAt: null } })
-    : 0;
 
   return (
     // solid bg — backdrop-filter here would trap the fixed mobile account sheet.
@@ -59,46 +56,9 @@ export async function Header() {
             {t.postAd}
           </Link>
 
-          {user ? (
-            <>
-              <Link
-                href="/dashboard/notifications"
-                className="relative size-9 rounded-full border border-neutral-200 hover:bg-neutral-50 transition-colors flex items-center justify-center"
-                aria-label="الإشعارات"
-              >
-                <Bell className="size-4.5 text-neutral-500" />
-                {unread > 0 && (
-                  <span className="absolute -top-1 -left-1 size-4.5 rounded-full bg-primary-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white">
-                    {unread > 9 ? "9+" : unread}
-                  </span>
-                )}
-              </Link>
-              <UserMenu
-                name={user.name}
-                color={user.avatarColor}
-                avatarUrl={user.avatarUrl}
-                isPro={user.isPro}
-                isStaff={STAFF_ROLES.includes(user.role)}
-                points={user.points}
-              />
-            </>
-          ) : (
-            <span className="flex items-center gap-3 text-sm">
-              <Link
-                href="/login"
-                className="font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
-              >
-                {t.login}
-              </Link>
-              <span className="h-4 w-px bg-neutral-200" />
-              <Link
-                href="/register"
-                className="font-bold text-primary-600 hover:text-primary-700 transition-colors"
-              >
-                {t.signup}
-              </Link>
-            </span>
-          )}
+          <Suspense fallback={<AccountSkeleton />}>
+            <Account />
+          </Suspense>
         </div>
       </div>
 
@@ -138,5 +98,70 @@ export async function Header() {
         </div>
       </nav>
     </header>
+  );
+}
+
+/** Holds the space the avatar (or the login links) will take, so nothing shifts. */
+function AccountSkeleton() {
+  return (
+    <span className="flex items-center gap-2" aria-hidden>
+      <span className="size-9 rounded-full bg-neutral-100 animate-pulse" />
+      <span className="h-4 w-16 rounded-md bg-neutral-100 animate-pulse" />
+    </span>
+  );
+}
+
+/** The only part of the header that needs the database. */
+async function Account() {
+  const [user, lang] = await Promise.all([getCurrentUser(), getLang()]);
+  const t = STR[lang];
+
+  if (!user) {
+    return (
+      <span className="flex items-center gap-3 text-sm">
+        <Link
+          href="/login"
+          className="font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
+        >
+          {t.login}
+        </Link>
+        <span className="h-4 w-px bg-neutral-200" />
+        <Link
+          href="/register"
+          className="font-bold text-primary-600 hover:text-primary-700 transition-colors"
+        >
+          {t.signup}
+        </Link>
+      </span>
+    );
+  }
+
+  const unread = await db.notification.count({
+    where: { userId: user.id, readAt: null },
+  });
+
+  return (
+    <>
+      <Link
+        href="/dashboard/notifications"
+        className="relative size-9 rounded-full border border-neutral-200 hover:bg-neutral-50 transition-colors flex items-center justify-center"
+        aria-label="الإشعارات"
+      >
+        <Bell className="size-4.5 text-neutral-500" />
+        {unread > 0 && (
+          <span className="absolute -top-1 -left-1 size-4.5 rounded-full bg-primary-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white">
+            {unread > 9 ? "9+" : unread}
+          </span>
+        )}
+      </Link>
+      <UserMenu
+        name={user.name}
+        color={user.avatarColor}
+        avatarUrl={user.avatarUrl}
+        isPro={user.isPro}
+        isStaff={STAFF_ROLES.includes(user.role)}
+        points={user.points}
+      />
+    </>
   );
 }
