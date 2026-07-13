@@ -606,7 +606,13 @@ model Message {
   // optional image attachment (chat uploads)
   imageUrl       String?
   createdAt      DateTime     @default(now())
+  // ✓✓ grey — the recipient's browser has been on the site since this arrived,
+  // so it reached their device (set from the presence heartbeat)
+  deliveredAt    DateTime?
+  // ✓✓ blue — they opened the conversation
   readAt         DateTime?
+
+  @@index([conversationId, createdAt])
 }
 
 model Notification {

@@ -1,8 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ImagePlus, Loader2, Lock, Send, ShieldAlert, X } from "lucide-react";
+import {
+  Bell,
+  BellOff,
+  Check,
+  CheckCheck,
+  ImagePlus,
+  Loader2,
+  Lock,
+  Send,
+  ShieldAlert,
+  X,
+} from "lucide-react";
 import { cn, timeAgo } from "@/lib/utils";
+import { compressImage } from "@/lib/image-compress";
+import {
+  isChatMuted,
+  playIncomingChime,
+  setChatMuted,
+  unlockChatSound,
+} from "@/lib/chat-sound";
 import { ReportButton } from "./ReportButton";
 
 type Msg = {
@@ -11,28 +29,19 @@ type Msg = {
   imageUrl?: string | null;
   mine: boolean;
   at: string;
+  deliveredAt?: string | null;
+  readAt?: string | null;
 };
 
-const MAX_IMAGE = 5 * 1024 * 1024; // 5MB
-
-/** Compress oversized images client-side (canvas → JPEG) before upload. */
-async function compressImage(file: File): Promise<File | null> {
-  if (file.size <= MAX_IMAGE) return file;
-  try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(bitmap.width * scale);
-    canvas.height = Math.round(bitmap.height * scale);
-    canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", 0.8)
-    );
-    if (!blob || blob.size > MAX_IMAGE) return null;
-    return new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" });
-  } catch {
-    return null;
+/** ✓ sent · ✓✓ delivered · ✓✓ (accent) read — only ever on your own messages. */
+function Ticks({ msg }: { msg: Msg }) {
+  if (msg.readAt) {
+    return <CheckCheck className="size-3.5 text-sky-300" aria-label="تمت القراءة" />;
   }
+  if (msg.deliveredAt) {
+    return <CheckCheck className="size-3.5 opacity-80" aria-label="تم التسليم" />;
+  }
+  return <Check className="size-3.5 opacity-70" aria-label="أُرسلت" />;
 }
 
 export function ChatThread({ conversationId }: { conversationId: string }) {
@@ -42,9 +51,15 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
+  const [muted, setMuted] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const countRef = useRef(0);
+  // how many of THEIR messages we had last poll — the chime keys off this, not
+  // off the total, so your own sends never ring
+  const theirCountRef = useRef<number | null>(null);
+
+  useEffect(() => setMuted(isChatMuted()), []);
 
   const refresh = useCallback(async () => {
     try {
@@ -53,7 +68,17 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
       });
       if (!res.ok) return;
       const data = await res.json();
-      setMessages(data.messages);
+      const list: Msg[] = data.messages;
+
+      const theirs = list.filter((m) => !m.mine).length;
+      // null on the very first load: opening a thread with unread messages
+      // shouldn't sound like they all just arrived
+      if (theirCountRef.current !== null && theirs > theirCountRef.current) {
+        playIncomingChime();
+      }
+      theirCountRef.current = theirs;
+
+      setMessages(list);
     } catch {
       /* offline */
     }
@@ -123,11 +148,33 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
   }
 
   return (
-    <div className="card flex flex-col h-[60vh] min-h-96">
-      {/* encryption notice */}
-      <div className="px-4 py-1.5 border-b border-neutral-100 flex items-center justify-center gap-1.5 text-[11px] text-neutral-400">
-        <Lock className="size-3" />
-        الرسائل مشفّرة — لا يطّلع عليها أحد غيرك أنت والطرف الآخر
+    // any interaction in here counts as the gesture that lets audio play, so the
+    // first message to arrive after you've typed or clicked actually chimes
+    <div
+      className="card flex flex-col h-[60vh] min-h-96"
+      onPointerDown={unlockChatSound}
+      onKeyDown={unlockChatSound}
+    >
+      {/* encryption notice + sound toggle */}
+      <div className="px-3 py-1.5 border-b border-neutral-100 flex items-center gap-1.5 text-[11px] text-neutral-400">
+        <span className="flex-1 flex items-center justify-center gap-1.5">
+          <Lock className="size-3" />
+          الرسائل مشفّرة — لا يطّلع عليها أحد غيرك أنت والطرف الآخر
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            const next = !muted;
+            setChatMuted(next);
+            setMuted(next);
+            if (!next) unlockChatSound(); // this click is the gesture that allows it
+          }}
+          className="shrink-0 size-6 rounded-full hover:bg-neutral-100 flex items-center justify-center transition-colors"
+          title={muted ? "تشغيل صوت الرسائل" : "كتم صوت الرسائل"}
+          aria-label={muted ? "تشغيل صوت الرسائل" : "كتم صوت الرسائل"}
+        >
+          {muted ? <BellOff className="size-3.5" /> : <Bell className="size-3.5" />}
+        </button>
       </div>
 
       <div className="px-4 py-2.5 border-b border-neutral-100 bg-amber-50/60 flex items-start gap-2 text-xs text-amber-800 leading-relaxed">
@@ -175,12 +222,13 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
               )}
               <div
                 className={cn(
-                  "flex items-center gap-2 mt-1 text-[10px]",
+                  "flex items-center gap-1.5 mt-1 text-[10px]",
                   m.imageUrl && "px-2 pb-1",
                   m.mine ? "text-primary-100" : "text-neutral-400"
                 )}
               >
                 <span suppressHydrationWarning>{timeAgo(m.at)}</span>
+                {m.mine && <Ticks msg={m} />}
                 {!m.mine && <ReportButton targetType="MESSAGE" targetId={m.id} compact />}
               </div>
             </div>

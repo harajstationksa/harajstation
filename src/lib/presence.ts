@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { createHash } from "node:crypto";
 import { db } from "./db";
 import { getSession } from "./auth";
+import { markDelivered } from "./chat";
 
 export const ONLINE_WINDOW_MS = 5 * 60_000;
 
@@ -33,6 +34,13 @@ export async function recordPresence(): Promise<void> {
       lastSeenAt: new Date(),
     },
   });
+
+  // The visitor is here, so anything waiting for them has reached their device:
+  // this is what turns a sender's single tick into a double one. Runs on the
+  // same fire-and-forget path as the heartbeat itself.
+  if (session?.sub) {
+    await markDelivered(session.sub);
+  }
 
   // opportunistic cleanup: drop rows idle for over a day (keeps table tiny)
   if (Math.random() < 0.02) {

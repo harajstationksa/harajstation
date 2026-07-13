@@ -34,11 +34,22 @@ export async function GET(
     take: 200,
   });
 
-  // mark counterpart messages as read
-  await db.message.updateMany({
-    where: { conversationId: id, senderId: { not: session.sub }, readAt: null },
-    data: { readAt: new Date() },
-  });
+  // Reading the thread implies delivery too — someone can open a conversation
+  // straight from a link without a page view having marked it delivered first,
+  // and a message that is read but not delivered would be nonsense. Separate
+  // updates so an existing deliveredAt keeps the time it actually arrived.
+  const now = new Date();
+  const fromThem = { conversationId: id, senderId: { not: session.sub } };
+  await Promise.all([
+    db.message.updateMany({
+      where: { ...fromThem, readAt: null },
+      data: { readAt: now },
+    }),
+    db.message.updateMany({
+      where: { ...fromThem, deliveredAt: null },
+      data: { deliveredAt: now },
+    }),
+  ]);
 
   return NextResponse.json({
     messages: messages.map((m) => ({
@@ -48,6 +59,7 @@ export async function GET(
       imageUrl: m.imageUrl,
       mine: m.senderId === session.sub,
       at: m.createdAt.toISOString(),
+      deliveredAt: m.deliveredAt?.toISOString() ?? null,
       readAt: m.readAt?.toISOString() ?? null,
     })),
   });
