@@ -11,6 +11,7 @@ import { isValidDisplayName } from "@/lib/utils";
 import { CITIES } from "@/lib/constants";
 import { rateLimitGuard } from "@/lib/rate-limit";
 import { issueEmailVerification } from "@/lib/email-verify";
+import { emailConfigured } from "@/lib/email";
 import { getFreeTierConfig } from "@/lib/settings";
 import { generateReferralCode } from "@/lib/referral";
 
@@ -97,6 +98,14 @@ export async function POST(req: Request) {
 
   // confirmation email — fire-and-forget so a mail hiccup never blocks signup
   issueEmailVerification(user.id, email).catch(() => {});
+
+  // The account exists but stays locked until the link is clicked, so signing
+  // them in here would hand out exactly the session the rule is meant to
+  // withhold. Without mail configured (local dev) nobody could ever verify, so
+  // there we sign in as before.
+  if (emailConfigured()) {
+    return NextResponse.json({ ok: true, needsVerification: true, email });
+  }
 
   const token = await signSessionToken({
     sub: user.id,

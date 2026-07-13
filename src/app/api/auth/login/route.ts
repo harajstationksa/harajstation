@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth";
 import { normalizeSaudiPhone } from "@/lib/utils";
 import { rateLimitGuard } from "@/lib/rate-limit";
+import { emailConfigured } from "@/lib/email";
 
 const schema = z.object({
   identifier: z.string().min(3), // phone or email
@@ -40,6 +41,19 @@ export async function POST(req: Request) {
   if (user.isBanned) {
     return NextResponse.json(
       { error: "هذا الحساب محظور. تواصل مع الدعم." },
+      { status: 403 }
+    );
+  }
+  // No session until the address is confirmed. Only enforced when mail is
+  // actually configured — otherwise nobody could ever verify, and the guard
+  // would lock every account out instead of protecting them.
+  if (emailConfigured() && !user.emailVerifiedAt) {
+    return NextResponse.json(
+      {
+        error: "فعّل بريدك الإلكتروني أولاً — أرسلنا لك رابط التفعيل عند التسجيل",
+        needsVerification: true,
+        email: user.email,
+      },
       { status: 403 }
     );
   }

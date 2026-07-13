@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Gift, Loader2 } from "lucide-react";
+import { Gift, Loader2, MailCheck } from "lucide-react";
 import { CITIES } from "@/lib/constants";
 import { useLang } from "@/components/LangProvider";
 import { SocialButtons } from "@/components/SocialButtons";
@@ -26,6 +26,8 @@ export function RegisterForm({
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // the account is created but locked until the emailed link is clicked
+  const [sentTo, setSentTo] = useState("");
   const { t } = useLang();
   const a = t.auth;
 
@@ -43,6 +45,12 @@ export function RegisterForm({
       body: JSON.stringify({ ...form, acceptTerms }),
     });
     if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (data.needsVerification) {
+        setSentTo(data.email ?? form.email);
+        setLoading(false);
+        return;
+      }
       router.push("/");
       router.refresh();
     } else {
@@ -50,6 +58,29 @@ export function RegisterForm({
       setError(data.error ?? a.genericError);
       setLoading(false);
     }
+  }
+
+  if (sentTo) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center py-12 px-4">
+        <div className="card w-full max-w-md p-8 space-y-5 text-center">
+          <MailCheck className="size-14 mx-auto text-primary-500" />
+          <h1 className="font-display font-bold text-2xl">فعّل بريدك لتكمل</h1>
+          <p className="text-sm text-neutral-600 leading-loose">
+            أنشأنا حسابك وأرسلنا رابط التفعيل إلى{" "}
+            <span className="font-semibold text-neutral-900" dir="ltr">{sentTo}</span>.
+            <br />
+            اضغط الرابط ثم سجّل دخولك — الرابط صالح ٤٨ ساعة.
+          </p>
+          <p className="text-xs text-neutral-500">
+            لم تجد الرسالة؟ راجع صندوق الرسائل غير المرغوبة (Spam).
+          </p>
+          <Link href="/login" className="btn-primary w-full">
+            {a.loginBtn}
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (

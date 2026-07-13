@@ -30,6 +30,9 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState(socialError);
   const [loading, setLoading] = useState(false);
+  // set when the password was right but the address is still unconfirmed
+  const [unverified, setUnverified] = useState("");
+  const [resent, setResent] = useState(false);
   const { t } = useLang();
   const a = t.auth;
 
@@ -37,6 +40,8 @@ function LoginForm() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setUnverified("");
+    setResent(false);
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -47,9 +52,21 @@ function LoginForm() {
       router.refresh();
     } else {
       const data = await res.json().catch(() => ({}));
+      if (data.needsVerification) setUnverified(data.email ?? identifier);
       setError(data.error ?? a.genericError);
       setLoading(false);
     }
+  }
+
+  async function resend() {
+    setLoading(true);
+    await fetch("/api/auth/verify-email/resend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: unverified }),
+    });
+    setResent(true);
+    setLoading(false);
   }
 
   return (
@@ -92,9 +109,31 @@ function LoginForm() {
           </div>
 
           {error && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-              {error}
-            </p>
+            <div
+              className={`text-sm rounded-lg px-3 py-2.5 border ${
+                unverified
+                  ? "text-amber-800 bg-amber-50 border-amber-200"
+                  : "text-red-600 bg-red-50 border-red-100"
+              }`}
+            >
+              <p>{error}</p>
+
+              {unverified && !resent && (
+                <button
+                  type="button"
+                  onClick={resend}
+                  disabled={loading}
+                  className="mt-2 font-semibold underline underline-offset-2 hover:no-underline"
+                >
+                  إعادة إرسال رابط التفعيل
+                </button>
+              )}
+              {resent && (
+                <p className="mt-2 font-semibold">
+                  أرسلنا رابطاً جديداً إلى {unverified} — راجع بريدك وصندوق الرسائل غير المرغوبة.
+                </p>
+              )}
+            </div>
           )}
 
           <button className="btn-primary w-full" disabled={loading}>
