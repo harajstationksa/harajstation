@@ -1,0 +1,6 @@
+# /etc/cron.d/harajstation — runs the finalizers every minute.
+# (cron.d files need the user column and a trailing newline.)
+SHELL=/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin
+
+* * * * * root /usr/local/bin/haraj-cron.sh

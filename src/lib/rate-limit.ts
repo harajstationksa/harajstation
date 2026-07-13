@@ -38,13 +38,26 @@ export function isRateLimited(key: string, limit: number, windowMs: number): boo
   return false;
 }
 
-/** Best-effort client IP (behind Cloudflare/Nginx use the forwarded header). */
+function header(h: Headers, name: string): string | null {
+  const v = h.get(name)?.trim();
+  return v ? v : null; // an empty header is the same as no header
+}
+
+/**
+ * Best-effort client IP.
+ *
+ * SECURITY: these headers are only trustworthy because the reverse proxy in
+ * front of the app overwrites them on every request — see deploy/nginx. If it
+ * ever forwards a client-supplied value instead, every limit here becomes
+ * bypassable by sending a random IP header.
+ */
 export function clientIp(req: Request): string {
   const h = req.headers;
+  const forwarded = header(h, "x-forwarded-for")?.split(",")[0].trim();
   return (
-    h.get("cf-connecting-ip") ??
-    h.get("x-real-ip") ??
-    h.get("x-forwarded-for")?.split(",")[0].trim() ??
+    header(h, "cf-connecting-ip") ??
+    header(h, "x-real-ip") ??
+    (forwarded || null) ??
     "local"
   );
 }
