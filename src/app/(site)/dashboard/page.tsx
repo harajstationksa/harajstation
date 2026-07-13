@@ -16,9 +16,6 @@ import {
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { finalizeExpiredAuctions } from "@/lib/auction";
-import { expirePendingTransactions } from "@/lib/credibility";
-import { expireProMemberships } from "@/lib/limits";
 import { formatDate, formatSAR, timeAgo, trustLevel } from "@/lib/utils";
 import { Avatar } from "@/components/Avatar";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
@@ -30,10 +27,7 @@ export const metadata = { title: "لوحة التحكم" };
 
 export default async function DashboardPage() {
   // run before fetching the user so an expired promo shows correctly right away
-  await expireProMemberships();
   const user = await requireUser();
-  await finalizeExpiredAuctions();
-  await expirePendingTransactions();
 
   // daily free points — claimable once per day, amount depends on the plan
   const startOfToday = new Date();

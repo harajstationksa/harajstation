@@ -3,7 +3,6 @@ import { Flame, Gavel, MapPin, Plus, Search, SlidersHorizontal, X, Zap } from "l
 import { db } from "@/lib/db";
 import { cardInclude } from "@/lib/types";
 import { getT } from "@/lib/i18n";
-import { finalizeExpiredAuctions } from "@/lib/auction";
 import { getSponsored, recordImpressions } from "@/lib/campaigns";
 import { str, type SP } from "@/lib/listing-query";
 import { normalizeArabic } from "@/lib/arabic";
@@ -28,7 +27,6 @@ export default async function AuctionsPage({
   searchParams: Promise<SP>;
 }) {
   const { lang, t } = await getT();
-  await finalizeExpiredAuctions();
   const now = new Date();
   const sp = await searchParams;
   const q = str(sp.q);

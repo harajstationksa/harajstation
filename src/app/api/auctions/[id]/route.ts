@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { finalizeExpiredAuctions } from "@/lib/auction";
 
 export async function GET(
   _req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
   const { id } = await ctx.params;
-  await finalizeExpiredAuctions();
 
   const [session, auction, bidCount] = await Promise.all([
     getSession(),

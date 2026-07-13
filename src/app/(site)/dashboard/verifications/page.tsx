@@ -10,8 +10,6 @@ import {
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { finalizeExpiredAuctions } from "@/lib/auction";
-import { expirePendingTransactions } from "@/lib/credibility";
 import { formatSAR, timeAgo, trustLevel } from "@/lib/utils";
 import { Avatar } from "@/components/Avatar";
 import { ConfirmCard, type ConfirmTx } from "@/components/ConfirmCard";
@@ -31,8 +29,6 @@ const STATUS_LABEL: Record<string, [string, string]> = {
 
 export default async function VerificationsPage() {
   const user = await requireUser();
-  await finalizeExpiredAuctions();
-  await expirePendingTransactions();
 
   const txs = await db.transaction.findMany({
     where: { OR: [{ sellerId: user.id }, { buyerId: user.id }] },

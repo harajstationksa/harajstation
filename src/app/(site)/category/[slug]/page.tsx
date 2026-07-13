@@ -5,7 +5,6 @@ import { db } from "@/lib/db";
 import { cardInclude } from "@/lib/types";
 import { getT } from "@/lib/i18n";
 import {
-  finalizeExpiredCampaigns,
   recordImpressions,
   shuffle,
   sponsoredInclude,
@@ -59,7 +58,6 @@ export default async function CategoryPage({
     },
   };
 
-  await finalizeExpiredCampaigns();
 
   // sponsored (campaign-funded) listings in this category: always pinned at
   // the top with the sponsored frame, in a fresh random rotation on every

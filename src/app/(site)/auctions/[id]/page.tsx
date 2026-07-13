@@ -5,7 +5,6 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { getT } from "@/lib/i18n";
 import { recordListingView } from "@/lib/views";
-import { finalizeExpiredAuctions } from "@/lib/auction";
 import { parseImages, timeAgo } from "@/lib/utils";
 import { BidPanel, type AuctionState } from "@/components/BidPanel";
 import { Comments } from "@/components/Comments";
@@ -25,7 +24,6 @@ export default async function AuctionPage({
   const { lang, t } = await getT();
   const { id } = await params;
   const { spc } = await searchParams;
-  await finalizeExpiredAuctions();
 
   const [session, auction] = await Promise.all([
     getSession(),

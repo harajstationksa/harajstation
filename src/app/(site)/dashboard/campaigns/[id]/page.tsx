@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { finalizeExpiredCampaigns } from "@/lib/campaigns";
 import { formatDate, parseImages } from "@/lib/utils";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 import { cancelCampaignAction } from "../actions";
@@ -36,7 +35,6 @@ export default async function CampaignDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const user = await requireUser();
-  await finalizeExpiredCampaigns();
   const { id } = await params;
   const nowMs = new Date().getTime();
 

@@ -3,9 +3,7 @@ import { Search } from "lucide-react";
 import { db } from "@/lib/db";
 import { cardInclude } from "@/lib/types";
 import { getT } from "@/lib/i18n";
-import { finalizeExpiredAuctions } from "@/lib/auction";
-import { expirePendingTransactions } from "@/lib/credibility";
-import { finalizeExpiredCampaigns, getSponsored, recordImpressions } from "@/lib/campaigns";
+import { getSponsored, recordImpressions } from "@/lib/campaigns";
 import { AuctionCard } from "@/components/AuctionCard";
 import { BannerCarousel } from "@/components/BannerCarousel";
 import { CategoryIcon } from "@/components/CategoryIcon";
@@ -17,9 +15,6 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const { lang, t } = await getT();
-  await finalizeExpiredAuctions();
-  await expirePendingTransactions();
-  await finalizeExpiredCampaigns();
 
   const now = new Date();
   const [banners, midBanners, categories, promoted, liveAuctions, featured, latest, stats] =

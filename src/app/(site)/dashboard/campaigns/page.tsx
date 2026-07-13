@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { finalizeExpiredCampaigns } from "@/lib/campaigns";
 import { str, type SP } from "@/lib/listing-query";
 import { cn, parseImages, timeAgo } from "@/lib/utils";
 import { CategoryIcon } from "@/components/CategoryIcon";
@@ -42,7 +41,6 @@ export default async function CampaignsPage({
   searchParams: Promise<SP>;
 }) {
   const user = await requireUser();
-  await finalizeExpiredCampaigns();
   const sp = await searchParams;
   const statusFilter = str(sp.status);
   const catFilter = str(sp.category);
