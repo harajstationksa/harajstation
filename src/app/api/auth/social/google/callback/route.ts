@@ -2,20 +2,20 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 import { SESSION_COOKIE, sessionCookieOptions, signSessionToken } from "@/lib/auth";
-import { fetchProfile, googleConfigured, STATE_COOKIE } from "@/lib/google-oauth";
+import { fetchProfile, googleConfigured, siteUrl, STATE_COOKIE } from "@/lib/google-oauth";
 import { rateLimitGuard } from "@/lib/rate-limit";
 
 const AVATAR_COLORS = ["#db7759", "#0ea5e9", "#8b5cf6", "#10b981", "#ec4899"];
 
-function fail(req: Request, reason: string) {
-  return NextResponse.redirect(new URL(`/login?error=${reason}`, req.url));
+function fail(reason: string) {
+  return NextResponse.redirect(new URL(`/login?error=${reason}`, siteUrl()));
 }
 
 /** Google sends the visitor back here with a one-time code. */
 export async function GET(req: Request) {
   const limited = rateLimitGuard(req, "google-callback", 20, 10 * 60_000);
   if (limited) return limited;
-  if (!googleConfigured()) return fail(req, "google");
+  if (!googleConfigured()) return fail("google");
 
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
@@ -28,13 +28,13 @@ export async function GET(req: Request) {
 
   // the user declined at the consent screen, or the state doesn't match ours
   if (!code || !state || !cookieState || state !== cookieState) {
-    return fail(req, "google");
+    return fail("google");
   }
 
   const profile = await fetchProfile(code);
-  if (!profile) return fail(req, "google");
+  if (!profile) return fail("google");
   // Google says it owns this address — that claim is the whole point of the flow
-  if (!profile.emailVerified) return fail(req, "google_unverified");
+  if (!profile.emailVerified) return fail("google_unverified");
 
   let user = await db.user.findUnique({ where: { email: profile.email } });
 
@@ -59,7 +59,7 @@ export async function GET(req: Request) {
     });
   }
 
-  if (user.isBanned) return fail(req, "banned");
+  if (user.isBanned) return fail("banned");
 
   const token = await signSessionToken({
     sub: user.id,
@@ -67,7 +67,7 @@ export async function GET(req: Request) {
     name: user.name,
   });
 
-  const res = NextResponse.redirect(new URL("/dashboard", req.url));
+  const res = NextResponse.redirect(new URL("/dashboard", siteUrl()));
   res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions);
   res.cookies.delete(STATE_COOKIE);
   return res;

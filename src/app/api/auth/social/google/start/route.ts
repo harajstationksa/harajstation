@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { consentUrl, googleConfigured, newState, STATE_COOKIE } from "@/lib/google-oauth";
+import { consentUrl, googleConfigured, newState, siteUrl, STATE_COOKIE } from "@/lib/google-oauth";
 import { rateLimitGuard } from "@/lib/rate-limit";
 
 /** Send the visitor to Google's consent screen. */
@@ -8,7 +8,7 @@ export async function GET(req: Request) {
   if (limited) return limited;
 
   if (!googleConfigured()) {
-    return NextResponse.redirect(new URL("/login?error=google", req.url));
+    return NextResponse.redirect(new URL("/login?error=google", siteUrl()));
   }
 
   // random state, echoed back by Google and checked in the callback, so a

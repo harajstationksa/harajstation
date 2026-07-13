@@ -13,9 +13,18 @@ export function googleConfigured() {
   return !!process.env.GOOGLE_CLIENT_ID && !!process.env.GOOGLE_CLIENT_SECRET;
 }
 
+/**
+ * Behind the nginx proxy, `req.url` carries the internal origin
+ * (localhost:3000), so redirects must be built from the configured site URL —
+ * which is also the only value we can trust, since a Host header is attacker
+ * controlled.
+ */
+export function siteUrl() {
+  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+}
+
 export function redirectUri() {
-  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  return `${site}/api/auth/social/google/callback`;
+  return `${siteUrl()}/api/auth/social/google/callback`;
 }
 
 export function newState() {
