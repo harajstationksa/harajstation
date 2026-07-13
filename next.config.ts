@@ -26,6 +26,11 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Derived from the server-only credential so there is one switch, not two:
+  // the Google button only renders when sign-in can actually work.
+  env: {
+    NEXT_PUBLIC_GOOGLE_ENABLED: process.env.GOOGLE_CLIENT_ID ? "1" : "",
+  },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },

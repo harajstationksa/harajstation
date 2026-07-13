@@ -36,6 +36,10 @@ export function SocialButtons() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  // no OAuth credentials on the server → the button could only ever fail, so
+  // don't show a dead "Continue with Google" next to a working login form
+  if (!process.env.NEXT_PUBLIC_GOOGLE_ENABLED) return null;
+
   async function signIn() {
     setBusy(true);
     setError("");
