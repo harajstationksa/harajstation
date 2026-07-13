@@ -80,7 +80,20 @@ export async function POST(req: Request) {
 
   const fd = await req.formData().catch(() => null);
   if (!fd) {
-    return NextResponse.json({ error: "طلب غير صالح" }, { status: 400 });
+    // The body didn't parse: almost always a truncated or interrupted upload,
+    // not something the seller typed wrong. Say what they can actually do about
+    // it, and log the size for us — never the reason, which means nothing to
+    // them and describes our internals.
+    console.warn(
+      `listing upload: unreadable body (content-length: ${req.headers.get("content-length") ?? "?"})`
+    );
+    return NextResponse.json(
+      {
+        error:
+          "لم تصلنا الصور كاملة — قد يكون الاتصال انقطع أثناء الرفع. جرّب صوراً أقل أو أعد المحاولة.",
+      },
+      { status: 400 }
+    );
   }
 
   const raw = {

@@ -42,7 +42,15 @@ export async function PATCH(
   }
 
   const fd = await req.formData().catch(() => null);
-  if (!fd) return NextResponse.json({ error: "طلب غير صالح" }, { status: 400 });
+  if (!fd) {
+    return NextResponse.json(
+      {
+        error:
+          "لم تصلنا الصور كاملة — قد يكون الاتصال انقطع أثناء الرفع. جرّب صوراً أقل أو أعد المحاولة.",
+      },
+      { status: 400 }
+    );
+  }
 
   const parsed = schema.safeParse({
     title: fd.get("title"),

@@ -4,26 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { CITIES, CONDITIONS } from "@/lib/constants";
-
-const MAX_IMAGE = 5 * 1024 * 1024;
-
-async function compressImage(file: File): Promise<File | null> {
-  if (file.size <= MAX_IMAGE) return file;
-  try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, 1920 / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(bitmap.width * scale);
-    canvas.height = Math.round(bitmap.height * scale);
-    canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.8));
-    return blob && blob.size <= MAX_IMAGE
-      ? new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" })
-      : null;
-  } catch {
-    return null;
-  }
-}
+import { compressImage } from "@/lib/image-compress";
 
 export function EditListingForm({
   listing,

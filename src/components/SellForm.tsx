@@ -11,32 +11,12 @@ import {
   type ListingGoal,
 } from "@/lib/category-fields";
 import { cn } from "@/lib/utils";
+import { compressImage } from "@/lib/image-compress";
 
 type SubCat = { id: string; nameAr: string };
 type Cat = { id: string; slug: string; nameAr: string; children: SubCat[] };
 type StoreOpt = { id: string; name: string };
 
-const MAX_IMAGE = 5 * 1024 * 1024; // 5MB
-
-/** Compress oversized images client-side (canvas → JPEG) before upload. */
-async function compressImage(file: File): Promise<File | null> {
-  if (file.size <= MAX_IMAGE) return file;
-  try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, 1920 / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(bitmap.width * scale);
-    canvas.height = Math.round(bitmap.height * scale);
-    canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", 0.8)
-    );
-    if (!blob || blob.size > MAX_IMAGE) return null;
-    return new File([blob], file.name.replace(/\.\w+$/, ".jpg"), { type: "image/jpeg" });
-  } catch {
-    return null;
-  }
-}
 
 function SectionCard({
   step,
