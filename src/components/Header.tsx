@@ -24,7 +24,9 @@ export async function Header() {
   return (
     // solid bg — backdrop-filter here would trap the fixed mobile account sheet.
     // white reaches the viewport top; breathing room lives INSIDE via padding.
-    <header className="sticky top-0 z-40 bg-white border-b border-neutral-200/80">
+    // Only sticky from md up: on a phone the header (logo + search + category
+    // rail) is tall enough that pinning it to the top eats the screen.
+    <header className="relative md:sticky md:top-0 z-40 bg-white border-b border-neutral-200/80">
       {/* row 1 — logo alone, above the search bar (bg flush to top) */}
       <div className="container-page flex pt-4 sm:pt-5">
         <Link href="/" className="flex items-center shrink-0">
