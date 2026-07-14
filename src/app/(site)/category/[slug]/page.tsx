@@ -9,7 +9,7 @@ import {
   shuffle,
   sponsoredInclude,
 } from "@/lib/campaigns";
-import { listingOrderBy, str, type SP } from "@/lib/listing-query";
+import { buildListingWhere, listingOrderBy, str, type SP } from "@/lib/listing-query";
 import { cache, Suspense } from "react";
 import { AuctionCard } from "@/components/AuctionCard";
 import { CategoryIcon } from "@/components/CategoryIcon";
@@ -29,18 +29,11 @@ const PAGE_SIZE = 24;
  * the two streamed sections run the queries once between them.
  */
 const loadAds = cache(async (slug: string, sp: SP) => {
-  const min = Number(str(sp.min)) || undefined;
-  const max = Number(str(sp.max)) || undefined;
   const page = Math.max(1, Number(str(sp.page)) || 1);
 
-  const where = {
-    status: "ACTIVE",
-    ...(str(sp.city) ? { city: str(sp.city) } : {}),
-    ...(str(sp.condition) ? { condition: str(sp.condition) } : {}),
-    ...(str(sp.type) ? { type: str(sp.type) } : {}),
-    ...(min || max ? { price: { gte: min, lte: max } } : {}),
-    category: { OR: [{ slug }, { parent: { slug } }] },
-  };
+  // the shared builder, not a local copy — a second copy of the filter logic is
+  // how this page kept its own (broken) price clause after the real one was fixed
+  const where = buildListingWhere({ ...sp, category: slug });
 
   // sponsored (campaign-funded) listings in this category: always pinned at the
   // top with the sponsored frame, in a fresh random rotation on every refresh
@@ -150,7 +143,11 @@ export default async function CategoryPage({
       )}
 
       <Suspense>
-        <FiltersBar basePath={`/category/${category.slug}`} />
+        {/* a subcategory («دوام كامل») inherits its parent's rules («وظائف») */}
+        <FiltersBar
+          basePath={`/category/${category.slug}`}
+          mainSlug={category.parent?.slug ?? category.slug}
+        />
       </Suspense>
 
       <Suspense fallback={<CardGridSkeleton count={12} />}>

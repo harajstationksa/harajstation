@@ -173,6 +173,23 @@ export const GOAL_TYPE: Record<ListingGoal, ListingType> = {
 /** Non-auction types share one quota and one price/edit path. */
 export const NOT_AUCTION = { not: "AUCTION" } as const;
 
+export const ALL_TYPES: ListingType[] = ["STANDARD", "AUCTION", "ANNOUNCE"];
+
+/**
+ * Which listing types can even exist inside a category — the browse filter's
+ * answer to the same question the sell form asks, from the same rules, so the
+ * two can never disagree. A job is never sold or auctioned, so «وظائف» has no
+ * business offering a «مزاد» tab that could only ever come back empty.
+ *
+ * Pass the MAIN category slug (a subcategory resolves to its parent), or null
+ * on pages that span every category.
+ */
+export function typesForMain(mainSlug: string | null): ListingType[] {
+  if (!mainSlug) return ALL_TYPES;
+  const goals = Object.keys(GOAL_RULES) as ListingGoal[];
+  return goals.filter((g) => goalAllowsCategory(g, mainSlug)).map((g) => GOAL_TYPE[g]);
+}
+
 export function goalAllowsCategory(goal: ListingGoal, mainSlug: string): boolean {
   const rule = GOAL_RULES[goal];
   if (rule.include) return rule.include.includes(mainSlug);

@@ -4,10 +4,22 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { SlidersHorizontal, X } from "lucide-react";
 import { CITIES } from "@/lib/constants";
+import { configForMain, typesForMain, type ListingType } from "@/lib/category-fields";
 import { cn } from "@/lib/utils";
 import { useLang } from "./LangProvider";
 
-export function FiltersBar({ basePath = "/listings" }: { basePath?: string }) {
+/**
+ * `mainSlug` is the MAIN category being browsed, or null on pages that span all
+ * of them. It is what lets the bar offer only the filters this category can
+ * actually answer — «وظائف» has no auctions and no «مستعمل».
+ */
+export function FiltersBar({
+  basePath = "/listings",
+  mainSlug = null,
+}: {
+  basePath?: string;
+  mainSlug?: string | null;
+}) {
   const router = useRouter();
   const sp = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -21,12 +33,21 @@ export function FiltersBar({ basePath = "/listings" }: { basePath?: string }) {
   const [max, setMax] = useState(sp.get("max") ?? "");
   const [sort, setSort] = useState(sp.get("sort") ?? "newest");
 
+  const label: Record<ListingType, string> = {
+    STANDARD: f.standard,
+    AUCTION: f.auction,
+    ANNOUNCE: f.announce,
+  };
+  const allowed = typesForMain(mainSlug);
+  // one possible type is not a choice — «وظائف» is announcements, full stop
+  const showTypes = allowed.length > 1;
   const typeOptions = [
     { value: "", label: f.bothTypes },
-    { value: "STANDARD", label: f.standard },
-    { value: "AUCTION", label: f.auction },
-    { value: "ANNOUNCE", label: f.announce },
+    ...allowed.map((v) => ({ value: v as string, label: label[v] })),
   ];
+  // a stale or hand-edited ?type= that this category can't hold (an auction under
+  // «وظائف») would otherwise return nothing, with no visible reason why
+  const activeType = allowed.includes(type as ListingType) ? type : "";
 
   /** Rebuild the URL, keeping every param this bar doesn't own (q, category,
    *  featured…). Building from scratch used to drop them — arrive on
@@ -44,15 +65,18 @@ export function FiltersBar({ basePath = "/listings" }: { basePath?: string }) {
     setOpen(false);
   }
 
-  // a job or a service has no "condition" — announcements only carry the
-  // column's default, so offering the filter would surface them under «مستعمل»
-  const showCondition = type !== "ANNOUNCE";
+  // "condition" is meaningless for a job, a service, or a property — the sell
+  // form never asks for it there, so every row just carries the column default
+  // and the filter would quietly sort job posts under «مستعمل». Ask the same
+  // config the sell form asks, and drop it for announcements anywhere.
+  const showCondition =
+    activeType !== "ANNOUNCE" && (mainSlug ? configForMain(mainSlug).showCondition : true);
 
   function apply() {
     push({
       city,
       condition: showCondition ? condition : "",
-      type,
+      type: activeType,
       min,
       max,
       sort: sort === "newest" ? "" : sort,
@@ -71,7 +95,7 @@ export function FiltersBar({ basePath = "/listings" }: { basePath?: string }) {
     push({ city: "", condition: "", type: "", min: "", max: "", sort: "" });
   }
 
-  const active = [city, showCondition ? condition : "", type, min, max].filter(Boolean).length;
+  const active = [city, showCondition ? condition : "", activeType, min, max].filter(Boolean).length;
 
   return (
     <div className="card p-3">
@@ -87,24 +111,26 @@ export function FiltersBar({ basePath = "/listings" }: { basePath?: string }) {
       </button>
 
       <div className={`${open ? "block" : "hidden"} sm:block space-y-3 max-sm:mt-3`}>
-        {/* type — segmented control with a clear selected state */}
-        <div className="inline-flex rounded-lg bg-neutral-100 p-1 gap-1">
-          {typeOptions.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setType(opt.value)}
-              className={cn(
-                "px-4 py-1.5 rounded-md text-sm font-medium transition-all cursor-pointer",
-                type === opt.value
-                  ? "bg-white text-neutral-900 shadow-sm"
-                  : "text-neutral-500 hover:text-neutral-700"
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        {/* type — segmented control, only where there is a choice to make */}
+        {showTypes && (
+          <div className="inline-flex rounded-lg bg-neutral-100 p-1 gap-1">
+            {typeOptions.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setType(opt.value)}
+                className={cn(
+                  "px-4 py-1.5 rounded-md text-sm font-medium transition-all cursor-pointer",
+                  activeType === opt.value
+                    ? "bg-white text-neutral-900 shadow-sm"
+                    : "text-neutral-500 hover:text-neutral-700"
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 items-end">
           <select className="input" value={city} onChange={(e) => setCity(e.target.value)} aria-label={f.allCities}>
