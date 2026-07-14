@@ -1,7 +1,6 @@
 import type { MetadataRoute } from "next";
 import { db } from "@/lib/db";
-
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+import { SITE } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +16,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }),
     db.auction.findMany({
       where: { listing: { status: "ACTIVE" } },
-      select: { id: true, endsAt: true },
+      select: { id: true, endsAt: true, listing: { select: { createdAt: true } } },
       orderBy: { endsAt: "desc" },
       take: 2000,
     }),
@@ -25,11 +24,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     db.store.findMany({ select: { slug: true, createdAt: true }, take: 2000 }),
   ]);
 
+  // the pages that describe the business — thin on their own, but they are what
+  // a search for "هل حراج ستيشن موثوق" is looking for
   const statics: MetadataRoute.Sitemap = [
     { url: SITE, changeFrequency: "hourly", priority: 1 },
     { url: `${SITE}/listings`, changeFrequency: "hourly", priority: 0.9 },
     { url: `${SITE}/auctions`, changeFrequency: "hourly", priority: 0.9 },
     { url: `${SITE}/categories`, changeFrequency: "daily", priority: 0.7 },
+    { url: `${SITE}/trust`, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${SITE}/pro`, changeFrequency: "monthly", priority: 0.4 },
+    { url: `${SITE}/contact`, changeFrequency: "monthly", priority: 0.3 },
+    { url: `${SITE}/terms`, changeFrequency: "yearly", priority: 0.2 },
+    { url: `${SITE}/privacy`, changeFrequency: "yearly", priority: 0.2 },
   ];
 
   return [
@@ -47,8 +53,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
     ...auctions.map((a) => ({
       url: `${SITE}/auctions/${a.id}`,
+      lastModified: a.listing.createdAt,
       changeFrequency: "hourly" as const,
-      priority: 0.6,
+      priority: 0.7,
     })),
     ...stores.map((s) => ({
       url: `${SITE}/store/${encodeURIComponent(s.slug)}`,

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Eye, FileText, Lock, MapPin, ScrollText } from "lucide-react";
@@ -5,7 +6,9 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { getT } from "@/lib/i18n";
 import { recordListingView } from "@/lib/views";
-import { parseImages, timeAgo } from "@/lib/utils";
+import { auctionLd, breadcrumbLd, pageMeta } from "@/lib/seo";
+import { JsonLd } from "@/components/JsonLd";
+import { formatSAR, parseImages, timeAgo } from "@/lib/utils";
 import { BidPanel, type AuctionState } from "@/components/BidPanel";
 import { Comments } from "@/components/Comments";
 import { Gallery } from "@/components/Gallery";
@@ -13,6 +16,33 @@ import { SellerCard } from "@/components/SellerCard";
 import { SharePanel } from "@/components/SharePanel";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const auction = await db.auction.findUnique({
+    where: { id },
+    include: {
+      listing: { select: { title: true, description: true, images: true, city: true } },
+      bids: { orderBy: { amount: "desc" }, take: 1, select: { amount: true } },
+    },
+  });
+  if (!auction) return {};
+
+  const current = auction.bids[0]?.amount ?? auction.startPrice;
+  const live = auction.status === "LIVE";
+  return pageMeta({
+    title: `مزاد: ${auction.listing.title}`,
+    description:
+      `${live ? "المزاد مفتوح الآن" : "انتهى المزاد"} — ${formatSAR(current)} · ` +
+      `${auction.listing.city}. ${auction.listing.description.slice(0, 120)}`,
+    path: `/auctions/${id}`,
+    images: parseImages(auction.listing.images).slice(0, 1),
+  });
+}
 
 export default async function AuctionPage({
   params,
@@ -95,6 +125,26 @@ export default async function AuctionPage({
 
   return (
     <div className="container-page py-6 pb-12">
+      <JsonLd
+        data={[
+          auctionLd({
+            title: listing.title,
+            description: listing.description,
+            images: parseImages(listing.images),
+            currentPrice: top?.amount ?? auction.startPrice,
+            endsAt: auction.endsAt,
+            status: auction.status,
+            condition: listing.condition,
+            city: listing.city,
+            path: `/auctions/${auction.id}`,
+          }),
+          breadcrumbLd([
+            { name: "الرئيسية", path: "/" },
+            { name: "المزادات", path: "/auctions" },
+            { name: listing.title, path: `/auctions/${auction.id}` },
+          ]),
+        ]}
+      />
       {/* breadcrumb */}
       <nav className="flex items-center gap-1 text-sm text-neutral-500 mb-4 flex-wrap">
         <Link href="/" className="hover:text-primary-600">{t.categoryPage.home}</Link>

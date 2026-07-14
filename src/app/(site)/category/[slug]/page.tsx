@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { db } from "@/lib/db";
+import { BRAND, breadcrumbLd, isFiltered, itemListLd, pageMeta } from "@/lib/seo";
+import { JsonLd } from "@/components/JsonLd";
 import { cardInclude } from "@/lib/types";
 import { getT } from "@/lib/i18n";
 import {
@@ -64,6 +67,40 @@ const loadAds = cache(async (slug: string, sp: SP) => {
   return { pinned, rest, total, page };
 });
 
+/** The category as its own landing page — this is what people actually search. */
+const loadCategory = cache(async (slug: string) =>
+  db.category.findUnique({
+    where: { slug: decodeURIComponent(slug) },
+    include: { parent: true, children: { orderBy: { sortOrder: "asc" } } },
+  })
+);
+
+export async function generateMetadata({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<SP>;
+}): Promise<Metadata> {
+  const [{ slug }, sp] = await Promise.all([params, searchParams]);
+  const category = await loadCategory(slug);
+  if (!category) return {};
+
+  const name = category.nameAr;
+  const parent = category.parent?.nameAr;
+  const path = `/category/${category.slug}`;
+
+  return pageMeta({
+    title: parent ? `${name} — ${parent}` : `${name} في السعودية`,
+    description:
+      `تصفح إعلانات ${name}${parent ? ` ضمن ${parent}` : ""} في ${BRAND}: ` +
+      `بيع مباشر ومزادات من بائعين موثوقين في جميع مدن المملكة، بأسعار محدثة يومياً.`,
+    path,
+    // a filtered slice must not compete with the category page it came from
+    noindex: isFiltered(sp),
+  });
+}
+
 export default async function CategoryPage({
   params,
   searchParams,
@@ -75,17 +112,22 @@ export default async function CategoryPage({
   const { slug } = await params;
   const sp = await searchParams;
 
-  const category = await db.category.findUnique({
-    where: { slug: decodeURIComponent(slug) },
-    include: {
-      parent: true,
-      children: { orderBy: { sortOrder: "asc" } },
-    },
-  });
+  const category = await loadCategory(slug);
   if (!category) notFound();
+
+  const crumbs = [
+    { name: "الرئيسية", path: "/" },
+    { name: "الفئات", path: "/categories" },
+    ...(category.parent
+      ? [{ name: category.parent.nameAr, path: `/category/${category.parent.slug}` }]
+      : []),
+    { name: category.nameAr, path: `/category/${category.slug}` },
+  ];
 
   return (
     <div className="container-page py-6 pb-12 space-y-5">
+      {/* the trail Google prints under the result, from the crumbs we already draw */}
+      <JsonLd data={breadcrumbLd(crumbs)} />
       <nav className="flex items-center gap-1 text-sm text-neutral-500">
         <Link href="/" className="hover:text-primary-600">{t.categoryPage.home}</Link>
         <ChevronLeft className="size-3.5 ltr:rotate-180" />
@@ -197,6 +239,15 @@ async function Ads({ slug, sp }: { slug: string; sp: SP }) {
 
   return (
     <>
+      {/* the results as a list Google can read, in the order shown */}
+      <JsonLd
+        data={itemListLd(
+          [...pinned, ...rest].map((l) => ({
+            name: l.title,
+            path: l.auction ? `/auctions/${l.auction.id}` : `/listings/${l.id}`,
+          }))
+        )}
+      />
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {pinned.map((listing) => (
           <SponsoredCard

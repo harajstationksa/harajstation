@@ -1,9 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Flame, Gavel, MapPin, Plus, Search, SlidersHorizontal, X, Zap } from "lucide-react";
 import { db } from "@/lib/db";
 import { cardInclude } from "@/lib/types";
 import { getT } from "@/lib/i18n";
 import { getSponsored, recordImpressions } from "@/lib/campaigns";
+import { isFiltered, pageMeta } from "@/lib/seo";
 import { str, type SP } from "@/lib/listing-query";
 import { normalizeArabic } from "@/lib/arabic";
 import { expandQuery } from "@/lib/search-smart";
@@ -19,7 +21,21 @@ import { SponsoredCard } from "@/components/SponsoredCard";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "المزادات المباشرة" };
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<SP>;
+}): Promise<Metadata> {
+  const sp = await searchParams;
+  return pageMeta({
+    title: "المزادات المباشرة",
+    description:
+      "زايد الآن على مزادات مباشرة في السعودية — سيارات، عقارات، إلكترونيات ومقتنيات. " +
+      "أسعار تبدأ منخفضة، ومزايدة شفافة حتى لحظة الإغلاق.",
+    path: "/auctions",
+    noindex: isFiltered(sp),
+  });
+}
 
 export default async function AuctionsPage({
   searchParams,

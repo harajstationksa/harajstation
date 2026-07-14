@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { cache, Suspense } from "react";
 import { LayoutGrid } from "lucide-react";
@@ -13,6 +14,7 @@ import {
 } from "@/lib/listing-query";
 import { matchCategorySlugs } from "@/lib/search-smart";
 import { getSponsored, recordImpressions } from "@/lib/campaigns";
+import { canonicalFor, isFiltered, pageMeta } from "@/lib/seo";
 import { AuctionCard } from "@/components/AuctionCard";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { EmptyState } from "@/components/EmptyState";
@@ -24,7 +26,23 @@ import { CardGridSkeleton } from "@/components/Skeletons";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "تصفح الإعلانات" };
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<SP>;
+}): Promise<Metadata> {
+  const sp = await searchParams;
+  const q = str(sp.q);
+  return pageMeta({
+    title: q ? `نتائج البحث عن «${q}»` : "تصفح جميع الإعلانات",
+    description:
+      "آلاف الإعلانات والمزادات في السعودية — سيارات، عقارات، إلكترونيات، أثاث وأكثر. " +
+      "ابحث بالمدينة والسعر والحالة، وتواصل مع البائع مباشرة.",
+    path: canonicalFor("/listings", sp),
+    // a search or a filtered slice is not a page of its own — it points home
+    noindex: isFiltered(sp),
+  });
+}
 
 const PAGE_SIZE = 24;
 

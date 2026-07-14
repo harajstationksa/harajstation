@@ -1,7 +1,9 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BadgeCheck, MapPin, Star, Store } from "lucide-react";
 import { db } from "@/lib/db";
+import { BRAND, pageMeta } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/auth";
 import { cardInclude } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
@@ -14,6 +16,35 @@ import { ListingCard } from "@/components/ListingCard";
 import { ReportButton } from "@/components/ReportButton";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const store = await db.store.findUnique({
+    where: { slug },
+    select: {
+      name: true,
+      description: true,
+      logoUrl: true,
+      bannerUrl: true,
+      _count: { select: { listings: true } },
+    },
+  });
+  if (!store) return {};
+
+  return pageMeta({
+    title: `${store.name} — متجر`,
+    description:
+      store.description?.slice(0, 160) ||
+      `تصفح ${store._count.listings} إعلاناً من متجر ${store.name} على ${BRAND} — بيع ومزادات من بائع موثوق.`,
+    path: `/store/${slug}`,
+    // the banner is the wide image; the logo is a square and crops badly in a card
+    images: [store.bannerUrl ?? store.logoUrl].filter((v): v is string => !!v),
+  });
+}
 
 export default async function PublicStorePage({
   params,

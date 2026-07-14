@@ -7,9 +7,11 @@ import { cardInclude } from "@/lib/types";
 import { getT } from "@/lib/i18n";
 import { configForMain } from "@/lib/category-fields";
 import { recordListingView } from "@/lib/views";
+import { breadcrumbLd, pageMeta, productLd } from "@/lib/seo";
 import { formatSAR, parseImages, timeAgo } from "@/lib/utils";
 import { AuctionCard } from "@/components/AuctionCard";
 import { ChatButton } from "@/components/ChatButton";
+import { JsonLd } from "@/components/JsonLd";
 import { Comments } from "@/components/Comments";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { Gallery } from "@/components/Gallery";
@@ -39,22 +41,12 @@ export async function generateMetadata({
   const desc =
     `${listing.price != null ? `${formatSAR(listing.price)} · ` : ""}${listing.city} — ` +
     listing.description.slice(0, 160);
-  return {
+  return pageMeta({
     title: listing.title,
     description: desc,
-    openGraph: {
-      title: listing.title,
-      description: desc,
-      type: "website",
-      images: images.length ? [{ url: images[0] }] : undefined,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: listing.title,
-      description: desc,
-      images: images.length ? [images[0]] : undefined,
-    },
-  };
+    path: `/listings/${id}`,
+    images: images.slice(0, 1),
+  });
 }
 
 export default async function ListingPage({
@@ -112,35 +104,48 @@ export default async function ListingPage({
 
   const cat = listing.category;
 
-  // Product schema so Google can show price/availability in search results
-  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: listing.title,
-    description: listing.description.slice(0, 500),
-    image: parseImages(listing.images).map((u) =>
-      u.startsWith("http") ? u : `${site}${u}`
-    ),
-    ...(listing.price != null
-      ? {
-          offers: {
-            "@type": "Offer",
-            price: listing.price,
-            priceCurrency: "SAR",
-            availability: "https://schema.org/InStock",
-            url: `${site}/listings/${listing.id}`,
-          },
-        }
-      : {}),
-  };
+  // Product schema so Google can show price/condition/availability in results.
+  // Availability follows the real status — claiming InStock for something
+  // already sold is the kind of mismatch that gets rich results revoked.
+  // stored as a JSON string; the brand (when the category has one) is worth
+  // handing to Google as a real Brand rather than burying it in the description
+  const attrs: Record<string, string> = (() => {
+    try {
+      const p = JSON.parse(listing.attributes);
+      return p && typeof p === "object" ? p : {};
+    } catch {
+      return {};
+    }
+  })();
+  const jsonLd = [
+    productLd({
+      id: listing.id,
+      ref: listing.ref,
+      title: listing.title,
+      description: listing.description,
+      images: parseImages(listing.images),
+      price: listing.price,
+      condition: listing.condition,
+      status: listing.status,
+      city: listing.city,
+      sellerName: listing.seller.name,
+      brand: attrs.brand ?? null,
+      path: `/listings/${listing.id}`,
+    }),
+    breadcrumbLd([
+      { name: "الرئيسية", path: "/" },
+      { name: "الفئات", path: "/categories" },
+      ...(cat.parent
+        ? [{ name: cat.parent.nameAr, path: `/category/${cat.parent.slug}` }]
+        : []),
+      { name: cat.nameAr, path: `/category/${cat.slug}` },
+      { name: listing.title, path: `/listings/${listing.id}` },
+    ]),
+  ];
 
   return (
     <div className="container-page py-6 pb-12">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <JsonLd data={jsonLd} />
       {/* breadcrumb */}
       <nav className="flex items-center gap-1 text-sm text-neutral-500 mb-4 flex-wrap">
         <Link href="/" className="hover:text-primary-600">{t.categoryPage.home}</Link>

@@ -1,12 +1,20 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { db } from "@/lib/db";
 import { getT } from "@/lib/i18n";
+import { pageMeta } from "@/lib/seo";
 import { CategoryIcon } from "@/components/CategoryIcon";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "جميع الفئات" };
+export const metadata: Metadata = pageMeta({
+  title: "جميع الفئات",
+  description:
+    "تصفح كل أقسام حراج ستيشن: سيارات ومركبات، عقارات، إلكترونيات، أثاث، أزياء، " +
+    "حيوانات، خدمات، وظائف وأكثر — بيع ومزادات في جميع مدن المملكة.",
+  path: "/categories",
+});
 
 export default async function CategoriesPage() {
   const { lang, t } = await getT();

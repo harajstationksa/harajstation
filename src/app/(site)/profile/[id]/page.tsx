@@ -1,7 +1,9 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BadgeCheck, MapPin, Star, Store as StoreIcon } from "lucide-react";
 import { db } from "@/lib/db";
+import { BRAND, pageMeta } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/auth";
 import { cardInclude } from "@/lib/types";
 import { getT } from "@/lib/i18n";
@@ -13,6 +15,27 @@ import { FollowButton } from "@/components/FollowButton";
 import { ListingCard } from "@/components/ListingCard";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const user = await db.user.findUnique({
+    where: { id },
+    select: { name: true, city: true, _count: { select: { listings: true } } },
+  });
+  if (!user) return {};
+
+  return pageMeta({
+    title: `${user.name} — إعلانات البائع`,
+    description:
+      `تصفح ${user._count.listings} إعلاناً من ${user.name}` +
+      `${user.city ? ` في ${user.city}` : ""} على ${BRAND}، مع تقييمات المشترين السابقين.`,
+    path: `/profile/${id}`,
+  });
+}
 
 export default async function ProfilePage({
   params,

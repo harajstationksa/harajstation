@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { Search } from "lucide-react";
@@ -20,6 +21,11 @@ import {
 } from "@/components/Skeletons";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  // the homepage is the one page whose canonical is the bare domain
+  alternates: { canonical: "/" },
+};
 
 /**
  * The page itself touches no data, so the shell — headings, layout, the whole
