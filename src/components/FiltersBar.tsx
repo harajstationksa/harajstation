@@ -25,20 +25,38 @@ export function FiltersBar({ basePath = "/listings" }: { basePath?: string }) {
     { value: "", label: f.bothTypes },
     { value: "STANDARD", label: f.standard },
     { value: "AUCTION", label: f.auction },
+    { value: "ANNOUNCE", label: f.announce },
   ];
 
-  function apply() {
-    const params = new URLSearchParams();
-    const q = sp.get("q");
-    if (q) params.set("q", q);
-    if (city) params.set("city", city);
-    if (condition) params.set("condition", condition);
-    if (type) params.set("type", type);
-    if (min) params.set("min", min);
-    if (max) params.set("max", max);
-    if (sort !== "newest") params.set("sort", sort);
+  /** Rebuild the URL, keeping every param this bar doesn't own (q, category,
+   *  featured…). Building from scratch used to drop them — arrive on
+   *  /listings?category=cars, tweak the city, and the category vanished. */
+  function push(next: Record<string, string>) {
+    const params = new URLSearchParams(sp.toString());
+    for (const [key, value] of Object.entries(next)) {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    }
+    // a changed filter invalidates the page number — page 5 of the old result
+    // set is usually empty in the new one
+    params.delete("page");
     router.push(`${basePath}${params.size ? `?${params}` : ""}`);
     setOpen(false);
+  }
+
+  // a job or a service has no "condition" — announcements only carry the
+  // column's default, so offering the filter would surface them under «مستعمل»
+  const showCondition = type !== "ANNOUNCE";
+
+  function apply() {
+    push({
+      city,
+      condition: showCondition ? condition : "",
+      type,
+      min,
+      max,
+      sort: sort === "newest" ? "" : sort,
+    });
   }
 
   function reset() {
@@ -48,11 +66,12 @@ export function FiltersBar({ basePath = "/listings" }: { basePath?: string }) {
     setMin("");
     setMax("");
     setSort("newest");
-    router.push(basePath);
-    setOpen(false);
+    // clears the filters, not the search — the "active" badge never counted q,
+    // so wiping it here would clear something the button never claimed to
+    push({ city: "", condition: "", type: "", min: "", max: "", sort: "" });
   }
 
-  const active = [city, condition, type, min, max].filter(Boolean).length;
+  const active = [city, showCondition ? condition : "", type, min, max].filter(Boolean).length;
 
   return (
     <div className="card p-3">
@@ -95,12 +114,14 @@ export function FiltersBar({ basePath = "/listings" }: { basePath?: string }) {
             ))}
           </select>
 
-          <select className="input" value={condition} onChange={(e) => setCondition(e.target.value)} aria-label={f.allConditions}>
-            <option value="">{f.allConditions}</option>
-            {Object.entries(t.card.conditions).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
+          {showCondition && (
+            <select className="input" value={condition} onChange={(e) => setCondition(e.target.value)} aria-label={f.allConditions}>
+              <option value="">{f.allConditions}</option>
+              {Object.entries(t.card.conditions).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          )}
 
           <input
             className="input"

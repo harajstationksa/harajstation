@@ -166,7 +166,7 @@ model SavedSearch {
   query     String    @default("") // raw search words ("" = any)
   category  String    @default("") // category slug ("" = all)
   city      String    @default("") // "" = all cities
-  // "" | STANDARD | AUCTION
+  // "" | STANDARD | AUCTION | ANNOUNCE
   type      String    @default("")
   createdAt DateTime  @default(now())
   lastHitAt DateTime? // last time a matching listing triggered an alert
@@ -260,11 +260,12 @@ model Listing {
   id           String    @id @default(cuid())
   // human-readable reference, e.g. SM-100234 — searchable by admins
   ref          String?   @unique
-  // STANDARD | AUCTION
+  // STANDARD | AUCTION | ANNOUNCE  (plain string, not an enum — no migration
+  // needed to add a value; "not an auction" is `type != AUCTION`)
   type         String    @default("STANDARD")
   title        String
   description  String
-  price        Int? // null for auctions (price lives on Auction)
+  price        Int? // null for auctions (lives on Auction) and «على السوم» announcements
   // NEW | USED | LIKE_NEW
   condition    String    @default("USED")
   city         String

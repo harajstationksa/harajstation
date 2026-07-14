@@ -8,6 +8,7 @@ import {
   configForMain,
   goalAllowsCategory,
   goalRequiresPrice,
+  GOAL_TYPE,
   type ListingGoal,
 } from "@/lib/category-fields";
 import { cn } from "@/lib/utils";
@@ -54,7 +55,7 @@ export function SellForm({
   const router = useRouter();
   const [goal, setGoal] = useState<ListingGoal | "">("");
   const [categoryId, setCategoryId] = useState("");
-  const type: "STANDARD" | "AUCTION" = goal === "AUCTION" ? "AUCTION" : "STANDARD";
+  const type = GOAL_TYPE[goal || "SELL"];
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -131,7 +132,8 @@ export function SellForm({
     router.push(data.auctionId ? `/auctions/${data.auctionId}` : `/listings/${data.id}`);
   }
 
-  const typeBlocked = type === "STANDARD" ? !canListing : !canAuction;
+  const isAuction = type === "AUCTION";
+  const typeBlocked = isAuction ? !canAuction : !canListing;
 
   // sequential step numbering (fields section is conditional)
   const priceStep = cfg.fields.length > 0 ? 4 : 3;
@@ -173,7 +175,7 @@ export function SellForm({
 
       {goal && typeBlocked && (
         <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          وصلت للحد الأقصى من {type === "STANDARD" ? "الإعلانات" : "المزادات"} النشطة.
+          وصلت للحد الأقصى من {isAuction ? "المزادات" : "الإعلانات"} النشطة.
           رقِّ حسابك إلى برو لرفع الحد.
         </p>
       )}
@@ -355,8 +357,8 @@ export function SellForm({
 
       {/* 4 — pricing / auction */}
       {categoryId && (
-        <SectionCard step={priceStep} title={type === "AUCTION" ? "إعدادات المزاد" : "السعر"}>
-          {type === "STANDARD" ? (
+        <SectionCard step={priceStep} title={isAuction ? "إعدادات المزاد" : "السعر"}>
+          {!isAuction ? (
             <>
               <div>
                 <label className="block text-sm font-medium mb-1.5">

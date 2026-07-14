@@ -103,9 +103,10 @@ const ar = {
   },
   filters: {
     allCities: "كل المدن",
-    bothTypes: "بيع ومزاد",
+    bothTypes: "الكل",
     standard: "بيع عادي",
     auction: "مزاد",
+    announce: "إعلان",
     allConditions: "كل الحالات",
     priceFrom: "السعر من",
     priceTo: "السعر إلى",
@@ -384,9 +385,10 @@ const en: typeof ar = {
   },
   filters: {
     allCities: "All cities",
-    bothTypes: "Sale & auction",
+    bothTypes: "All",
     standard: "Standard sale",
     auction: "Auction",
+    announce: "Announcement",
     allConditions: "All conditions",
     priceFrom: "Price from",
     priceTo: "Price to",

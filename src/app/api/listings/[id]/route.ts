@@ -72,14 +72,23 @@ export async function PATCH(
     );
   }
 
-  // price only for standard listings (auction price lives on the auction)
+  // price only for non-auction listings (auction price lives on the auction),
+  // and an announcement may legitimately have none → "على السوم"
   let price = listing.price;
-  if (listing.type === "STANDARD") {
-    const p = Number(fd.get("price"));
-    if (!Number.isInteger(p) || p < 1) {
-      return NextResponse.json({ error: "السعر غير صالح" }, { status: 400 });
+  if (listing.type !== "AUCTION") {
+    const raw = String(fd.get("price") ?? "").trim();
+    if (!raw && listing.type === "ANNOUNCE") {
+      price = null;
+    } else {
+      const p = Number(raw);
+      if (!Number.isInteger(p) || p < 1) {
+        return NextResponse.json(
+          { error: "السعر غير صالح", fields: { price: "أدخل رقماً صحيحاً أكبر من صفر" } },
+          { status: 400 }
+        );
+      }
+      price = p;
     }
-    price = p;
   }
 
   // images: keep a subset of existing + append newly uploaded

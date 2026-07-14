@@ -8,6 +8,8 @@ import {
   configForMain,
   goalAllowsCategory,
   goalRequiresPrice,
+  GOAL_TYPE,
+  NOT_AUCTION,
   type ListingGoal,
 } from "@/lib/category-fields";
 import { CITIES } from "@/lib/constants";
@@ -34,7 +36,7 @@ const FALLBACK: Record<string, string> = {
 };
 
 const base = z.object({
-  type: z.enum(["STANDARD", "AUCTION"]),
+  type: z.enum(["STANDARD", "AUCTION", "ANNOUNCE"]),
   goal: z.enum(["SELL", "AUCTION", "ANNOUNCE"]).default("SELL"),
   categoryId: z.string().min(1),
   title: z.string().min(4).max(100),
@@ -154,7 +156,7 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
-  if ((goal === "AUCTION") !== (data.type === "AUCTION")) {
+  if (GOAL_TYPE[goal] !== data.type) {
     return NextResponse.json({ error: "نوع الإعلان لا يطابق الهدف" }, { status: 400 });
   }
 
@@ -184,18 +186,25 @@ export async function POST(req: Request) {
     );
   }
 
-  // account limits (from admin-editable plans)
+  // account limits (from admin-editable plans). Sale posts and announcements
+  // share the one "listings" quota — counting them separately would hand every
+  // account a second, uncapped allowance to spam announcements through.
+  const isAuction = data.type === "AUCTION";
   const limits = await getPlanLimits(user.isPro);
   const activeCount = await db.listing.count({
-    where: { sellerId: user.id, status: "ACTIVE", type: data.type },
+    where: {
+      sellerId: user.id,
+      status: "ACTIVE",
+      type: isAuction ? "AUCTION" : NOT_AUCTION,
+    },
   });
-  if (data.type === "STANDARD" && activeCount >= limits.maxListings) {
+  if (!isAuction && activeCount >= limits.maxListings) {
     return NextResponse.json(
       { error: `الحد الأقصى ${limits.maxListings} إعلانات نشطة — رقِّ حسابك إلى برو` },
       { status: 403 }
     );
   }
-  if (data.type === "AUCTION" && activeCount >= limits.maxAuctions) {
+  if (isAuction && activeCount >= limits.maxAuctions) {
     return NextResponse.json(
       { error: `الحد الأقصى ${limits.maxAuctions} مزادات نشطة` },
       { status: 403 }

@@ -33,7 +33,8 @@ export default async function SellPage() {
       include: { children: { orderBy: { sortOrder: "asc" } } },
     }),
     db.listing.count({
-      where: { sellerId: user.id, status: "ACTIVE", type: "STANDARD" },
+      // announcements draw from the same quota as sale posts
+      where: { sellerId: user.id, status: "ACTIVE", type: { not: "AUCTION" } },
     }),
     db.listing.count({
       where: { sellerId: user.id, status: "ACTIVE", type: "AUCTION" },

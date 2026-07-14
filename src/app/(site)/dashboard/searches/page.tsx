@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BellRing, Gavel, MapPin, Search, Tag } from "lucide-react";
+import { BellRing, Gavel, Megaphone, MapPin, Search, Tag } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { timeAgo } from "@/lib/utils";
@@ -7,6 +7,13 @@ import { DeleteSavedSearch } from "@/components/DeleteSavedSearch";
 import { EmptyState } from "@/components/EmptyState";
 
 export const dynamic = "force-dynamic";
+
+/** How a saved search's type filter reads back to the user. */
+const TYPE_CHIP: Record<string, { icon: typeof Search; label: string }> = {
+  STANDARD: { icon: Tag, label: "بيع عادي فقط" },
+  AUCTION: { icon: Gavel, label: "مزادات فقط" },
+  ANNOUNCE: { icon: Megaphone, label: "إعلانات فقط" },
+};
 
 export const metadata = { title: "تنبيهات البحث" };
 
@@ -52,13 +59,16 @@ export default async function SavedSearchesPage() {
                 s.query && { icon: Search, label: `«${s.query}»` },
                 s.category && { icon: Tag, label: catName.get(s.category) ?? s.category },
                 s.city && { icon: MapPin, label: s.city },
-                s.type === "AUCTION" && { icon: Gavel, label: "مزادات فقط" },
+                s.type ? TYPE_CHIP[s.type] : null,
               ].filter(Boolean) as { icon: typeof Search; label: string }[];
 
               const qs = new URLSearchParams();
               if (s.query) qs.set("q", s.query);
               if (s.category) qs.set("category", s.category);
               if (s.city) qs.set("city", s.city);
+              // auctions have their own page; everything else keeps the type as
+              // a filter so the link reproduces the search that was saved
+              if (s.type && s.type !== "AUCTION") qs.set("type", s.type);
               const browseHref =
                 s.type === "AUCTION"
                   ? `/auctions${qs.size ? `?${qs}` : ""}`

@@ -8,7 +8,9 @@ export const dynamic = "force-dynamic";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [listings, auctions, categories, stores] = await Promise.all([
     db.listing.findMany({
-      where: { status: "ACTIVE", type: "STANDARD" },
+      // everything that isn't an auction lives at /listings/:id — announcements
+      // included, or they'd never be indexed
+      where: { status: "ACTIVE", type: { not: "AUCTION" } },
       select: { id: true, createdAt: true },
       orderBy: { createdAt: "desc" },
       take: 5000,

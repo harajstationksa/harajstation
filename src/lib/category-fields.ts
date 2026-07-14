@@ -153,6 +153,26 @@ export const GOAL_RULES: Record<
   ANNOUNCE: { include: ["jobs", "services", "realestate", "other"] },
 };
 
+/**
+ * What each goal is stored as on Listing.type — the goal itself is not
+ * persisted, this is.
+ *
+ * ANNOUNCE gets its own type rather than collapsing into STANDARD: a job or a
+ * service is a different thing to a browsing buyer, and one that must be
+ * filterable. STANDARD and ANNOUNCE are still both "not an auction", so code
+ * asking "does this have bids?" must test `!== "AUCTION"`, never `=== "STANDARD"`.
+ */
+export type ListingType = "STANDARD" | "AUCTION" | "ANNOUNCE";
+
+export const GOAL_TYPE: Record<ListingGoal, ListingType> = {
+  SELL: "STANDARD",
+  AUCTION: "AUCTION",
+  ANNOUNCE: "ANNOUNCE",
+};
+
+/** Non-auction types share one quota and one price/edit path. */
+export const NOT_AUCTION = { not: "AUCTION" } as const;
+
 export function goalAllowsCategory(goal: ListingGoal, mainSlug: string): boolean {
   const rule = GOAL_RULES[goal];
   if (rule.include) return rule.include.includes(mainSlug);

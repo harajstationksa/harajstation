@@ -11,7 +11,7 @@ const schema = z.object({
   query: z.string().trim().max(80).default(""),
   category: z.string().trim().max(60).default(""),
   city: z.string().trim().max(40).default(""),
-  type: z.enum(["", "STANDARD", "AUCTION"]).default(""),
+  type: z.enum(["", "STANDARD", "AUCTION", "ANNOUNCE"]).default(""),
 });
 
 /** Save a search → the user gets notified when a matching listing lands. */

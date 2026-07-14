@@ -41,7 +41,7 @@ export default async function DashboardPage() {
   const [activeListings, activeAuctions, participated, pendingTx, credLogs] =
     await Promise.all([
       db.listing.count({
-        where: { sellerId: user.id, status: "ACTIVE", type: "STANDARD" },
+        where: { sellerId: user.id, status: "ACTIVE", type: { not: "AUCTION" } },
       }),
       db.listing.count({
         where: { sellerId: user.id, status: "ACTIVE", type: "AUCTION" },

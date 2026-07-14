@@ -234,7 +234,7 @@ async function Featured() {
 
 async function Latest() {
   const latest = await db.listing.findMany({
-    where: { status: "ACTIVE", type: "STANDARD" },
+    where: { status: "ACTIVE", type: { not: "AUCTION" } },
     include: cardInclude,
     orderBy: { createdAt: "desc" },
     take: 12,

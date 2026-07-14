@@ -47,10 +47,20 @@ const STATUS_FILTERS = [
 ] as const;
 
 const TYPE_FILTERS = [
-  ["", "بيع ومزاد"],
+  ["", "الكل"],
   ["STANDARD", "بيع"],
   ["AUCTION", "مزاد"],
+  ["ANNOUNCE", "إعلان"],
 ] as const;
+
+const TYPE_BADGE: Record<
+  string,
+  { label: string; icon: typeof Tag; cls: string }
+> = {
+  STANDARD: { label: "بيع عادي", icon: Tag, cls: "bg-primary-50 text-primary-700" },
+  AUCTION: { label: "مزاد", icon: Gavel, cls: "bg-red-50 text-red-600" },
+  ANNOUNCE: { label: "إعلان", icon: Megaphone, cls: "bg-sky-50 text-sky-700" },
+};
 
 export default async function MyListingsPage({
   searchParams,
@@ -87,7 +97,7 @@ export default async function MyListingsPage({
     {
       icon: ListChecks,
       label: "إعلانات نشطة",
-      value: all.filter((l) => l.status === "ACTIVE" && l.type === "STANDARD").length,
+      value: all.filter((l) => l.status === "ACTIVE" && l.type !== "AUCTION").length,
     },
     {
       icon: Gavel,
@@ -203,9 +213,11 @@ export default async function MyListingsPage({
             const href = l.auction ? `/auctions/${l.auction.id}` : `/listings/${l.id}`;
             const isAuction = l.type === "AUCTION";
             const liveAuction = isAuction && l.auction?.status === "LIVE";
+            // an announcement may carry no price at all — showing «0 ر.س» would
+            // read as "free" rather than "negotiable"
             const price = isAuction
               ? (l.auction?.bids[0]?.amount ?? l.auction?.startPrice ?? 0)
-              : (l.price ?? 0);
+              : l.price;
             const canFeature = l.status === "ACTIVE" && !l.isFeatured && user.points >= featureCost;
             const canEdit = l.status === "ACTIVE" && !liveAuction;
             const canPromote = l.status === "ACTIVE" && !l.isPromoted;
@@ -221,9 +233,12 @@ export default async function MyListingsPage({
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-sm line-clamp-1">{l.title}</p>
                       <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                        <span className={`badge ${isAuction ? "bg-red-50 text-red-600" : "bg-primary-50 text-primary-700"}`}>
-                          {isAuction ? <Gavel className="size-3" /> : <Tag className="size-3" />}
-                          {isAuction ? "مزاد" : "بيع عادي"}
+                        <span className={`badge ${TYPE_BADGE[l.type]?.cls ?? TYPE_BADGE.STANDARD.cls}`}>
+                          {(() => {
+                            const Icon = (TYPE_BADGE[l.type] ?? TYPE_BADGE.STANDARD).icon;
+                            return <Icon className="size-3" />;
+                          })()}
+                          {(TYPE_BADGE[l.type] ?? TYPE_BADGE.STANDARD).label}
                         </span>
                         <span className={`badge ${STATUS_CLS[l.status] ?? "bg-neutral-100"}`}>
                           {LISTING_STATUS[l.status as keyof typeof LISTING_STATUS] ?? l.status}
@@ -234,7 +249,9 @@ export default async function MyListingsPage({
                     </div>
                   </Link>
                   <div className="text-left shrink-0">
-                    <p className="font-bold text-primary-600 tabular-nums">{formatSAR(price)}</p>
+                    <p className="font-bold text-primary-600 tabular-nums">
+                      {price != null ? formatSAR(price) : "على السوم"}
+                    </p>
                     <p className="text-xs text-neutral-400 flex items-center gap-1 justify-end mt-0.5">
                       <Eye className="size-3.5" />
                       {l.views.toLocaleString("en-US")}

@@ -33,7 +33,17 @@ export function buildListingWhere(sp: SP): Prisma.ListingWhereInput {
     ...(str(sp.condition) ? { condition: str(sp.condition) } : {}),
     ...(str(sp.type) ? { type: str(sp.type) } : {}),
     ...(str(sp.featured) ? { isFeatured: true } : {}),
-    ...(min || max ? { price: { gte: min, lte: max } } : {}),
+    // An auction has no `price` — its money lives on the auction row. Comparing
+    // a NULL column against a range excludes the row, so a plain price filter
+    // used to make every auction vanish from the results. Match either side.
+    ...(min || max
+      ? {
+          OR: [
+            { price: { gte: min, lte: max } },
+            { auction: { startPrice: { gte: min, lte: max } } },
+          ],
+        }
+      : {}),
     ...(category
       ? {
           category: {
@@ -48,10 +58,12 @@ export function listingOrderBy(
   sort: string | undefined
 ): Prisma.ListingOrderByWithRelationInput {
   switch (sort) {
+    // priceless rows (auctions, «على السوم» announcements) sort to the end
+    // either way — descending would otherwise lead with a wall of NULLs
     case "price_asc":
-      return { price: "asc" };
+      return { price: { sort: "asc", nulls: "last" } };
     case "price_desc":
-      return { price: "desc" };
+      return { price: { sort: "desc", nulls: "last" } };
     case "views":
       return { views: "desc" };
     default:

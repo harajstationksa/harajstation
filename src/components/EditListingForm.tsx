@@ -113,15 +113,22 @@ export function EditListingForm({
         </div>
       </div>
 
-      {listing.type === "STANDARD" && (
+      {listing.type !== "AUCTION" && (
         <div className="card p-5 space-y-4">
-          <h2 className="font-bold">السعر</h2>
+          <h2 className="font-bold">
+            السعر
+            {listing.type === "ANNOUNCE" && (
+              <span className="text-neutral-400 font-normal text-sm">
+                {" "}(اختياري — اتركه فارغاً ليظهر «على السوم»)
+              </span>
+            )}
+          </h2>
           <input
             name="price"
             className="input"
-            required
+            required={listing.type !== "ANNOUNCE"}
             inputMode="numeric"
-            pattern="\d+"
+            pattern="\d*"
             defaultValue={listing.price ?? ""}
           />
           <label className="flex items-center gap-2 text-sm">
