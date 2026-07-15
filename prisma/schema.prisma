@@ -646,6 +646,9 @@ model Banner {
   id        String    @id @default(cuid())
   title     String
   imageUrl  String?
+  // optional phone-specific artwork; falls back to imageUrl when absent, so the
+  // admin uploads a second design only when the wide crop looks wrong on mobile
+  mobileImageUrl String?
   linkUrl   String?
   // optional embed (AdSense / YouTube / TikTok iframe) — rendered instead of image
   embedHtml String?

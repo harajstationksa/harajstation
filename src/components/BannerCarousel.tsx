@@ -9,6 +9,7 @@ type Banner = {
   id: string;
   title: string;
   imageUrl: string | null;
+  mobileImageUrl?: string | null;
   linkUrl: string | null;
   embedHtml?: string | null;
 };
@@ -60,12 +61,18 @@ export function BannerCarousel({
             );
           }
           const img = (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={b.imageUrl ?? ""}
-              alt={b.title}
-              className={cn("w-full object-cover", aspect)}
-            />
+            // phones (< sm, where the frame narrows to 2:1) get the taller
+            // artwork when it exists; every wider screen keeps imageUrl
+            <picture>
+              {b.mobileImageUrl && (
+                <source media="(max-width: 639px)" srcSet={b.mobileImageUrl} />
+              )}
+              <img
+                src={b.imageUrl ?? ""}
+                alt={b.title}
+                className={cn("w-full object-cover", aspect)}
+              />
+            </picture>
           );
           return b.linkUrl ? (
             <Link

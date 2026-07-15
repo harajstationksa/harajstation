@@ -3,21 +3,35 @@
 import { useRef, useState } from "react";
 import { ImageUp, Loader2, X } from "lucide-react";
 
-/** Banners render at 4:1 on desktop (BannerCarousel), cropped tighter on phones. */
-const RATIO = 4;
-const RECOMMENDED = "1600 × 400";
 const TOLERANCE = 0.4;
 
 /**
  * Upload a banner image, or paste a URL — either way the resulting URL lands in
- * a hidden field, so the existing server action keeps taking `imageUrl`.
+ * the field named `name`, so the server action keeps reading it as before.
  *
- * The preview is a 4:1 frame: what the admin sees is the crop the visitor gets.
- * Once an image loads we show its real pixel size and say plainly whether the
- * proportions fit, because a banner at the wrong ratio isn't rejected — it is
- * silently cut, and that is only discovered on the live homepage.
+ * The preview is an `aspect`-shaped frame: what the admin sees is the crop the
+ * visitor gets. Once an image loads we show its real pixel size and say plainly
+ * whether the proportions fit, because a banner at the wrong ratio isn't
+ * rejected — it is silently cut, and that is only discovered on the live page.
+ *
+ * The same field serves both designs: the wide desktop image and the taller
+ * phone image, which differ only in their target ratio and recommended size.
  */
-export function BannerImageField() {
+export function BannerImageField({
+  name = "imageUrl",
+  label = "صورة البانر (سطح المكتب)",
+  ratio = 4,
+  recommended = "1600 × 400",
+  hint,
+}: {
+  name?: string;
+  label?: string;
+  /** Target width ÷ height — drives the preview frame and the fit check. */
+  ratio?: number;
+  recommended?: string;
+  /** Extra line under the field, e.g. that the phone image is optional. */
+  hint?: string;
+} = {}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [url, setUrl] = useState("");
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
@@ -47,17 +61,17 @@ export function BannerImageField() {
     if (inputRef.current) inputRef.current.value = "";
   }
 
-  const ratio = dims ? dims.w / dims.h : null;
-  const fits = ratio !== null && Math.abs(ratio - RATIO) <= TOLERANCE;
+  const actual = dims ? dims.w / dims.h : null;
+  const fits = actual !== null && Math.abs(actual - ratio) <= TOLERANCE;
 
   return (
     <div className="sm:col-span-2 space-y-2">
-      <label className="block text-sm font-medium">صورة البانر</label>
+      <label className="block text-sm font-medium">{label}</label>
 
       {/* the URL the action reads — editable, so an existing path still works */}
       <div className="flex gap-2">
         <input
-          name="imageUrl"
+          name={name}
           value={url}
           onChange={(e) => {
             setUrl(e.target.value);
@@ -98,7 +112,10 @@ export function BannerImageField() {
       {url && (
         <div className="relative">
           {/* the exact frame the banner gets on the homepage */}
-          <div className="relative aspect-4/1 w-full overflow-hidden rounded-xl bg-neutral-100 ring-1 ring-neutral-200">
+          <div
+            className="relative w-full overflow-hidden rounded-xl bg-neutral-100 ring-1 ring-neutral-200"
+            style={{ aspectRatio: String(ratio) }}
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={url}
@@ -138,20 +155,24 @@ export function BannerImageField() {
           </span>{" "}
           — نسبة{" "}
           <span dir="ltr" className="font-mono">
-            {ratio!.toFixed(1)}:1
+            {actual!.toFixed(1)}:1
           </span>
-          {fits ? " ✓ مناسبة" : ` — المطلوب 4:1، فسيُقتطع جزء من الصورة`}
+          {fits ? " ✓ مناسبة" : ` — المطلوب ${ratio}:1، فسيُقتطع جزء من الصورة`}
         </p>
       )}
 
       <p className="text-xs text-neutral-500 leading-relaxed">
         المقاس المقترح{" "}
         <span dir="ltr" className="font-mono text-neutral-700">
-          {RECOMMENDED}
+          {recommended}
         </span>{" "}
-        بكسل (نسبة 4:1) — بحد أقصى 5MB، بصيغة JPG أو PNG أو WebP.
-        <br />
-        على الهاتف تُقتطع الأطراف، فاجعل المحتوى المهم في منتصف الصورة.
+        بكسل (نسبة {ratio}:1) — بحد أقصى 5MB، بصيغة JPG أو PNG أو WebP.
+        {hint && (
+          <>
+            <br />
+            {hint}
+          </>
+        )}
       </p>
     </div>
   );

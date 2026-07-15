@@ -147,7 +147,20 @@ export default async function AdminBannersPage() {
             <input name="linkUrl" className="input" dir="ltr" placeholder="/auctions" />
           </div>
 
-          <BannerImageField />
+          <BannerImageField
+            name="imageUrl"
+            label="صورة البانر (سطح المكتب)"
+            ratio={4}
+            recommended="1600 × 400"
+            hint="تُعرض على الشاشات الكبيرة. إن لم ترفع نسخة للهاتف، ستُستخدم هذه الصورة أيضاً على الهاتف مع اقتطاع الأطراف."
+          />
+          <BannerImageField
+            name="mobileImageUrl"
+            label="صورة الهاتف (اختياري)"
+            ratio={2}
+            recommended="1080 × 540"
+            hint="تصميم أنسب للشاشات الضيقة — يظهر تلقائياً على الهواتف بدل الصورة العريضة."
+          />
         </div>
         <div>
           <label className="block text-sm font-medium mb-1.5">
@@ -181,6 +194,7 @@ export default async function AdminBannersPage() {
                 <p className="font-bold">{b.title}</p>
                 <p className="text-xs text-neutral-500 mt-0.5">
                   {POSITIONS[b.position] ?? b.position} · {b.clicks} نقرة
+                  {b.mobileImageUrl && <span className="mr-2">· 📱 نسخة للهاتف</span>}
                   {b.linkUrl && <span dir="ltr" className="mr-2">→ {b.linkUrl}</span>}
                 </p>
               </div>

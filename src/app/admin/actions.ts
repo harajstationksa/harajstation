@@ -87,11 +87,14 @@ export async function createBannerAction(formData: FormData) {
   const staff = await requireStaff(["ADMIN"]);
   const title = String(formData.get("title") || "").trim();
   const imageUrl = String(formData.get("imageUrl") || "").trim() || null;
+  const mobileImageUrl = String(formData.get("mobileImageUrl") || "").trim() || null;
   const linkUrl = String(formData.get("linkUrl") || "").trim() || null;
   const embedHtml = String(formData.get("embedHtml") || "").trim() || null;
   const position = String(formData.get("position") || "HOME_TOP");
   if (!title || (!imageUrl && !embedHtml)) return;
-  await db.banner.create({ data: { title, imageUrl, linkUrl, embedHtml, position } });
+  await db.banner.create({
+    data: { title, imageUrl, mobileImageUrl, linkUrl, embedHtml, position },
+  });
   await audit(staff.id, "CREATE_BANNER", title);
   revalidatePath("/admin/banners");
   revalidatePath("/");
