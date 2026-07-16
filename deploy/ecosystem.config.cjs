@@ -9,8 +9,10 @@ module.exports = {
       name: "harajstation",
       cwd: "/var/www/harajstation",
       // call Next directly instead of `npm start` — one less process in the tree
+      // -H 127.0.0.1: only nginx may reach the app. Exposed on 0.0.0.0 the
+      // rate-limiter's IP headers could be forged by hitting :3000 directly.
       script: "node_modules/next/dist/bin/next",
-      args: "start -p 3000",
+      args: "start -p 3000 -H 127.0.0.1",
 
       // ONE instance, on purpose. The rate limiter (src/lib/rate-limit.ts) keeps
       // its counters in memory, so a second worker would silently double every

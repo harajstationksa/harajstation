@@ -2,9 +2,13 @@ import type { NextConfig } from "next";
 
 // Lenient-but-real CSP: Next.js needs inline scripts for hydration; everything
 // else is locked to same-origin. Tighten with nonces later if needed.
+// unsafe-eval is a dev-only need (webpack eval sourcemaps) — production
+// bundles never eval, so don't hand that power to injected markup there.
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  process.env.NODE_ENV === "development"
+    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+    : "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
   // https: so images served from the R2 CDN domain load
   "img-src 'self' data: blob: https:",

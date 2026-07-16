@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { confirmPayment } from "@/lib/payments";
+import { safeEqual } from "@/lib/crypto";
 
 /**
  * Moyasar webhook — the reliable path for crediting points (the success-page
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
     data?: { id?: string; invoice_id?: string; metadata?: Record<string, string> };
   } | null;
 
-  if (!payload || payload.secret_token !== secret) {
+  if (!payload || !safeEqual(payload.secret_token ?? "", secret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

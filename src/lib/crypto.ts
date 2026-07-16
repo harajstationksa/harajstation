@@ -3,7 +3,18 @@ import {
   createDecipheriv,
   createHash,
   randomBytes,
+  timingSafeEqual,
 } from "node:crypto";
+
+/**
+ * Constant-time string comparison for shared secrets (cron key, webhook
+ * token). Hashing first equalizes lengths, so nothing leaks — not even size.
+ */
+export function safeEqual(a: string, b: string): boolean {
+  const ha = createHash("sha256").update(a).digest();
+  const hb = createHash("sha256").update(b).digest();
+  return timingSafeEqual(ha, hb);
+}
 
 /**
  * At-rest encryption for private chat messages (AES-256-GCM).

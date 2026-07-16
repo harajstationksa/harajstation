@@ -3,6 +3,7 @@ import { finalizeExpiredAuctions } from "@/lib/auction";
 import { finalizeExpiredCampaigns } from "@/lib/campaigns";
 import { expirePendingTransactions } from "@/lib/credibility";
 import { expireProMemberships } from "@/lib/limits";
+import { safeEqual } from "@/lib/crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
  *
  * Call it every minute with the secret:
  *   GET /api/cron  +  header  Authorization: Bearer <CRON_SECRET>
- *   (or ?key=<CRON_SECRET> for schedulers that can't set headers)
+ * (Header only — a ?key= query param would end up in access logs.)
  *
  * Works with Vercel Cron, cPanel cron, systemd timers, UptimeRobot, or plain
  * crontab: curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://site/api/cron
@@ -25,12 +26,9 @@ export async function GET(req: Request) {
       { status: 503 }
     );
   }
-  const url = new URL(req.url);
   const provided =
-    req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ??
-    url.searchParams.get("key") ??
-    "";
-  if (provided !== secret) {
+    req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
+  if (!safeEqual(provided, secret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { notify } from "@/lib/notify";
@@ -47,7 +48,9 @@ export async function POST(
   const amount = parsed.data.amount;
 
   try {
-    const result = await db.$transaction(async (tx) => {
+    // Serializable: two bids landing in the same instant would otherwise both
+    // read the same "top bid" and both pass the minimum-increment check.
+    const runBid = () => db.$transaction(async (tx) => {
       const auction = await tx.auction.findUnique({
         where: { id },
         include: {
@@ -144,7 +147,20 @@ export async function POST(
         topBidderId,
         outbidByProxy: !isBuyNow && topBidderId !== user.id,
       };
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    // Serializable aborts one of two colliding transactions (P2034) — retry
+    // the loser instead of surfacing an error to the bidder.
+    let result: Awaited<ReturnType<typeof runBid>> | undefined;
+    for (let attempt = 1; result === undefined; attempt++) {
+      try {
+        result = await runBid();
+      } catch (e) {
+        const conflict =
+          e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2034";
+        if (!conflict || attempt >= 3) throw e;
+      }
+    }
 
     // notifications (outside the transaction)
     if (

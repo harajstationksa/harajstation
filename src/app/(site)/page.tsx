@@ -7,6 +7,7 @@ import { cardInclude } from "@/lib/types";
 import { getT } from "@/lib/i18n";
 import { getSponsored, recordImpressions } from "@/lib/campaigns";
 import { getSetting } from "@/lib/settings";
+import { cached } from "@/lib/page-cache";
 import { AuctionCard } from "@/components/AuctionCard";
 import { BannerCarousel } from "@/components/BannerCarousel";
 import { CategoryIcon } from "@/components/CategoryIcon";
@@ -111,28 +112,38 @@ export default async function HomePage() {
   );
 }
 
+/*
+ * Every section below reads through the in-process cache (src/lib/page-cache):
+ * the homepage is the same for all visitors (language only changes which name
+ * field is displayed), so under load each query runs once per TTL instead of
+ * once per visitor. Measured before caching: ~13 queries x 27ms to a remote
+ * database per view capped the whole site at ~4 pages/second.
+ */
+
 async function HeroBanner() {
-  const banners = await db.banner.findMany({
-    where: { status: "ACTIVE", position: "HOME_TOP" },
-  });
+  const banners = await cached("home:banner:top", 60_000, () =>
+    db.banner.findMany({ where: { status: "ACTIVE", position: "HOME_TOP" } })
+  );
   if (banners.length === 0) return null;
   return <BannerCarousel banners={banners} hero />;
 }
 
 async function MiddleBanner() {
-  const banners = await db.banner.findMany({
-    where: { status: "ACTIVE", position: "HOME_MIDDLE" },
-  });
+  const banners = await cached("home:banner:middle", 60_000, () =>
+    db.banner.findMany({ where: { status: "ACTIVE", position: "HOME_MIDDLE" } })
+  );
   if (banners.length === 0) return null;
   return <BannerCarousel banners={banners} />;
 }
 
 async function Categories() {
   const { lang } = await getT();
-  const categories = await db.category.findMany({
-    where: { parentId: null },
-    orderBy: { sortOrder: "asc" },
-  });
+  const categories = await cached("home:categories", 300_000, () =>
+    db.category.findMany({
+      where: { parentId: null },
+      orderBy: { sortOrder: "asc" },
+    })
+  );
 
   return (
     <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-11 gap-2 sm:gap-3">
@@ -162,16 +173,19 @@ async function Categories() {
 
 async function LiveAuctions() {
   const { t } = await getT();
-  const auctions = await db.listing.findMany({
-    where: {
-      type: "AUCTION",
-      status: "ACTIVE",
-      auction: { status: "LIVE", endsAt: { gt: new Date() } },
-    },
-    include: cardInclude,
-    orderBy: { auction: { endsAt: "asc" } },
-    take: 8,
-  });
+  // 30s TTL — tighter than the rest so a just-ended auction disappears fast
+  const auctions = await cached("home:live-auctions", 30_000, () =>
+    db.listing.findMany({
+      where: {
+        type: "AUCTION",
+        status: "ACTIVE",
+        auction: { status: "LIVE", endsAt: { gt: new Date() } },
+      },
+      include: cardInclude,
+      orderBy: { auction: { endsAt: "asc" } },
+      take: 8,
+    })
+  );
 
   if (auctions.length === 0) {
     return <p className="text-neutral-500 text-sm">{t.home.noLive}</p>;
@@ -191,12 +205,14 @@ async function LiveAuctions() {
 
 async function Promoted() {
   const { t } = await getT();
-  const promoted = await db.listing.findMany({
-    where: { status: "ACTIVE", isPromoted: true },
-    include: cardInclude,
-    orderBy: { createdAt: "desc" },
-    take: 8,
-  });
+  const promoted = await cached("home:promoted", 60_000, () =>
+    db.listing.findMany({
+      where: { status: "ACTIVE", isPromoted: true },
+      include: cardInclude,
+      orderBy: { createdAt: "desc" },
+      take: 8,
+    })
+  );
   if (promoted.length === 0) return null;
 
   return (
@@ -219,12 +235,14 @@ async function Promoted() {
 }
 
 async function Featured() {
-  const featured = await db.listing.findMany({
-    where: { status: "ACTIVE", isFeatured: true },
-    include: cardInclude,
-    orderBy: { createdAt: "desc" },
-    take: 8,
-  });
+  const featured = await cached("home:featured", 60_000, () =>
+    db.listing.findMany({
+      where: { status: "ACTIVE", isFeatured: true },
+      include: cardInclude,
+      orderBy: { createdAt: "desc" },
+      take: 8,
+    })
+  );
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -240,12 +258,14 @@ async function Featured() {
 }
 
 async function Latest() {
-  const latest = await db.listing.findMany({
-    where: { status: "ACTIVE", type: { not: "AUCTION" } },
-    include: cardInclude,
-    orderBy: { createdAt: "desc" },
-    take: 12,
-  });
+  const latest = await cached("home:latest", 60_000, () =>
+    db.listing.findMany({
+      where: { status: "ACTIVE", type: { not: "AUCTION" } },
+      include: cardInclude,
+      orderBy: { createdAt: "desc" },
+      take: 12,
+    })
+  );
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -262,45 +282,51 @@ async function Latest() {
  */
 async function CategorySections() {
   const { lang } = await getT();
-  const [categories, grouped] = await Promise.all([
-    db.category.findMany({
-      where: { parentId: null },
-      orderBy: { sortOrder: "asc" },
-      include: { children: { select: { id: true } } },
-    }),
-    db.listing.groupBy({
-      by: ["categoryId"],
-      where: { status: "ACTIVE" },
-      _count: true,
-    }),
-  ]);
+  // Cached as one unit — the sponsored rotation now reshuffles once per TTL
+  // instead of per request, which is still fair play between funded ads.
+  const sections = await cached("home:category-sections", 60_000, async () => {
+    const [categories, grouped] = await Promise.all([
+      db.category.findMany({
+        where: { parentId: null },
+        orderBy: { sortOrder: "asc" },
+        include: { children: { select: { id: true } } },
+      }),
+      db.listing.groupBy({
+        by: ["categoryId"],
+        where: { status: "ACTIVE" },
+        _count: true,
+      }),
+    ]);
 
-  const countByCat = Object.fromEntries(grouped.map((g) => [g.categoryId, g._count]));
-  const withAds = categories.filter(
-    (cat) =>
-      (countByCat[cat.id] ?? 0) +
-        cat.children.reduce((sum, ch) => sum + (countByCat[ch.id] ?? 0), 0) >
-      0
-  );
+    const countByCat = Object.fromEntries(grouped.map((g) => [g.categoryId, g._count]));
+    const withAds = categories.filter(
+      (cat) =>
+        (countByCat[cat.id] ?? 0) +
+          cat.children.reduce((sum, ch) => sum + (countByCat[ch.id] ?? 0), 0) >
+        0
+    );
 
-  const sections = await Promise.all(
-    withAds.map(async (cat) => {
-      const catIds = [cat.id, ...cat.children.map((c) => c.id)];
-      const [pinned, regular] = await Promise.all([
-        getSponsored({ categoryIds: catIds, take: 4 }),
-        db.listing.findMany({
-          where: { status: "ACTIVE", isPromoted: false, categoryId: { in: catIds } },
-          include: cardInclude,
-          orderBy: { createdAt: "desc" },
-          take: 8,
-        }),
-      ]);
-      return { cat, pinned, regular: regular.slice(0, 8 - pinned.length) };
-    })
-  );
+    return Promise.all(
+      withAds.map(async (cat) => {
+        const catIds = [cat.id, ...cat.children.map((c) => c.id)];
+        const [pinned, regular] = await Promise.all([
+          getSponsored({ categoryIds: catIds, take: 4 }),
+          db.listing.findMany({
+            where: { status: "ACTIVE", isPromoted: false, categoryId: { in: catIds } },
+            include: cardInclude,
+            orderBy: { createdAt: "desc" },
+            take: 8,
+          }),
+        ]);
+        return { cat, pinned, regular: regular.slice(0, 8 - pinned.length) };
+      })
+    );
+  });
 
-  // ad analytics: one impression per unique visitor network — reloads don't count
-  await recordImpressions(
+  // ad analytics: one impression per unique visitor network — reloads don't
+  // count. Fire-and-forget: reads request headers, so it must stay outside the
+  // cached closure, and it must never hold up the render.
+  void recordImpressions(
     sections.flatMap((s) => s.pinned).map((l) => l.campaigns[0]?.id ?? "")
   );
 
@@ -340,12 +366,16 @@ async function Stats() {
   if ((await getSetting("HOME_STATS_VISIBLE")) !== "1") return null;
 
   const { t } = await getT();
-  const now = new Date();
-  const [activeListings, liveCount, userCount] = await Promise.all([
-    db.listing.count({ where: { status: "ACTIVE" } }),
-    db.auction.count({ where: { status: "LIVE", endsAt: { gt: now } } }),
-    db.user.count(),
-  ]);
+  const [activeListings, liveCount, userCount] = await cached(
+    "home:stats",
+    300_000,
+    () =>
+      Promise.all([
+        db.listing.count({ where: { status: "ACTIVE" } }),
+        db.auction.count({ where: { status: "LIVE", endsAt: { gt: new Date() } } }),
+        db.user.count(),
+      ])
+  );
 
   return (
     <section className="rounded-2xl bg-neutral-900 text-white px-6 py-8 flex items-center justify-around text-center">

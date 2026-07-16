@@ -6,6 +6,26 @@ import { markDelivered } from "./chat";
 
 export const ONLINE_WINDOW_MS = 5 * 60_000;
 
+// One presence write per visitor per minute is plenty for a 5-minute online
+// window — without this, every page view costs a database round trip, which
+// under campaign traffic was one of the biggest write amplifiers.
+const WRITE_THROTTLE_MS = 60_000;
+const lastWrite = new Map<string, number>();
+
+function shouldWrite(key: string): boolean {
+  const now = Date.now();
+  const prev = lastWrite.get(key) ?? 0;
+  if (now - prev < WRITE_THROTTLE_MS) return false;
+  if (lastWrite.size > 20_000) {
+    // bound memory during traffic spikes: drop entries old enough to rewrite
+    for (const [k, t] of lastWrite) {
+      if (now - t >= WRITE_THROTTLE_MS) lastWrite.delete(k);
+    }
+  }
+  lastWrite.set(key, now);
+  return true;
+}
+
 /**
  * Refresh the current visitor's presence row (called from the site layout on
  * every page view, fire-and-forget). Logged-in visitors carry their name so
@@ -19,6 +39,8 @@ export async function recordPresence(): Promise<void> {
     "local";
   const ua = (h.get("user-agent") ?? "").slice(0, 40);
   const key = createHash("sha256").update(`${ip}|${ua}`).digest("hex").slice(0, 32);
+
+  if (!shouldWrite(key)) return;
 
   await db.presence.upsert({
     where: { key },
