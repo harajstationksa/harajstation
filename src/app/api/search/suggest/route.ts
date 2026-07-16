@@ -48,8 +48,15 @@ export async function GET(req: Request) {
       take: 3,
     }),
     db.store.findMany({
-      where: { name: { contains: q } },
-      select: { slug: true, name: true },
+      where: {
+        user: { isBanned: false },
+        OR: [
+          { name: { contains: q, mode: "insensitive" } },
+          { slug: { contains: q.toLowerCase() } },
+        ],
+      },
+      select: { slug: true, name: true, isVerified: true },
+      orderBy: [{ isVerified: "desc" }, { createdAt: "asc" }],
       take: 2,
     }),
   ]);
@@ -65,6 +72,7 @@ export async function GET(req: Request) {
         type: "store" as const,
         label: s.name,
         href: `/store/${s.slug}`,
+        verified: s.isVerified,
       })),
       ...listings.map((l) => ({
         type: l.type === "AUCTION" ? ("auction" as const) : ("listing" as const),

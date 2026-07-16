@@ -35,8 +35,13 @@ const SYNONYM_GROUPS: string[][] = [
   ["نينتندو", "nintendo", "سويتش", "switch"],
   ["سماعه", "سماعات", "headset", "headphones"],
   ["ايربودز", "airpods", "اير بودز"],
-  ["كاميرا", "camera", "كام"],
+  ["كاميرا", "camera", "كام", "كاميره"],
   ["شاشه", "تلفزيون", "تلفاز", "tv"],
+  ["ساعه ذكيه", "smart watch", "ابل واتش", "apple watch", "سمارت واتش"],
+  ["شاحن", "charger", "وصله شحن"],
+  ["راوتر", "router", "مودم", "modem"],
+  ["طابعه", "printer", "برنتر"],
+  ["درون", "drone", "طائره بدون طيار", "دروون"],
   // ── vehicles ──
   ["سياره", "سيارات", "عربيه", "car"],
   ["تويوتا", "toyota"],
@@ -54,6 +59,15 @@ const SYNONYM_GROUPS: string[][] = [
   ["شفروليه", "chevrolet", "شفر"],
   ["جيب", "jeep"],
   ["كيا", "kia"],
+  ["هوندا", "honda"],
+  ["مازدا", "mazda"],
+  ["جي ام سي", "gmc", "جمس", "يوكن", "yukon"],
+  // NB: "تشارجر" only — the Latin "charger" already belongs to phone chargers
+  ["دودج", "dodge", "تشارجر"],
+  ["اودي", "audi"],
+  ["بورش", "porsche", "بورشه"],
+  ["رنج روفر", "range rover", "رينج روفر", "لاند روفر", "land rover"],
+  ["هايلكس", "hilux", "هيلوكس"],
   ["دباب", "دبابه", "دراجه ناريه", "motorcycle"],
   // ── home ──
   ["ثلاجه", "براد", "fridge", "refrigerator"],
@@ -130,6 +144,35 @@ for (const group of SYNONYM_GROUPS) {
   for (const term of norm) synonymIndex.set(term, norm);
 }
 
+const ARABIC_RE = /[؀-ۿ]/;
+
+/**
+ * Light Arabic stemming, query-time only: a term also matches without its
+ * definite-article prefix and with common plural endings reduced, so
+ * "السيارات" finds listings that say "سياره" and "جوالات" finds "جوال".
+ * Variants live inside the term's OR group — recall grows, precision keeps.
+ */
+export function termVariants(term: string): string[] {
+  if (!ARABIC_RE.test(term)) return [term];
+  const variants = new Set<string>([term]);
+  let stem = term;
+  for (const prefix of ["وال", "بال", "فال", "كال", "لل", "ال"]) {
+    if (stem.startsWith(prefix) && stem.length - prefix.length >= 3) {
+      stem = stem.slice(prefix.length);
+      variants.add(stem);
+      break;
+    }
+  }
+  // plural endings → likely singular forms (كاميرات → كاميرا/كاميره)
+  if (stem.endsWith("ات") && stem.length >= 5) {
+    variants.add(stem.slice(0, -2));
+    variants.add(`${stem.slice(0, -2)}ه`);
+  } else if ((stem.endsWith("ين") || stem.endsWith("ون")) && stem.length >= 5) {
+    variants.add(stem.slice(0, -2));
+  }
+  return [...variants];
+}
+
 /**
  * Expand a raw query into groups of equivalent terms. Each group must match
  * (AND across groups), any member of a group may match (OR within a group).
@@ -149,9 +192,79 @@ export function expandQuery(q: string): string[][] {
   }
   for (const term of arabicTerms(q)) {
     if (consumed.has(term)) continue;
-    groups.push(synonymIndex.get(term) ?? [term]);
+    // a known synonym answers for its whole group; unknown words get their
+    // stemmed variants so spelling/plural noise still matches
+    const group = synonymIndex.get(term);
+    groups.push(group ?? termVariants(term));
   }
   return groups;
+}
+
+// ── typo correction («هل تقصد؟») ─────────────────────────────────────────────
+
+/** every word the engine understands — synonyms + category keywords */
+const VOCABULARY: string[] = [
+  ...new Set(
+    [
+      ...SYNONYM_GROUPS.flat(),
+      ...Object.values(CATEGORY_KEYWORDS).flat(),
+    ]
+      .flatMap((phrase) => normalizeArabic(phrase).split(" "))
+      .filter((w) => w.length >= 3)
+  ),
+];
+const VOCABULARY_SET = new Set(VOCABULARY);
+
+/** Damerau-ish edit distance with early exit above `max`. */
+function editDistance(a: string, b: string, max: number): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  const prev = new Array<number>(b.length + 1);
+  const curr = new Array<number>(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    let rowMin = curr[0];
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+      if (curr[j] < rowMin) rowMin = curr[j];
+    }
+    if (rowMin > max) return max + 1;
+    for (let j = 0; j <= b.length; j++) prev[j] = curr[j];
+  }
+  return prev[b.length];
+}
+
+/**
+ * When a search returns nothing, guess what the user meant: each unknown
+ * word is matched against the vocabulary within a small edit distance
+ * ("ايفوون" → "ايفون"). Returns the corrected query, or null when nothing
+ * changed / no confident fix exists.
+ */
+export function suggestCorrection(q: string): string | null {
+  const words = arabicTerms(q);
+  if (words.length === 0 || words.length > 6) return null;
+  let changed = false;
+  const fixed = words.map((word) => {
+    if (VOCABULARY_SET.has(word) || word.length < 3) return word;
+    const max = word.length <= 4 ? 1 : 2;
+    let best: string | null = null;
+    let bestDist = max + 1;
+    for (const candidate of VOCABULARY) {
+      const d = editDistance(word, candidate, max);
+      if (d < bestDist) {
+        bestDist = d;
+        best = candidate;
+        if (d === 1) break; // good enough — stop scanning
+      }
+    }
+    if (best && bestDist <= max && best !== word) {
+      changed = true;
+      return best;
+    }
+    return word;
+  });
+  return changed ? fixed.join(" ") : null;
 }
 
 /**

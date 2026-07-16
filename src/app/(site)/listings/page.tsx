@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cache, Suspense } from "react";
-import { LayoutGrid } from "lucide-react";
+import { BadgeCheck, LayoutGrid, Search, Store, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { cardInclude } from "@/lib/types";
 import { getT } from "@/lib/i18n";
@@ -12,7 +12,7 @@ import {
   str,
   type SP,
 } from "@/lib/listing-query";
-import { matchCategorySlugs } from "@/lib/search-smart";
+import { matchCategorySlugs, suggestCorrection } from "@/lib/search-smart";
 import { getSponsored, recordImpressions } from "@/lib/campaigns";
 import { canonicalFor, isFiltered, pageMeta } from "@/lib/seo";
 import { AuctionCard } from "@/components/AuctionCard";
@@ -101,6 +101,30 @@ const loadResults = cache(async (sp: SP) => {
       })
     : [];
 
+  // ── matching stores: a search for a shop by name should find the shop ──
+  const stores =
+    q && page === 1
+      ? await db.store.findMany({
+          where: {
+            user: { isBanned: false },
+            OR: [
+              { name: { contains: q, mode: "insensitive" } },
+              { slug: { contains: q.toLowerCase() } },
+            ],
+          },
+          select: {
+            id: true,
+            slug: true,
+            name: true,
+            logoUrl: true,
+            isVerified: true,
+            _count: { select: { followers: true, listings: { where: { status: "ACTIVE" } } } },
+          },
+          orderBy: [{ isVerified: "desc" }, { createdAt: "asc" }],
+          take: 3,
+        })
+      : [];
+
   // sponsored ads inside search results, targeted to the search's categories —
   // a phone campaign surfaces for phone searches, never for unrelated ones
   let sponsored: Awaited<ReturnType<typeof getSponsored>> = [];
@@ -115,7 +139,11 @@ const loadResults = cache(async (sp: SP) => {
     }
   }
 
-  return { items, total, sponsored, suggestedCats, page };
+  // zero results? try to guess the typo ("ايفوون" → "ايفون")
+  const correction =
+    q && total === 0 && sponsored.length === 0 ? suggestCorrection(q) : null;
+
+  return { items, total, sponsored, suggestedCats, stores, correction, page };
 });
 
 /**
@@ -156,6 +184,10 @@ export default async function ListingsPage({
 
       <Suspense fallback={null}>
         <SuggestedCategories sp={sp} />
+      </Suspense>
+
+      <Suspense fallback={null}>
+        <MatchingStores sp={sp} />
       </Suspense>
 
       <Suspense>
@@ -205,9 +237,46 @@ async function SuggestedCategories({ sp }: { sp: SP }) {
   );
 }
 
+/** the search matched stores by name — surface them above the listings */
+async function MatchingStores({ sp }: { sp: SP }) {
+  const { stores } = await loadResults(sp);
+  if (stores.length === 0) return null;
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-500">
+        <Store className="size-3.5" />
+        متاجر مطابقة
+      </span>
+      {stores.map((s) => (
+        <Link
+          key={s.id}
+          href={`/store/${s.slug}`}
+          className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm font-semibold text-neutral-800 hover:border-primary-300 hover:bg-primary-50 transition-colors"
+        >
+          {s.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={s.logoUrl} alt="" className="size-6 rounded-full object-cover" />
+          ) : (
+            <span className="size-6 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center">
+              <Store className="size-3.5" />
+            </span>
+          )}
+          {s.name}
+          {s.isVerified && <BadgeCheck className="size-4 text-green-600" />}
+          <span className="text-xs text-neutral-400 font-normal flex items-center gap-0.5">
+            <Users className="size-3" />
+            {s._count.followers.toLocaleString("en-US")}
+          </span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 async function Results({ sp }: { sp: SP }) {
   const { t } = await getT();
-  const { items, total, sponsored, page } = await loadResults(sp);
+  const { items, total, sponsored, correction, page } = await loadResults(sp);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const pageLink = (p: number) => {
@@ -220,8 +289,28 @@ async function Results({ sp }: { sp: SP }) {
   };
 
   if (sponsored.length === 0 && items.length === 0) {
+    const correctedLink = () => {
+      const params = new URLSearchParams();
+      for (const [k, v] of Object.entries(sp)) {
+        if (typeof v === "string" && v && k !== "page" && k !== "q") params.set(k, v);
+      }
+      params.set("q", correction!);
+      return `/listings?${params}`;
+    };
     return (
-      <EmptyState title={t.listingsPage.emptyTitle} hint={t.listingsPage.emptyHint} />
+      <div className="space-y-4">
+        {correction && (
+          <div className="flex items-center gap-2 text-sm bg-primary-50 border border-primary-100 rounded-xl px-4 py-3">
+            <Search className="size-4 text-primary-500 shrink-0" />
+            <span className="text-neutral-600">هل تقصد</span>
+            <Link href={correctedLink()} className="font-bold text-primary-700 hover:underline">
+              «{correction}»
+            </Link>
+            <span className="text-neutral-600">؟</span>
+          </div>
+        )}
+        <EmptyState title={t.listingsPage.emptyTitle} hint={t.listingsPage.emptyHint} />
+      </div>
     );
   }
 

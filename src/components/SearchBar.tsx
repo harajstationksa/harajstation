@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Gavel, LayoutGrid, Search, Store, Tag } from "lucide-react";
+import { BadgeCheck, Gavel, LayoutGrid, Search, Store, Tag } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 type Suggestion = {
   type: "listing" | "auction" | "category" | "store";
   label: string;
   href: string;
+  verified?: boolean;
 };
 
 const TYPE_ICON = {
@@ -98,6 +99,7 @@ export function SearchBar({
                   >
                     <Icon className="size-4 text-neutral-400 shrink-0" />
                     <span className="line-clamp-1">{s.label}</span>
+                    {s.verified && <BadgeCheck className="size-3.5 text-green-600 shrink-0" />}
                     {s.type === "auction" && (
                       <span className="badge bg-red-50 text-red-600 mr-auto text-[10px]">مزاد</span>
                     )}

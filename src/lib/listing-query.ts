@@ -22,7 +22,8 @@ export function buildListingWhere(sp: SP): Prisma.ListingWhereInput {
           AND: groups.map((group) => ({
             OR: group.flatMap((t) => [
               { searchText: { contains: t } },
-              { title: { contains: t } },
+              // titles are raw user text — "IPhone 15" must match "iphone"
+              { title: { contains: t, mode: "insensitive" as const } },
             ]),
           })),
         }

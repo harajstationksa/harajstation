@@ -2,6 +2,7 @@
  * Arabic text normalization — applied identically at index time (listing
  * searchText) and query time so results match regardless of spelling variants:
  *   أ / إ / آ / ٱ → ا  ·  ى → ي  ·  ة → ه  ·  strip tashkeel & tatweel
+ *   ٢٠٢٠ / ۲۰۲۰ → 2020 (Arabic-Indic & extended digits → Latin)
  */
 export function normalizeArabic(input: string): string {
   return input
@@ -12,6 +13,8 @@ export function normalizeArabic(input: string): string {
     .replace(/ئ/g, "ي")
     .replace(/ؤ/g, "و")
     .replace(/ة/g, "ه")
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
     .toLowerCase()
     .replace(/\s+/g, " ")
     .trim();
