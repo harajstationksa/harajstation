@@ -160,6 +160,98 @@ export async function adjustUserPointsAction(formData: FormData) {
   revalidatePath("/admin/users");
 }
 
+/**
+ * Grant / extend / revoke a PRO membership for one user.
+ * mode: "days" (adds `days` starting from the later of now / current expiry),
+ * "permanent" (no expiry), or "revoke".
+ */
+export async function grantProAction(formData: FormData) {
+  const staff = await requireStaff(["ADMIN"]);
+  const userId = String(formData.get("userId"));
+  const mode = String(formData.get("mode"));
+  const user = await db.user.findUnique({ where: { id: userId } });
+  if (!user) return;
+
+  const { notify } = await import("@/lib/notify");
+
+  if (mode === "revoke") {
+    if (!user.isPro) return;
+    await db.user.update({
+      where: { id: userId },
+      data: { isPro: false, proUntil: null },
+    });
+    await audit(staff.id, "REVOKE_PRO", `${user.name} (${user.email})`);
+    await notify(
+      userId,
+      "SYSTEM",
+      "انتهى اشتراكك في برو",
+      "تم إيقاف عضوية PRO على حسابك — يمكنك الاشتراك مجدداً في أي وقت.",
+      "/pro"
+    );
+    revalidatePath("/admin/users");
+    return;
+  }
+
+  if (mode === "permanent") {
+    await db.user.update({
+      where: { id: userId },
+      data: { isPro: true, proUntil: null },
+    });
+    await audit(staff.id, "GRANT_PRO", `${user.name} — دائم`);
+    await notify(
+      userId,
+      "SYSTEM",
+      "تمت ترقيتك إلى برو 🎉",
+      "حصلت على عضوية PRO دائمة — استمتع بحدود أعلى للإعلانات والمزادات والمتاجر.",
+      "/pro"
+    );
+    revalidatePath("/admin/users");
+    return;
+  }
+
+  const days = parseInt(String(formData.get("days") ?? ""), 10);
+  if (!Number.isInteger(days) || days < 1 || days > 3650) return;
+  // extending an active timed membership stacks on top of its current expiry;
+  // a permanent membership stays permanent (nothing to extend)
+  if (user.isPro && user.proUntil === null) return;
+  const base =
+    user.isPro && user.proUntil && user.proUntil > new Date()
+      ? user.proUntil
+      : new Date();
+  const proUntil = new Date(base.getTime() + days * 86_400_000);
+  await db.user.update({
+    where: { id: userId },
+    data: { isPro: true, proUntil },
+  });
+  await audit(staff.id, "GRANT_PRO", `${user.name} — ${days} يوم (حتى ${proUntil.toISOString().slice(0, 10)})`);
+  await notify(
+    userId,
+    "SYSTEM",
+    "تمت ترقيتك إلى برو 🎉",
+    `حصلت على عضوية PRO لمدة ${days} يوم — استمتع بحدود أعلى للإعلانات والمزادات والمتاجر.`,
+    "/pro"
+  );
+  revalidatePath("/admin/users");
+}
+
+/** Send a private notification (in-app + push) to a single user. */
+export async function notifyUserAction(formData: FormData) {
+  const staff = await requireStaff(["ADMIN", "MODERATOR", "SUPPORT"]);
+  const userId = String(formData.get("userId"));
+  const title = String(formData.get("title") || "").trim();
+  const body = String(formData.get("body") || "").trim();
+  const link = String(formData.get("link") || "").trim() || undefined;
+  if (title.length < 3 || title.length > 100) return;
+  if (body.length < 5 || body.length > 500) return;
+  if (link && !/^(\/|https:\/\/)/.test(link)) return;
+  const user = await db.user.findUnique({ where: { id: userId } });
+  if (!user) return;
+  const { notify } = await import("@/lib/notify");
+  await notify(userId, "ADMIN", title, body, link);
+  await audit(staff.id, "NOTIFY_USER", `${user.name}: ${title}`);
+  revalidatePath("/admin/users");
+}
+
 export async function updatePlanAction(formData: FormData) {
   const staff = await requireStaff(["ADMIN"]);
   const id = String(formData.get("planId"));
