@@ -4,6 +4,12 @@
 #   cd /var/www/harajstation && bash deploy/deploy.sh
 set -euo pipefail
 
+# The app runs under the unprivileged `haraj` user (never root). When invoked
+# as root, drop to that user so pm2 talks to the daemon that owns the app.
+if [ "$(id -un)" = "root" ]; then
+  exec sudo -u haraj -H bash "$0" "$@"
+fi
+
 APP_DIR=/var/www/harajstation
 cd "$APP_DIR"
 
