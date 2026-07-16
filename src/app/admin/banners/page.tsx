@@ -8,6 +8,7 @@ import {
   saveContactInfoAction,
   saveSocialLinksAction,
   toggleBannerAction,
+  toggleHomeStatsAction,
 } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -28,10 +29,31 @@ export default async function AdminBannersPage() {
     db.banner.findMany({ orderBy: { createdAt: "desc" } }),
     allSettings(),
   ]);
+  const statsVisible = settings.HOME_STATS_VISIBLE === "1";
 
   return (
     <div className="space-y-6">
       <h1 className="section-title">إدارة البانرات الإعلانية</h1>
+
+      {/* homepage stats strip visibility */}
+      <div className="card p-5 flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="font-bold">بانر الإحصائيات (الرئيسية)</h2>
+          <p className="text-xs text-neutral-500 mt-0.5">
+            الشريط الأسود أسفل الصفحة الرئيسية: إعلان نشط · مزاد مباشر · مستخدم موثوق
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`badge ${statsVisible ? "bg-green-50 text-green-700" : "bg-neutral-100 text-neutral-500"}`}>
+            {statsVisible ? "ظاهر" : "مخفي"}
+          </span>
+          <form action={toggleHomeStatsAction}>
+            <button className="badge bg-neutral-800 text-white cursor-pointer hover:bg-neutral-700">
+              {statsVisible ? "إخفاء" : "إظهار"}
+            </button>
+          </form>
+        </div>
+      </div>
 
       {/* footer social links */}
       <form action={saveSocialLinksAction} className="card p-5 space-y-4">

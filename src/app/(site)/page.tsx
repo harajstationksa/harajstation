@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { cardInclude } from "@/lib/types";
 import { getT } from "@/lib/i18n";
 import { getSponsored, recordImpressions } from "@/lib/campaigns";
+import { getSetting } from "@/lib/settings";
 import { AuctionCard } from "@/components/AuctionCard";
 import { BannerCarousel } from "@/components/BannerCarousel";
 import { CategoryIcon } from "@/components/CategoryIcon";
@@ -335,6 +336,9 @@ async function CategorySections() {
 }
 
 async function Stats() {
+  // admin kill-switch, toggled from /admin/banners
+  if ((await getSetting("HOME_STATS_VISIBLE")) !== "1") return null;
+
   const { t } = await getT();
   const now = new Date();
   const [activeListings, liveCount, userCount] = await Promise.all([

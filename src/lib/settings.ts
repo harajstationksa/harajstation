@@ -20,6 +20,9 @@ const DEFAULTS: Record<string, string> = {
   // REFERRAL_PERCENT% of every points purchase their invitee completes
   REFERRAL_ENABLED: "1",
   REFERRAL_PERCENT: "10",
+  // homepage stats strip (active ads / live auctions / trusted users) —
+  // admin can hide it from /admin/banners
+  HOME_STATS_VISIBLE: "1",
   // «تواصل معنا» page — admin-editable from /admin/banners
   CONTACT_EMAIL: "support@harajstation.com",
   CONTACT_PHONE: "920000000",

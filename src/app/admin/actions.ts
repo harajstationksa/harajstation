@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { requireStaff } from "@/lib/auth";
 import { applyCredibility, resolveDispute } from "@/lib/credibility";
 import { adjustPoints } from "@/lib/points";
-import { setSetting } from "@/lib/settings";
+import { getSetting, setSetting } from "@/lib/settings";
 
 async function audit(actorId: string, action: string, detail: string) {
   await db.auditLog.create({ data: { actorId, action, detail } });
@@ -455,6 +455,20 @@ export async function saveSocialLinksAction(formData: FormData) {
     await setSetting(key, url);
   }
   await audit(staff.id, "UPDATE_SOCIAL_LINKS", "footer social links updated");
+  revalidatePath("/admin/banners");
+  revalidatePath("/");
+}
+
+/** Show/hide the homepage stats strip (active ads / live auctions / trusted users). */
+export async function toggleHomeStatsAction() {
+  const staff = await requireStaff(["ADMIN"]);
+  const visible = (await getSetting("HOME_STATS_VISIBLE")) === "1";
+  await setSetting("HOME_STATS_VISIBLE", visible ? "0" : "1");
+  await audit(
+    staff.id,
+    "TOGGLE_HOME_STATS",
+    `homepage stats strip ${visible ? "hidden" : "shown"}`
+  );
   revalidatePath("/admin/banners");
   revalidatePath("/");
 }
