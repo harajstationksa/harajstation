@@ -125,6 +125,23 @@ const loadResults = cache(async (sp: SP) => {
         })
       : [];
 
+  // ── matching sellers: searching a person's name should find their profile ──
+  const sellers =
+    q && page === 1
+      ? await db.user.findMany({
+          where: { isBanned: false, name: { contains: q, mode: "insensitive" } },
+          select: {
+            id: true,
+            name: true,
+            avatarColor: true,
+            avatarUrl: true,
+            idVerified: true,
+          },
+          orderBy: [{ idVerified: "desc" }, { credibility: "desc" }],
+          take: 3,
+        })
+      : [];
+
   // sponsored ads inside search results, targeted to the search's categories —
   // a phone campaign surfaces for phone searches, never for unrelated ones
   let sponsored: Awaited<ReturnType<typeof getSponsored>> = [];
@@ -143,7 +160,7 @@ const loadResults = cache(async (sp: SP) => {
   const correction =
     q && total === 0 && sponsored.length === 0 ? suggestCorrection(q) : null;
 
-  return { items, total, sponsored, suggestedCats, stores, correction, page };
+  return { items, total, sponsored, suggestedCats, stores, sellers, correction, page };
 });
 
 /**
@@ -190,6 +207,10 @@ export default async function ListingsPage({
         <MatchingStores sp={sp} />
       </Suspense>
 
+      <Suspense fallback={null}>
+        <MatchingSellers sp={sp} />
+      </Suspense>
+
       <Suspense>
         <FiltersBar />
       </Suspense>
@@ -231,6 +252,42 @@ async function SuggestedCategories({ sp }: { sp: SP }) {
         >
           <CategoryIcon name={c.icon} className="size-4" />
           {c.nameAr}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+/** the search matched sellers by name — surface their profiles */
+async function MatchingSellers({ sp }: { sp: SP }) {
+  const { sellers } = await loadResults(sp);
+  if (sellers.length === 0) return null;
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-500">
+        <Users className="size-3.5" />
+        بائعون مطابقون
+      </span>
+      {sellers.map((u) => (
+        <Link
+          key={u.id}
+          href={`/profile/${u.id}`}
+          className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm font-semibold text-neutral-800 hover:border-primary-300 hover:bg-primary-50 transition-colors"
+        >
+          {u.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={u.avatarUrl} alt="" className="size-6 rounded-full object-cover" />
+          ) : (
+            <span
+              className="size-6 rounded-full text-white text-[10px] font-bold flex items-center justify-center"
+              style={{ backgroundColor: u.avatarColor }}
+            >
+              {u.name.charAt(0)}
+            </span>
+          )}
+          {u.name}
+          {u.idVerified && <BadgeCheck className="size-4 text-green-600" />}
         </Link>
       ))}
     </div>

@@ -1,11 +1,11 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { BadgeCheck, Gavel, LayoutGrid, Search, Store, Tag } from "lucide-react";
+import { BadgeCheck, CircleUserRound, Gavel, LayoutGrid, Search, Store, Tag } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 type Suggestion = {
-  type: "listing" | "auction" | "category" | "store";
+  type: "listing" | "auction" | "category" | "store" | "user";
   label: string;
   href: string;
   verified?: boolean;
@@ -16,7 +16,16 @@ const TYPE_ICON = {
   auction: Gavel,
   category: LayoutGrid,
   store: Store,
+  user: CircleUserRound,
 };
+
+/** dropdown sections, in display order — each renders under its own header */
+const SECTIONS: { label: string; types: Suggestion["type"][] }[] = [
+  { label: "الفئات", types: ["category"] },
+  { label: "المتاجر", types: ["store"] },
+  { label: "المستخدمون", types: ["user"] },
+  { label: "الإعلانات والمزادات", types: ["listing", "auction"] },
+];
 
 export function SearchBar({
   className,
@@ -87,29 +96,35 @@ export function SearchBar({
           />
 
           {open && (
-            <div className="absolute top-full mt-1.5 inset-x-0 card p-1.5 z-50 shadow-lg animate-fade-up">
-              {suggestions.map((s, i) => {
-                const Icon = TYPE_ICON[s.type];
+            <div className="absolute top-full mt-1.5 inset-x-0 card p-1.5 z-50 shadow-lg animate-fade-up max-h-[70vh] overflow-y-auto">
+              {SECTIONS.map(({ label, types }) => {
+                const items = suggestions.filter((s) => types.includes(s.type));
+                if (items.length === 0) return null;
                 return (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => go(s.href)}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-right text-neutral-700 hover:bg-primary-50 hover:text-primary-700 transition-colors cursor-pointer"
-                  >
-                    <Icon className="size-4 text-neutral-400 shrink-0" />
-                    <span className="line-clamp-1">{s.label}</span>
-                    {s.verified && <BadgeCheck className="size-3.5 text-green-600 shrink-0" />}
-                    {s.type === "auction" && (
-                      <span className="badge bg-red-50 text-red-600 mr-auto text-[10px]">مزاد</span>
-                    )}
-                    {s.type === "category" && (
-                      <span className="badge bg-neutral-100 text-neutral-500 mr-auto text-[10px]">فئة</span>
-                    )}
-                    {s.type === "store" && (
-                      <span className="badge bg-primary-50 text-primary-600 mr-auto text-[10px]">متجر</span>
-                    )}
-                  </button>
+                  <div key={label}>
+                    <p className="px-3 pt-2 pb-1 text-[10px] font-bold text-neutral-400 tracking-wide flex items-center gap-1.5">
+                      {label}
+                      <span className="flex-1 border-t border-neutral-100" />
+                    </p>
+                    {items.map((s, i) => {
+                      const Icon = TYPE_ICON[s.type];
+                      return (
+                        <button
+                          key={`${s.type}-${i}`}
+                          type="button"
+                          onClick={() => go(s.href)}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-right text-neutral-700 hover:bg-primary-50 hover:text-primary-700 transition-colors cursor-pointer"
+                        >
+                          <Icon className="size-4 text-neutral-400 shrink-0" />
+                          <span className="line-clamp-1">{s.label}</span>
+                          {s.verified && <BadgeCheck className="size-3.5 text-green-600 shrink-0" />}
+                          {s.type === "auction" && (
+                            <span className="badge bg-red-50 text-red-600 mr-auto text-[10px]">مزاد</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 );
               })}
               <button

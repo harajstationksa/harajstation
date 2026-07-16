@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   const groups = expandQuery(q);
   const impliedSlugs = matchCategorySlugs(q).slice(0, 2);
 
-  const [listings, categories, stores] = await Promise.all([
+  const [listings, categories, stores, users] = await Promise.all([
     db.listing.findMany({
       where: {
         status: "ACTIVE",
@@ -57,7 +57,17 @@ export async function GET(req: Request) {
       },
       select: { slug: true, name: true, isVerified: true },
       orderBy: [{ isVerified: "desc" }, { createdAt: "asc" }],
-      take: 2,
+      take: 3,
+    }),
+    db.user.findMany({
+      where: {
+        isBanned: false,
+        name: { contains: q, mode: "insensitive" },
+      },
+      select: { id: true, name: true, idVerified: true },
+      // the most trusted matches first: verified, then reputation
+      orderBy: [{ idVerified: "desc" }, { credibility: "desc" }],
+      take: 3,
     }),
   ]);
 
@@ -73,6 +83,12 @@ export async function GET(req: Request) {
         label: s.name,
         href: `/store/${s.slug}`,
         verified: s.isVerified,
+      })),
+      ...users.map((u) => ({
+        type: "user" as const,
+        label: u.name,
+        href: `/profile/${u.id}`,
+        verified: u.idVerified,
       })),
       ...listings.map((l) => ({
         type: l.type === "AUCTION" ? ("auction" as const) : ("listing" as const),
