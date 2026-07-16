@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BadgeCheck, MapPin, Star, Store } from "lucide-react";
+import { BadgeCheck, MapPin, Star, Store, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { BRAND, pageMeta } from "@/lib/seo";
 import { getCurrentUser } from "@/lib/auth";
@@ -11,9 +11,10 @@ import { AuctionCard } from "@/components/AuctionCard";
 import { Avatar } from "@/components/Avatar";
 import { CredibilityBadge } from "@/components/CredibilityBadge";
 import { EmptyState } from "@/components/EmptyState";
-import { FollowButton } from "@/components/FollowButton";
 import { ListingCard } from "@/components/ListingCard";
 import { ReportButton } from "@/components/ReportButton";
+import { StoreFollowButton } from "@/components/StoreFollowButton";
+import { StoreSocialLinks } from "@/components/StoreSocialLinks";
 
 export const dynamic = "force-dynamic";
 
@@ -68,10 +69,10 @@ export default async function PublicStorePage({
   const owner = store.user;
   const viewer = await getCurrentUser();
   const [followerCount, myFollow] = await Promise.all([
-    db.follow.count({ where: { sellerId: owner.id } }),
+    db.storeFollow.count({ where: { storeId: store.id } }),
     viewer
-      ? db.follow.findUnique({
-          where: { followerId_sellerId: { followerId: viewer.id, sellerId: owner.id } },
+      ? db.storeFollow.findUnique({
+          where: { storeId_userId: { storeId: store.id, userId: viewer.id } },
         })
       : null,
   ]);
@@ -108,8 +109,14 @@ export default async function PublicStorePage({
             </span>
           )}
           <div className="flex-1 text-center sm:text-right space-y-2">
-            <h1 className="font-display font-extrabold text-3xl flex items-center gap-2 justify-center sm:justify-start">
+            <h1 className="font-display font-extrabold text-3xl flex items-center gap-2 justify-center sm:justify-start flex-wrap">
               {store.name}
+              {store.isVerified && (
+                <span className="badge bg-green-500/15 text-green-400 border border-green-500/30">
+                  <BadgeCheck className="size-4" />
+                  متجر موثّق
+                </span>
+              )}
               {owner.isPro && <span className="badge bg-white/10 text-primary-400">PRO</span>}
             </h1>
             {store.description && (
@@ -121,6 +128,10 @@ export default async function PublicStorePage({
                 {owner.city}
               </span>
               <span>منذ {formatDate(store.createdAt)}</span>
+              <span className="flex items-center gap-1">
+                <Users className="size-4" />
+                {followerCount.toLocaleString("en-US")} متابع
+              </span>
               {avgRating != null && (
                 <span className="flex items-center gap-1 text-amber-400 font-semibold">
                   <Star className="size-4 fill-current" />
@@ -128,6 +139,17 @@ export default async function PublicStorePage({
                 </span>
               )}
             </div>
+            <StoreSocialLinks
+              links={{
+                website: store.website,
+                twitter: store.twitter,
+                instagram: store.instagram,
+                tiktok: store.tiktok,
+                snapchat: store.snapchat,
+                youtube: store.youtube,
+                whatsapp: store.whatsapp,
+              }}
+            />
           </div>
           <div className="flex flex-col items-center gap-2">
             <Link
@@ -146,8 +168,8 @@ export default async function PublicStorePage({
               <ReportButton targetType="USER" targetId={owner.id} compact />
             </div>
             {(!viewer || viewer.id !== owner.id) && (
-              <FollowButton
-                sellerId={owner.id}
+              <StoreFollowButton
+                storeId={store.id}
                 initialFollowing={!!myFollow}
                 followerCount={followerCount}
                 className="!min-h-9 !px-4 text-xs"

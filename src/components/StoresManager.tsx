@@ -4,16 +4,20 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import {
+  BadgeCheck,
   Camera,
   ExternalLink,
   ImageIcon,
   Loader2,
   Pencil,
   Plus,
+  Share2,
   Store,
   Trash2,
+  Users,
   X,
 } from "lucide-react";
+import { StoreVerifyCard } from "@/components/StoreVerifyCard";
 
 type StoreT = {
   id: string;
@@ -22,7 +26,37 @@ type StoreT = {
   description: string;
   logoUrl?: string | null;
   bannerUrl?: string | null;
+  isVerified: boolean;
+  verifyStatus: "PENDING" | "APPROVED" | "REJECTED" | null;
+  verifyNote: string | null;
+  followers: number;
+  website: string | null;
+  twitter: string | null;
+  instagram: string | null;
+  tiktok: string | null;
+  snapchat: string | null;
+  youtube: string | null;
+  whatsapp: string | null;
 };
+
+/** platform key → input label + placeholder (editor only) */
+const SOCIAL_FIELDS: { key: SocialKey; label: string; placeholder: string }[] = [
+  { key: "twitter", label: "X (تويتر)", placeholder: "@mystore أو رابط الحساب" },
+  { key: "instagram", label: "إنستغرام", placeholder: "@mystore أو رابط الحساب" },
+  { key: "tiktok", label: "تيك توك", placeholder: "@mystore أو رابط الحساب" },
+  { key: "snapchat", label: "سناب شات", placeholder: "@mystore أو رابط الحساب" },
+  { key: "youtube", label: "يوتيوب", placeholder: "@mystore أو رابط القناة" },
+  { key: "whatsapp", label: "واتساب", placeholder: "9665xxxxxxxx" },
+  { key: "website", label: "الموقع الإلكتروني", placeholder: "https://example.com" },
+];
+type SocialKey =
+  | "website"
+  | "twitter"
+  | "instagram"
+  | "tiktok"
+  | "snapchat"
+  | "youtube"
+  | "whatsapp";
 
 /** Upload/replace/remove one store image (logo or banner) — saves instantly. */
 function StoreImageField({
@@ -146,9 +180,18 @@ function StoreEditor({
   onClose: () => void;
 }) {
   const router = useRouter();
-  const [form, setForm] = useState(
-    store ?? { id: "", name: "", slug: "", description: "" }
-  );
+  const [form, setForm] = useState({
+    name: store?.name ?? "",
+    slug: store?.slug ?? "",
+    description: store?.description ?? "",
+    website: store?.website ?? "",
+    twitter: store?.twitter ?? "",
+    instagram: store?.instagram ?? "",
+    tiktok: store?.tiktok ?? "",
+    snapchat: store?.snapchat ?? "",
+    youtube: store?.youtube ?? "",
+    whatsapp: store?.whatsapp ?? "",
+  });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -161,9 +204,7 @@ function StoreEditor({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         storeId: store?.id,
-        name: form.name,
-        slug: form.slug,
-        description: form.description,
+        ...form,
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -223,6 +264,31 @@ function StoreEditor({
         />
       </div>
 
+      {/* social profiles — give the store a professional identity */}
+      <div className="border-t border-neutral-100 pt-4">
+        <p className="text-sm font-bold mb-1 flex items-center gap-1.5">
+          <Share2 className="size-4 text-primary-500" />
+          حسابات التواصل الاجتماعي
+        </p>
+        <p className="text-xs text-neutral-400 mb-3">
+          اختيارية — تظهر كأيقونات أعلى صفحة متجرك وتزيد ثقة الزوار.
+        </p>
+        <div className="grid sm:grid-cols-2 gap-3">
+          {SOCIAL_FIELDS.map(({ key, label, placeholder }) => (
+            <div key={key}>
+              <label className="block text-xs font-medium mb-1 text-neutral-600">{label}</label>
+              <input
+                className="input !text-sm"
+                dir="ltr"
+                value={form[key]}
+                onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                placeholder={placeholder}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
       {store ? (
         <div className="grid sm:grid-cols-2 gap-4 border-t border-neutral-100 pt-4">
           <StoreImageField
@@ -241,6 +307,15 @@ function StoreEditor({
             wide
           />
         </div>
+      ) : null}
+
+      {store ? (
+        <StoreVerifyCard
+          storeId={store.id}
+          verified={store.isVerified}
+          status={store.verifyStatus}
+          note={store.verifyNote}
+        />
       ) : (
         <p className="text-xs text-neutral-400 border-t border-neutral-100 pt-3">
           بعد إنشاء المتجر يمكنك إضافة الشعار والبانر من زر «تعديل».
@@ -301,8 +376,19 @@ export function StoresManager({
                 </span>
               )}
               <div className="min-w-0">
-                <p className="font-semibold text-sm line-clamp-1">{s.name}</p>
-                <p className="text-xs text-neutral-400" dir="ltr">/store/{s.slug}</p>
+                <p className="font-semibold text-sm line-clamp-1 flex items-center gap-1.5">
+                  {s.name}
+                  {s.isVerified && (
+                    <BadgeCheck className="size-4 text-green-600 shrink-0" aria-label="متجر موثّق" />
+                  )}
+                </p>
+                <p className="text-xs text-neutral-400 flex items-center gap-2">
+                  <span dir="ltr">/store/{s.slug}</span>
+                  <span className="flex items-center gap-0.5">
+                    <Users className="size-3" />
+                    {s.followers.toLocaleString("en-US")} متابع
+                  </span>
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">

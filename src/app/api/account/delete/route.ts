@@ -81,6 +81,10 @@ export async function POST(req: Request) {
     db.follow.deleteMany({
       where: { OR: [{ followerId: user.id }, { sellerId: user.id }] },
     }),
+    db.storeFollow.deleteMany({
+      where: { OR: [{ userId: user.id }, { store: { userId: user.id } }] },
+    }),
+    db.storeVerification.deleteMany({ where: { store: { userId: user.id } } }),
     db.identityVerification.deleteMany({ where: { userId: user.id } }),
     db.notification.deleteMany({ where: { userId: user.id } }),
   ]);

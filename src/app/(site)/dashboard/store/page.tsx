@@ -11,7 +11,14 @@ export const metadata = { title: "متاجري" };
 export default async function StorePage() {
   const user = await requireUser();
   const [stores, limits] = await Promise.all([
-    db.store.findMany({ where: { userId: user.id }, orderBy: { createdAt: "asc" } }),
+    db.store.findMany({
+      where: { userId: user.id },
+      include: {
+        verification: { select: { status: true, note: true } },
+        _count: { select: { followers: true } },
+      },
+      orderBy: { createdAt: "asc" },
+    }),
     getPlanLimits(user.isPro),
   ]);
 
@@ -35,6 +42,18 @@ export default async function StorePage() {
           description: s.description,
           logoUrl: s.logoUrl,
           bannerUrl: s.bannerUrl,
+          isVerified: s.isVerified,
+          verifyStatus:
+            (s.verification?.status as "PENDING" | "APPROVED" | "REJECTED" | undefined) ?? null,
+          verifyNote: s.verification?.note ?? null,
+          followers: s._count.followers,
+          website: s.website,
+          twitter: s.twitter,
+          instagram: s.instagram,
+          tiktok: s.tiktok,
+          snapchat: s.snapchat,
+          youtube: s.youtube,
+          whatsapp: s.whatsapp,
         }))}
         maxStores={limits.maxStores}
       />

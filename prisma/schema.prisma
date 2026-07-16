@@ -56,6 +56,7 @@ model User {
   reviewsGiven  Review[]         @relation("ReviewAuthor")
   reviewsGotten Review[]         @relation("ReviewTarget")
   stores        Store[]
+  storeFollows  StoreFollow[]
   campaigns     Campaign[]
   pointTx       PointTransaction[]
   resetTokens   PasswordResetToken[]
@@ -486,9 +487,53 @@ model Store {
   description String    @default("")
   logoUrl     String?
   bannerUrl   String?
+  // set when staff approves a StoreVerification → «متجر موثّق» badge
+  isVerified  Boolean   @default(false)
+  // social profiles shown on the public store page (full https URLs;
+  // whatsapp holds the international number, e.g. 9665xxxxxxxx)
+  website     String?
+  twitter     String? // X
+  instagram   String?
+  tiktok      String?
+  snapchat    String?
+  youtube     String?
+  whatsapp    String?
   createdAt   DateTime  @default(now())
   listings    Listing[]
+  verification StoreVerification?
+  followers    StoreFollow[]
 
+  @@index([userId])
+}
+
+// Manual store verification: the owner uploads a commercial-registration /
+// freelance document, staff reviews it from the admin panel. Approval sets
+// Store.isVerified → «متجر موثّق» badge. Same pattern as IdentityVerification.
+model StoreVerification {
+  id         String    @id @default(cuid())
+  storeId    String    @unique
+  store      Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  // path relative to the private uploads root (never web-served directly)
+  docPath    String
+  // PENDING | APPROVED | REJECTED
+  status     String    @default("PENDING")
+  note       String? // rejection reason shown to the owner
+  createdAt  DateTime  @default(now())
+  reviewedAt DateTime?
+}
+
+// Follow a store: the store page shows its follower count, and followers are
+// notified about every new listing/auction published under the store.
+model StoreFollow {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([storeId, userId])
+  @@index([storeId])
   @@index([userId])
 }
 

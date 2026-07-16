@@ -91,13 +91,14 @@ export async function alertSavedSearches(listingId: string): Promise<void> {
       where: { sellerId: listing.sellerId },
       select: { followerId: true },
     });
+    const sellerFollowerIds = new Set(followers.map((f) => f.followerId));
     if (followers.length > 0) {
       const seller = await db.user.findUnique({
         where: { id: listing.sellerId },
         select: { name: true },
       });
       await notifyMany(
-        followers.map((f) => f.followerId),
+        [...sellerFollowerIds],
         "SYSTEM",
         isAuction
           ? `مزاد جديد من ${seller?.name ?? "بائع تتابعه"}`
@@ -105,6 +106,30 @@ export async function alertSavedSearches(listingId: string): Promise<void> {
         `"${listing.title}" في ${listing.city}${priceText ? ` · ${priceText}` : ""}`,
         href
       );
+    }
+
+    // ── store followers (when the listing is published under a store) ──
+    // skip anyone already alerted as a seller follower — one ping is enough
+    if (listing.storeId) {
+      const store = await db.store.findUnique({
+        where: { id: listing.storeId },
+        select: { name: true, followers: { select: { userId: true } } },
+      });
+      const storeFollowerIds =
+        store?.followers
+          .map((f) => f.userId)
+          .filter((id) => id !== listing.sellerId && !sellerFollowerIds.has(id)) ?? [];
+      if (store && storeFollowerIds.length > 0) {
+        await notifyMany(
+          storeFollowerIds,
+          "SYSTEM",
+          isAuction
+            ? `مزاد جديد في متجر ${store.name}`
+            : `إعلان جديد في متجر ${store.name}`,
+          `"${listing.title}" في ${listing.city}${priceText ? ` · ${priceText}` : ""}`,
+          href
+        );
+      }
     }
   } catch {
     // alerts must never block publishing

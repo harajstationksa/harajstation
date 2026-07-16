@@ -14,6 +14,7 @@ import {
   Scale,
   ShieldBan,
   ShieldCheck,
+  Store,
   UserCheck,
   Users,
   Wallet,
@@ -46,6 +47,7 @@ const groups: {
     items: [
       { href: "/admin/disputes", label: "إدارة النزاعات", icon: Scale, roles: ["ADMIN", "SUPPORT"] },
       { href: "/admin/identity", label: "توثيق الهوية", icon: UserCheck, roles: ["ADMIN", "MODERATOR"] },
+      { href: "/admin/stores", label: "توثيق المتاجر", icon: Store, roles: ["ADMIN", "MODERATOR"] },
       { href: "/admin/reports", label: "البلاغات", icon: Flag, roles: ["ADMIN", "MODERATOR", "SUPPORT"] },
       { href: "/admin/moderation", label: "الإشراف والإشعارات", icon: ShieldBan, roles: ["ADMIN"] },
     ],
