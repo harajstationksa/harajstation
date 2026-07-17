@@ -28,11 +28,13 @@ function estimateReach(opts: {
   cityShare: number; // 0..1 (1 = all cities)
 }) {
   const SURFACE_SHARE = 0.35;
-  const base = Math.max(opts.dailyVisitors, 20); // floor for young platforms
-  const point = base * SURFACE_SHARE * opts.cityShare * opts.days;
+  // Honest numbers only — no artificial floor. On a young platform "1 – 3"
+  // is the truth; an inflated range would be lying to the advertiser who is
+  // paying points for it.
+  const point = opts.dailyVisitors * SURFACE_SHARE * opts.cityShare * opts.days;
   return {
-    low: Math.max(1, Math.round(point * 0.7)),
-    high: Math.max(2, Math.round(point * 1.3)),
+    low: Math.max(0, Math.floor(point * 0.7)),
+    high: Math.max(1, Math.ceil(point * 1.3)),
   };
 }
 

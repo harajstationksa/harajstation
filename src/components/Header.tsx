@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { Bell, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getNavCategories } from "@/lib/categories";
 import { STAFF_ROLES } from "@/lib/constants";
 import { getLang, STR } from "@/lib/i18n";
 import { LanguageToggle } from "./LanguageToggle";
+import { NotificationBell } from "./NotificationBell";
 import { SearchBar } from "./SearchBar";
 import { UserMenu } from "./UserMenu";
 
@@ -142,18 +143,7 @@ async function Account() {
 
   return (
     <>
-      <Link
-        href="/dashboard/notifications"
-        className="relative size-9 rounded-full border border-neutral-200 hover:bg-neutral-50 transition-colors flex items-center justify-center"
-        aria-label="الإشعارات"
-      >
-        <Bell className="size-4.5 text-neutral-500" />
-        {unread > 0 && (
-          <span className="absolute -top-1 -left-1 size-4.5 rounded-full bg-primary-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-white">
-            {unread > 9 ? "9+" : unread}
-          </span>
-        )}
-      </Link>
+      <NotificationBell initialUnread={unread} />
       <UserMenu
         name={user.name}
         color={user.avatarColor}
