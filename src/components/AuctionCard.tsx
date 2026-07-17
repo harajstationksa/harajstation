@@ -25,7 +25,7 @@ export async function AuctionCard({
     <Link
       href={`/auctions/${auction.id}`}
       className={cn(
-        "card group overflow-hidden rounded-2xl transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5",
+        "group overflow-hidden bg-white border border-neutral-100 shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5",
         className
       )}
     >

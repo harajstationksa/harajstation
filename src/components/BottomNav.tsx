@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Gavel, Home, LayoutGrid, Plus, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLang } from "./LangProvider";
@@ -9,6 +10,30 @@ import { useLang } from "./LangProvider";
 export function BottomNav() {
   const pathname = usePathname();
   const { t } = useLang();
+  // Instagram-style: scrolling down eases the bar smaller, scrolling up
+  // (or reaching the top) brings it back to full size
+  const [shrunk, setShrunk] = useState(false);
+
+  useEffect(() => {
+    let lastY = window.scrollY;
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY;
+        const delta = y - lastY;
+        // small dead-zone so tiny jitters don't flip the state
+        if (y < 32) setShrunk(false);
+        else if (delta > 6) setShrunk(true);
+        else if (delta < -6) setShrunk(false);
+        lastY = y;
+        ticking = false;
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const items = [
     { href: "/", label: t.nav.home, icon: Home },
@@ -27,9 +52,13 @@ export function BottomNav() {
         reads as "glass" rather than "translucent plastic"; blur alone doesn't.
       */}
       <div
-        className="pointer-events-auto relative isolate mx-auto max-w-sm rounded-[1.75rem]
-                   bg-white/72 backdrop-blur-2xl backdrop-saturate-[1.8]
-                   shadow-[0_10px_40px_-8px_rgba(0,0,0,0.28),0_2px_8px_-2px_rgba(0,0,0,0.12)]"
+        className={cn(
+          `pointer-events-auto relative isolate mx-auto max-w-sm rounded-[1.75rem]
+           bg-white/72 backdrop-blur-2xl backdrop-saturate-[1.8]
+           shadow-[0_10px_40px_-8px_rgba(0,0,0,0.28),0_2px_8px_-2px_rgba(0,0,0,0.12)]
+           origin-bottom transition-transform duration-300 ease-out will-change-transform`,
+          shrunk && "scale-[0.86] translate-y-1.5"
+        )}
       >
         {/* specular sheen — light gathers at the top edge and falls away */}
         <div

@@ -49,7 +49,7 @@ export default async function HomePage() {
 
       <div className="container-page space-y-12 sm:space-y-16 mt-10">
         <section id="categories">
-          <SectionHeader title={t.home.browseCategories} href="/categories" />
+          <SectionHeader title={t.home.browseCategories} />
           <Suspense fallback={<CategoriesSkeleton />}>
             <Categories />
           </Suspense>
@@ -138,35 +138,58 @@ async function MiddleBanner() {
 
 async function Categories() {
   const { lang } = await getT();
-  const categories = await cached("home:categories", 300_000, () =>
-    db.category.findMany({
-      where: { parentId: null },
-      orderBy: { sortOrder: "asc" },
-    })
+  // full tree: every main category with its children laid out beneath it
+  const categories = await cached("home:categories-tree", 300_000, () =>
+    db.category.findMany({ orderBy: { sortOrder: "asc" } })
   );
+  const mains = categories.filter((c) => c.parentId === null);
 
   return (
-    <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-11 gap-2 sm:gap-3">
-      {categories.map((cat) => (
-        <Link
-          key={cat.id}
-          href={`/category/${cat.slug}`}
-          className="group flex flex-col items-center gap-2.5 py-2 px-1 text-center"
-        >
-          {/* the icon sits on a soft tile instead of floating in bold black —
-              the row reads as a quiet index, and colour is saved for hover */}
-          <span className="flex size-12 sm:size-14 items-center justify-center rounded-2xl bg-neutral-50 ring-1 ring-neutral-100 transition-colors duration-200 group-hover:bg-primary-50 group-hover:ring-primary-100">
-            <CategoryIcon
-              name={cat.icon}
-              className="size-5.5 sm:size-6 text-neutral-500 transition-colors duration-200 group-hover:text-primary-600"
-              strokeWidth={1.5}
-            />
-          </span>
-          <span className="text-[11px] sm:text-xs font-medium text-neutral-600 leading-tight transition-colors duration-200 group-hover:text-neutral-900">
-            {lang === "en" ? cat.nameEn : cat.nameAr}
-          </span>
-        </Link>
-      ))}
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-9">
+      {mains.map((cat) => {
+        const subs = categories.filter((c) => c.parentId === cat.id);
+        return (
+          <div key={cat.id} className="min-w-0">
+            <Link
+              href={`/category/${cat.slug}`}
+              className="group flex items-center gap-3"
+            >
+              <span className="flex size-11 shrink-0 items-center justify-center bg-neutral-50 ring-1 ring-neutral-100 transition-colors duration-200 group-hover:bg-primary-50 group-hover:ring-primary-100">
+                <CategoryIcon
+                  name={cat.icon}
+                  className="size-5 text-neutral-500 transition-colors duration-200 group-hover:text-primary-600"
+                  strokeWidth={1.5}
+                />
+              </span>
+              <span className="font-bold text-sm text-neutral-900 leading-tight transition-colors duration-200 group-hover:text-primary-700">
+                {lang === "en" ? cat.nameEn : cat.nameAr}
+              </span>
+            </Link>
+            {subs.length > 0 && (
+              <ul className="mt-3 space-y-2 border-s border-neutral-100 ms-5.5 ps-5">
+                {subs.map((sub) => (
+                  <li key={sub.id}>
+                    <Link
+                      href={`/category/${sub.slug}`}
+                      className="block truncate text-[13px] text-neutral-500 transition-colors duration-150 hover:text-primary-600"
+                    >
+                      {lang === "en" ? sub.nameEn : sub.nameAr}
+                    </Link>
+                  </li>
+                ))}
+                <li>
+                  <Link
+                    href={`/category/${cat.slug}`}
+                    className="block text-[12px] font-semibold text-neutral-400 transition-colors duration-150 hover:text-primary-600"
+                  >
+                    {lang === "en" ? "View all" : "عرض الكل"} ‹
+                  </Link>
+                </li>
+              </ul>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -12,7 +12,7 @@ function Bar({ className = "" }: { className?: string }) {
 
 export function CardSkeleton() {
   return (
-    <div className="card overflow-hidden rounded-2xl animate-pulse">
+    <div className="overflow-hidden bg-white border border-neutral-100 shadow-card animate-pulse">
       <div className="aspect-4/3 bg-neutral-200/80" />
       <div className="p-4 space-y-2.5">
         <Bar className="h-6 w-24" /> {/* price */}
@@ -52,11 +52,18 @@ export function CardRowSkeleton({ count = 4 }: { count?: number }) {
 
 export function CategoriesSkeleton() {
   return (
-    <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-11 gap-2 sm:gap-3 animate-pulse">
-      {Array.from({ length: 11 }, (_, i) => (
-        <div key={i} className="flex flex-col items-center gap-2.5 py-2 px-1">
-          <div className="size-12 sm:size-14 rounded-2xl bg-neutral-100" />
-          <Bar className="h-3 w-12" />
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-9 animate-pulse">
+      {Array.from({ length: 8 }, (_, i) => (
+        <div key={i}>
+          <div className="flex items-center gap-3">
+            <div className="size-11 bg-neutral-100" />
+            <Bar className="h-3.5 w-24" />
+          </div>
+          <div className="mt-3 space-y-2.5 ms-5.5 ps-5">
+            <Bar className="h-3 w-20" />
+            <Bar className="h-3 w-16" />
+            <Bar className="h-3 w-24" />
+          </div>
         </div>
       ))}
     </div>

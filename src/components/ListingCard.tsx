@@ -12,7 +12,7 @@ export async function ListingCard({ listing }: { listing: CardListing }) {
   return (
     <Link
       href={`/listings/${listing.id}`}
-      className="card group overflow-hidden rounded-2xl transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5"
+      className="group overflow-hidden bg-white border border-neutral-100 shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5"
     >
       <div className="relative aspect-4/3 overflow-hidden bg-neutral-100">
         {/* eslint-disable-next-line @next/next/no-img-element */}
