@@ -291,7 +291,7 @@ export async function POST(req: Request) {
         );
       }
     }
-    const saved = await saveImages(files);
+    const saved = await saveImages(files, "listings");
     if (!saved.ok) {
       return NextResponse.json({ error: saved.error }, { status: 400 });
     }

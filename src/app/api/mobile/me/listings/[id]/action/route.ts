@@ -7,6 +7,8 @@ import { getSettingInt } from "@/lib/settings";
 import { getPlanLimits } from "@/lib/limits";
 import { notify } from "@/lib/notify";
 import { isRateLimited } from "@/lib/rate-limit";
+import { deleteImages } from "@/lib/uploads";
+import { parseJson } from "../../../../_lib/serialize";
 
 const schema = z.object({
   action: z.enum(["feature", "sold", "relist", "delete"]),
@@ -104,7 +106,17 @@ export async function POST(
       if (listing.auction && listing.auction.status === "LIVE" && listing.auction.winnerId) {
         return NextResponse.json({ error: "لا يمكن حذف مزاد له فائز" }, { status: 400 });
       }
+      // collect stored files before the cascade removes the referencing rows
+      const chatImages = await db.message.findMany({
+        where: { conversation: { listingId: id }, imageUrl: { not: null } },
+        select: { imageUrl: true },
+      });
+      const files = [
+        ...parseJson<string[]>(listing.images, []),
+        ...chatImages.map((m) => m.imageUrl!),
+      ];
       await db.listing.delete({ where: { id } });
+      deleteImages(files).catch(() => {}); // best-effort storage cleanup
       return NextResponse.json({ ok: true });
     }
   }

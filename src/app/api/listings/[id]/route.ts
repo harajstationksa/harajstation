@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { buildSearchText } from "@/lib/arabic";
 import { findBannedWord } from "@/lib/moderation";
-import { saveImages } from "@/lib/uploads";
+import { deleteImages, saveImages } from "@/lib/uploads";
 import { parseImages } from "@/lib/utils";
 import { CITIES } from "@/lib/constants";
 import { rateLimitGuard } from "@/lib/rate-limit";
@@ -107,7 +107,7 @@ export async function PATCH(
   if (kept.length + files.length > 10) {
     return NextResponse.json({ error: "الحد الأقصى 10 صور" }, { status: 400 });
   }
-  const saved = await saveImages(files);
+  const saved = await saveImages(files, "listings");
   if (!saved.ok) return NextResponse.json({ error: saved.error }, { status: 400 });
 
   let images = [...kept, ...saved.urls];
@@ -136,6 +136,11 @@ export async function PATCH(
       searchText: buildSearchText(data.title, data.description, data.city),
     },
   });
+
+  // photos the seller dropped in this edit are gone from the listing —
+  // remove them from storage too (best-effort, never blocks the response)
+  const dropped = currentImages.filter((u) => !images.includes(u));
+  if (dropped.length > 0) deleteImages(dropped).catch(() => {});
 
   return NextResponse.json({ ok: true, id });
 }

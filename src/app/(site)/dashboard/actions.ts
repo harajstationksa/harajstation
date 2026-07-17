@@ -8,6 +8,8 @@ import { adjustPoints } from "@/lib/points";
 import { getSettingInt } from "@/lib/settings";
 import { getPlanLimits } from "@/lib/limits";
 import { isRateLimited } from "@/lib/rate-limit";
+import { deleteImages } from "@/lib/uploads";
+import { parseImages } from "@/lib/utils";
 
 export async function featureWithPointsAction(formData: FormData) {
   const user = await requireUser();
@@ -91,7 +93,18 @@ export async function deleteListingAction(formData: FormData) {
   if (!listing || listing.sellerId !== user.id) return;
   // block deleting an auction that has a pending/settled transaction
   if (listing.auction && listing.auction.status === "LIVE" && listing.auction.winnerId) return;
+  // collect every stored file before the cascade wipes the rows that
+  // reference them: the listing photos + any photos sent in its chats
+  const chatImages = await db.message.findMany({
+    where: { conversation: { listingId: id }, imageUrl: { not: null } },
+    select: { imageUrl: true },
+  });
+  const files = [
+    ...parseImages(listing.images),
+    ...chatImages.map((m) => m.imageUrl!),
+  ];
   await db.listing.delete({ where: { id } });
+  deleteImages(files).catch(() => {}); // best-effort storage cleanup
   revalidatePath("/dashboard/listings");
   revalidatePath("/");
 }

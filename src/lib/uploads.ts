@@ -1,8 +1,12 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  DeleteObjectsCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 
 export const MAX_FILE = 5 * 1024 * 1024; // 5MB
 
@@ -119,6 +123,44 @@ export async function saveImages(files: File[], subdir = ""): Promise<UploadResu
     }
   }
   return { ok: true, urls };
+}
+
+/**
+ * Best-effort removal of stored images by their public URLs — called when a
+ * listing is permanently deleted so its files don't rot in the bucket.
+ * Placeholder images under /images/ are skipped; failures are logged only
+ * (the DB delete must never be blocked by storage hiccups).
+ */
+export async function deleteImages(urls: string[]): Promise<void> {
+  const publicBase = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
+  const r2Keys: string[] = [];
+
+  for (const url of urls) {
+    if (!url || url.startsWith("/images/")) continue; // bundled placeholders
+    if (publicBase && url.startsWith(`${publicBase}/`)) {
+      r2Keys.push(url.slice(publicBase.length + 1));
+    } else if (url.startsWith("/uploads/")) {
+      // local dev storage
+      try {
+        await unlink(join(process.cwd(), "public", url));
+      } catch {
+        /* already gone */
+      }
+    }
+  }
+
+  if (r2Keys.length === 0 || !r2Configured()) return;
+  try {
+    // DeleteObjects caps at 1000 keys per call — far above any listing
+    await r2Client().send(
+      new DeleteObjectsCommand({
+        Bucket: process.env.R2_BUCKET,
+        Delete: { Objects: r2Keys.map((Key) => ({ Key })), Quiet: true },
+      })
+    );
+  } catch (e) {
+    console.error("R2 delete failed:", e);
+  }
 }
 
 /** Absolute root of the private (never web-served) uploads area. */
