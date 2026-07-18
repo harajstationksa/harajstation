@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { SettingsForm } from "@/components/SettingsForm";
+import { ChangePasswordCard } from "@/components/ChangePasswordCard";
 import { IdentityVerifyCard } from "@/components/IdentityVerifyCard";
 import { DeleteAccountCard } from "@/components/DeleteAccountCard";
 
@@ -28,6 +29,7 @@ export default async function SettingsPage() {
           avatarColor: user.avatarColor,
         }}
       />
+      <ChangePasswordCard email={user.email} />
       <IdentityVerifyCard
         verified={user.idVerified}
         status={(idReq?.status as "PENDING" | "APPROVED" | "REJECTED") ?? null}
