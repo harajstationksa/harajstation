@@ -64,10 +64,12 @@ export async function recordPresence(): Promise<void> {
     await markDelivered(session.sub);
   }
 
-  // opportunistic cleanup: drop rows idle for over a day (keeps table tiny)
+  // opportunistic cleanup: drop rows idle for over a week (keeps table small
+  // while preserving the 7-day activity window the campaign reach estimate
+  // and the admin panel read from)
   if (Math.random() < 0.02) {
     await db.presence.deleteMany({
-      where: { lastSeenAt: { lt: new Date(Date.now() - 86_400_000) } },
+      where: { lastSeenAt: { lt: new Date(Date.now() - 7 * 86_400_000) } },
     });
   }
 }

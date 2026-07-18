@@ -16,22 +16,25 @@ import { CITIES } from "@/lib/constants";
 
 /**
  * Estimated-reach model (transparent, deliberately conservative):
- *   dailyVisitors  — the platform's real unique visitors/day (7-day presence ÷ 7)
- *   surfaceShare   — a sponsored card is seen on the home/category/search
- *                    surfaces by roughly a third of a day's visitors
+ *   activeMembers  — signed-in members seen on the platform in the last 7 days
+ *                    (anonymous visits are mostly crawlers, so they don't count)
+ *   IMPRESSIONS_PER_MEMBER_PER_WEEK — an active member visits a couple of times
+ *                    a week and sees a pinned sponsored card on most of those
+ *                    visits (home + category + search of their interest)
  *   cityFactor     — share of registered users living in the target city
  * The range shown is ±30% around the point estimate.
  */
 function estimateReach(opts: {
   days: number;
-  dailyVisitors: number;
+  activeMembers: number;
   cityShare: number; // 0..1 (1 = all cities)
 }) {
-  const SURFACE_SHARE = 0.35;
+  const IMPRESSIONS_PER_MEMBER_PER_WEEK = 1.3;
   // Honest numbers only — no artificial floor. On a young platform "1 – 3"
   // is the truth; an inflated range would be lying to the advertiser who is
   // paying points for it.
-  const point = opts.dailyVisitors * SURFACE_SHARE * opts.cityShare * opts.days;
+  const point =
+    opts.activeMembers * IMPRESSIONS_PER_MEMBER_PER_WEEK * (opts.days / 7) * opts.cityShare;
   return {
     low: Math.max(0, Math.floor(point * 0.7)),
     high: Math.max(1, Math.ceil(point * 1.3)),
@@ -43,7 +46,7 @@ export function CampaignForm({
   ratePerDay,
   dayOptions,
   balance,
-  dailyVisitors,
+  activeMembers,
   totalUsers,
   cityCounts,
 }: {
@@ -51,8 +54,8 @@ export function CampaignForm({
   ratePerDay: number;
   dayOptions: number[];
   balance: number;
-  /** platform-wide unique visitors per day (presence-derived) */
-  dailyVisitors: number;
+  /** distinct signed-in members active in the last 7 days (presence-derived) */
+  activeMembers: number;
   totalUsers: number;
   /** registered users per city, e.g. { "الرياض": 120 } */
   cityCounts: Record<string, number>;
@@ -72,7 +75,7 @@ export function CampaignForm({
     return Math.max(0.05, totalUsers > 0 ? inCity / totalUsers : 0.05);
   }, [targetCity, cityCounts, totalUsers]);
 
-  const reach = estimateReach({ days, dailyVisitors, cityShare });
+  const reach = estimateReach({ days, activeMembers, cityShare });
   const cityUsers = targetCity ? (cityCounts[targetCity] ?? 0) : totalUsers;
 
   async function submit(e: React.FormEvent) {
@@ -190,7 +193,7 @@ export function CampaignForm({
           </div>
         </div>
         <p className="text-[11px] text-neutral-400 -mt-2">
-          تقدير مبني على زوار المنصة الفعليين خلال آخر ٧ أيام
+          تقدير مبني على الأعضاء النشطين فعلياً على المنصة خلال آخر ٧ أيام
           {targetCity ? ` ونسبة مستخدمي ${targetCity}` : ""} — الأرقام الحقيقية قد تختلف.
         </p>
 

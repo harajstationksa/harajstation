@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { SESSION_COOKIE, sessionCookieOptions, signSessionToken } from "@/lib/auth";
 import { fetchProfile, googleConfigured, siteUrl, STATE_COOKIE } from "@/lib/google-oauth";
 import { rateLimitGuard } from "@/lib/rate-limit";
+import { getFreeTierConfig } from "@/lib/settings";
+import { generateReferralCode } from "@/lib/referral";
 
 const AVATAR_COLORS = ["#db7759", "#0ea5e9", "#8b5cf6", "#10b981", "#ec4899"];
 
@@ -39,6 +41,15 @@ export async function GET(req: Request) {
   let user = await db.user.findUnique({ where: { email: profile.email } });
 
   if (!user) {
+    // same launch promo as email signup: free PRO for N days while the switch is on
+    const freeTier = await getFreeTierConfig();
+    const proGrant = freeTier.enabled
+      ? {
+          isPro: true,
+          proUntil: new Date(Date.now() + freeTier.days * 24 * 60 * 60 * 1000),
+        }
+      : {};
+
     user = await db.user.create({
       data: {
         name: profile.name,
@@ -49,6 +60,8 @@ export async function GET(req: Request) {
         avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
         avatarUrl: profile.picture ?? null,
         emailVerifiedAt: new Date(),
+        referralCode: await generateReferralCode(),
+        ...proGrant,
       },
     });
   } else if (!user.emailVerifiedAt) {

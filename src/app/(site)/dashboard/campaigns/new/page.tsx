@@ -117,13 +117,18 @@ export default async function NewCampaignPage({
     redirect("/dashboard/campaigns");
   }
 
-  // audience data for the estimated-reach panel: real unique visitors of the
-  // last 7 days (presence rows) + registered users per city
+  // audience data for the estimated-reach panel: signed-in members active in
+  // the last 7 days (anonymous presence rows are mostly crawlers/bots and would
+  // inflate the estimate) + registered users per city
   const weekAgo = new Date(new Date().getTime() - 7 * 86_400_000);
-  const [rate, dayOptions, weeklyVisitors, totalUsers, cityGroups] = await Promise.all([
+  const [rate, dayOptions, activeMembers, totalUsers, cityGroups] = await Promise.all([
     getSettingInt("CAMPAIGN_POINTS_PER_DAY", 50),
     getCampaignDayOptions(),
-    db.presence.count({ where: { lastSeenAt: { gt: weekAgo } } }),
+    db.presence.findMany({
+      where: { lastSeenAt: { gt: weekAgo }, userId: { not: null } },
+      distinct: ["userId"],
+      select: { userId: true },
+    }),
     db.user.count(),
     db.user.groupBy({ by: ["city"], _count: true }),
   ]);
@@ -137,7 +142,7 @@ export default async function NewCampaignPage({
         ratePerDay={rate}
         dayOptions={dayOptions}
         balance={user.points}
-        dailyVisitors={Math.round(weeklyVisitors / 7)}
+        activeMembers={activeMembers.length}
         totalUsers={totalUsers}
         cityCounts={cityCounts}
       />
