@@ -19,7 +19,7 @@ import { isRateLimited } from "@/lib/rate-limit";
 export async function buyPointsAction(formData: FormData) {
   const user = await requireUser();
   // every attempt creates a Payment row + Moyasar invoice — cap per account
-  if (isRateLimited(`buy-points:${user.id}`, 8, 10 * 60_000)) {
+  if (await isRateLimited(`buy-points:${user.id}`, 8, 10 * 60_000)) {
     redirect(
       `/dashboard/wallet?promoError=${encodeURIComponent("محاولات كثيرة — انتظر قليلاً ثم حاول مجدداً")}`
     );

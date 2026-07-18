@@ -18,7 +18,7 @@ const schema = z.object({ challenge: z.string().length(64) });
  * 6 sends/hour per account, plus the global per-inbox cap in sendEmail.
  */
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "login-otp-resend", 6, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "login-otp-resend", 6, 10 * 60_000);
   if (limited) return limited;
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
       { status: 429 }
     );
   }
-  if (isRateLimited(`otp-send:${otp.userId}`, 6, 60 * 60_000)) {
+  if (await isRateLimited(`otp-send:${otp.userId}`, 6, 60 * 60_000)) {
     return NextResponse.json(
       { error: "طلبت رموزاً كثيرة خلال ساعة — هدّئ عليك شوي وحاول بعدين 😉" },
       { status: 429 }

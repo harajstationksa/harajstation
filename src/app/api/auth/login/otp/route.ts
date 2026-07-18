@@ -17,7 +17,7 @@ const schema = z.object({
 
 /** Second login step: exchange challenge + emailed code for a session. */
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "login-otp", 15, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "login-otp", 15, 10 * 60_000);
   if (limited) return limited;
 
   const parsed = schema.safeParse(await req.json().catch(() => null));

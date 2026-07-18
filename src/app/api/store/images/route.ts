@@ -8,7 +8,7 @@ const KINDS = new Set(["logo", "banner"]);
 
 /** Upload a store logo or banner (owner only). */
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "store-image", 15, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "store-image", 15, 10 * 60_000);
   if (limited) return limited;
 
   const user = await getCurrentUser();

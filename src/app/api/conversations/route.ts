@@ -12,7 +12,7 @@ const schema = z.object({
 
 /** Find-or-create a conversation about a listing; returns its id. */
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "conv-create", 15, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "conv-create", 15, 10 * 60_000);
   if (limited) return limited;
   const session = await getSession();
   if (!session) {

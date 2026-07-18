@@ -24,9 +24,10 @@ npm ci
 echo "==> prisma client"
 npx prisma generate
 
-# The schema is pushed from the dev machine (npx prisma db push) against the
-# same Supabase database, so there is nothing to apply here. If you ever point
-# this at a fresh database, run `npx prisma db push` once before the build.
+# Dev machines run their own local database since 2026-07-18 — production
+# schema changes arrive as checked-in migrations and are applied here.
+echo "==> migrations"
+npx prisma migrate deploy
 
 echo "==> build"
 npm run build

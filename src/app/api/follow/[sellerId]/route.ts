@@ -10,7 +10,7 @@ export async function POST(
   ctx: { params: Promise<{ sellerId: string }> }
 ) {
   // followed sellers get a notification — keep the toggle un-spammable
-  const limited = rateLimitGuard(req, "follow", 20, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "follow", 20, 10 * 60_000);
   if (limited) return limited;
   const user = await getCurrentUser();
   if (!user) {

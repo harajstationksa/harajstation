@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "غير مسجل" }, { status: 401 });
 
-  if (isRateLimited(`buy-points:${user.id}`, 8, 10 * 60_000)) {
+  if (await isRateLimited(`buy-points:${user.id}`, 8, 10 * 60_000)) {
     return NextResponse.json(
       { error: "محاولات كثيرة — انتظر قليلاً ثم حاول مجدداً" },
       { status: 429 }

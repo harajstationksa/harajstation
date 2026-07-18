@@ -22,7 +22,7 @@ export async function PATCH(
   req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const limited = rateLimitGuard(req, "listing-edit", 20, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "listing-edit", 20, 10 * 60_000);
   if (limited) return limited;
   const { id } = await ctx.params;
   const user = await getCurrentUser();

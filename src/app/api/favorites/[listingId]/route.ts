@@ -7,7 +7,7 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ listingId: string }> }
 ) {
-  const limited = rateLimitGuard(req, "favorite", 60, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "favorite", 60, 10 * 60_000);
   if (limited) return limited;
   const { listingId } = await ctx.params;
   const session = await getSession();

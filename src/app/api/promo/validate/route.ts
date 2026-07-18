@@ -5,7 +5,7 @@ import { rateLimitGuard } from "@/lib/rate-limit";
 
 /** Live promo-code check for the wallet UI (no redemption happens here). */
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "promo-validate", 20, 60_000);
+  const limited = await rateLimitGuard(req, "promo-validate", 20, 60_000);
   if (limited) return limited;
 
   const user = await getCurrentUser();

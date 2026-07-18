@@ -35,7 +35,7 @@ const AVATAR_COLORS = [
 ];
 
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "register", 5, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "register", 5, 10 * 60_000);
   if (limited) return limited;
 
   const body = await req.json().catch(() => null);

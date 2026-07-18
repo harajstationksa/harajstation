@@ -15,7 +15,7 @@ function fail(reason: string) {
 
 /** Google sends the visitor back here with a one-time code. */
 export async function GET(req: Request) {
-  const limited = rateLimitGuard(req, "google-callback", 20, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "google-callback", 20, 10 * 60_000);
   if (limited) return limited;
   if (!googleConfigured()) return fail("google");
 

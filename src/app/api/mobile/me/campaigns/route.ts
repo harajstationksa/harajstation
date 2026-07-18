@@ -54,7 +54,7 @@ export async function POST(req: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "غير مسجل" }, { status: 401 });
 
-  if (isRateLimited(`campaign:${user.id}`, 6, 60 * 60_000)) {
+  if (await isRateLimited(`campaign:${user.id}`, 6, 60 * 60_000)) {
     return NextResponse.json(
       { error: "أنشأت حملات كثيرة خلال وقت قصير — انتظر قليلاً" },
       { status: 429 }

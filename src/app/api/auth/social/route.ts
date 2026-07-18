@@ -26,7 +26,7 @@ const schema = z.object({
 const AVATAR_COLORS = ["#db7759", "#0ea5e9", "#8b5cf6", "#10b981", "#ec4899"];
 
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "social-login", 10, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "social-login", 10, 10 * 60_000);
   if (limited) return limited;
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

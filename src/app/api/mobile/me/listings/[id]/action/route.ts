@@ -81,7 +81,7 @@ export async function POST(
     }
 
     case "relist": {
-      if (isRateLimited(`relist:${user.id}`, 20, 24 * 3_600_000)) {
+      if (await isRateLimited(`relist:${user.id}`, 20, 24 * 3_600_000)) {
         return NextResponse.json({ error: "محاولات كثيرة — حاول لاحقاً" }, { status: 429 });
       }
       if (!["SOLD", "EXPIRED"].includes(listing.status)) {

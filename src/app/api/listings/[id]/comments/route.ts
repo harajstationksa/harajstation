@@ -12,7 +12,7 @@ export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const limited = rateLimitGuard(req, "comment", 6, 60_000);
+  const limited = await rateLimitGuard(req, "comment", 6, 60_000);
   if (limited) return limited;
   const { id } = await ctx.params;
   const session = await getSession();
@@ -20,7 +20,7 @@ export async function POST(
     return NextResponse.json({ error: "سجّل دخولك للتعليق" }, { status: 401 });
   }
   // per-account budget too — comments notify sellers, so IP-hopping must not help
-  if (isRateLimited(`comment:u:${session.sub}`, 30, 60 * 60_000)) {
+  if (await isRateLimited(`comment:u:${session.sub}`, 30, 60 * 60_000)) {
     return NextResponse.json(
       { error: "تجاوزت حد التعليقات مؤقتاً — حاول لاحقاً" },
       { status: 429 }

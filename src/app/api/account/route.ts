@@ -16,7 +16,7 @@ const schema = z.object({
 });
 
 export async function PATCH(req: Request) {
-  const limited = rateLimitGuard(req, "account-update", 10, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "account-update", 10, 10 * 60_000);
   if (limited) return limited;
   const user = await getCurrentUser();
   if (!user) {

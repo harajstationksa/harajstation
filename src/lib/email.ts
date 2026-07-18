@@ -31,10 +31,10 @@ function getTransporter(): Transporter | null {
 }
 
 /** Per-inbox ceiling: 5 mails/hour and 12/day, whatever the caller. */
-function mailBombGuard(to: string): boolean {
+async function mailBombGuard(to: string): Promise<boolean> {
   return (
-    isRateLimited(`mail:h:${to}`, 5, 60 * 60_000) ||
-    isRateLimited(`mail:d:${to}`, 12, 24 * 3_600_000)
+    (await isRateLimited(`mail:h:${to}`, 5, 60 * 60_000)) ||
+    (await isRateLimited(`mail:d:${to}`, 12, 24 * 3_600_000))
   );
 }
 
@@ -50,7 +50,7 @@ export async function sendEmail(opts: {
   // an attacker rotating IPs could still flood one inbox with verification /
   // reset mails. Cap it here, at the single point every mail passes through.
   const to = opts.to.toLowerCase().trim();
-  if (mailBombGuard(to)) {
+  if (await mailBombGuard(to)) {
     console.warn("email suppressed — recipient over quota:", to);
     return false;
   }

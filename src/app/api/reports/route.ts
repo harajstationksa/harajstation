@@ -11,14 +11,14 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "report", 5, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "report", 5, 10 * 60_000);
   if (limited) return limited;
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: "سجّل دخولك للإبلاغ" }, { status: 401 });
   }
   // per-account daily budget — reports feed the moderation queue
-  if (isRateLimited(`report:u:${session.sub}`, 20, 24 * 60 * 60_000)) {
+  if (await isRateLimited(`report:u:${session.sub}`, 20, 24 * 60 * 60_000)) {
     return NextResponse.json(
       { error: "تجاوزت حد البلاغات اليومي — حاول غداً" },
       { status: 429 }

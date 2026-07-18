@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
+import { redis } from "./redis";
 
 /**
- * In-memory sliding-window rate limiter — no external service needed.
- * Good for a single-instance deployment; swap the Map for Redis when the
- * app runs on more than one server.
+ * Sliding-window rate limiter.
+ *
+ * Backend: Redis (ZSET per key) when REDIS_URL is set — shared across pm2
+ * cluster workers — otherwise the original in-process Map, which is exactly
+ * right for single-instance deployments and local dev. Semantics are the
+ * same in both: hits inside the window count toward the limit, and BLOCKED
+ * calls do not add hits (being throttled never extends the throttle).
+ *
+ * Redis failures fail open (allow) — availability beats strictness, and the
+ * in-memory limiter after a restart made the same trade.
  */
 type Bucket = { hits: number[]; windowMs: number };
 
@@ -24,8 +32,7 @@ function sweep() {
   }
 }
 
-/** True when `key` exceeded `limit` hits within the last `windowMs`. */
-export function isRateLimited(key: string, limit: number, windowMs: number): boolean {
+function memoryLimited(key: string, limit: number, windowMs: number): boolean {
   sweep();
   const now = Date.now();
   const hits = (buckets.get(key)?.hits ?? []).filter((t) => t > now - windowMs);
@@ -36,6 +43,39 @@ export function isRateLimited(key: string, limit: number, windowMs: number): boo
   hits.push(now);
   buckets.set(key, { hits, windowMs });
   return false;
+}
+
+async function redisLimited(
+  key: string,
+  limit: number,
+  windowMs: number
+): Promise<boolean> {
+  const r = redis();
+  if (!r) return memoryLimited(key, limit, windowMs);
+  const now = Date.now();
+  const k = `rl:${key}`;
+  try {
+    await r.zremrangebyscore(k, 0, now - windowMs);
+    const count = await r.zcard(k);
+    if (count >= limit) return true;
+    await r
+      .multi()
+      .zadd(k, now, `${now}-${Math.random()}`)
+      .pexpire(k, windowMs)
+      .exec();
+    return false;
+  } catch {
+    return false; // fail open — error already logged by the client
+  }
+}
+
+/** True when `key` exceeded `limit` hits within the last `windowMs`. */
+export function isRateLimited(
+  key: string,
+  limit: number,
+  windowMs: number
+): Promise<boolean> {
+  return redisLimited(key, limit, windowMs);
 }
 
 function header(h: Headers, name: string): string | null {
@@ -80,16 +120,16 @@ export function tooManyRequests(
  * Guard an API route: returns a 429 response when the caller exceeded the
  * budget, or null to continue.
  *
- *   const limited = rateLimitGuard(req, "login", 5, 60_000);
+ *   const limited = await rateLimitGuard(req, "login", 5, 60_000);
  *   if (limited) return limited;
  */
-export function rateLimitGuard(
+export async function rateLimitGuard(
   req: Request,
   scope: string,
   limit: number,
   windowMs: number
-): NextResponse | null {
-  if (isRateLimited(`${scope}:${clientIp(req)}`, limit, windowMs)) {
+): Promise<NextResponse | null> {
+  if (await isRateLimited(`${scope}:${clientIp(req)}`, limit, windowMs)) {
     return tooManyRequests(windowMs);
   }
   return null;

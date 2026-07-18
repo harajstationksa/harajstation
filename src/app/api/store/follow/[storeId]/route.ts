@@ -10,7 +10,7 @@ export async function POST(
   ctx: { params: Promise<{ storeId: string }> }
 ) {
   // the store owner gets a notification — keep the toggle un-spammable
-  const limited = rateLimitGuard(req, "store-follow", 20, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "store-follow", 20, 10 * 60_000);
   if (limited) return limited;
   const user = await getCurrentUser();
   if (!user) {

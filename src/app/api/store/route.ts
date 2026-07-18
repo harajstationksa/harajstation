@@ -50,7 +50,7 @@ function normalizeSocials(
 
 /** Create a new store (within plan limit) or edit an existing one. */
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "store-write", 10, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "store-write", 10, 10 * 60_000);
   if (limited) return limited;
   const user = await getCurrentUser();
   if (!user) {

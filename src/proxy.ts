@@ -18,7 +18,7 @@ const WINDOW = 60_000;
 /** Machine callers with their own secret — never throttle them. */
 const BYPASS = ["/api/payments/webhook", "/api/cron"];
 
-export function proxy(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isRead = req.method === "GET" || req.method === "HEAD";
 
@@ -27,8 +27,8 @@ export function proxy(req: NextRequest) {
 
   const ip = clientIp(req);
   const limited = isRead
-    ? isRateLimited(`burst:read:${ip}`, READ_LIMIT, WINDOW)
-    : isRateLimited(`burst:write:${ip}`, WRITE_LIMIT, WINDOW);
+    ? await isRateLimited(`burst:read:${ip}`, READ_LIMIT, WINDOW)
+    : await isRateLimited(`burst:write:${ip}`, WRITE_LIMIT, WINDOW);
 
   if (limited) {
     return NextResponse.json(

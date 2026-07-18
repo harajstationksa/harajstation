@@ -84,7 +84,7 @@ export async function POST(req: Request) {
   // that counts rejected attempts locks an honest seller out of a form they are
   // still learning. The real anti-spam cap is on listings actually created (see
   // below), which is what a spammer is after and what costs us anything.
-  const limited = rateLimitGuard(req, "listing-attempt", 40, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "listing-attempt", 40, 10 * 60_000);
   if (limited) return limited;
 
   const user = await getCurrentUser();
@@ -269,7 +269,7 @@ export async function POST(req: Request) {
   // Everything checks out, so this request is about to become a real listing —
   // charge it against the publishing cap now, before we spend time storing
   // images. Keyed by account, because that is the thing a spammer has to burn.
-  if (isRateLimited(`listing-publish:${user.id}`, 10, 10 * 60_000)) {
+  if (await isRateLimited(`listing-publish:${user.id}`, 10, 10 * 60_000)) {
     return NextResponse.json(
       { error: "نشرت إعلانات كثيرة خلال وقت قصير — انتظر قليلاً ثم أضف إعلانك التالي" },
       { status: 429 }

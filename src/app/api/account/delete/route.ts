@@ -17,7 +17,7 @@ const schema = z.object({ password: z.string().min(1) });
  * their conversation) but are attributed to «مستخدم محذوف».
  */
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "account-delete", 5, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "account-delete", 5, 10 * 60_000);
   if (limited) return limited;
 
   const user = await getCurrentUser();

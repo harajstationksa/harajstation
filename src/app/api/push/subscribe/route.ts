@@ -14,7 +14,7 @@ const schema = z.object({
 
 /** Register (or re-register) this browser for Web Push. */
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "push-sub", 10, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "push-sub", 10, 10 * 60_000);
   if (limited) return limited;
   const user = await getCurrentUser();
   if (!user) {

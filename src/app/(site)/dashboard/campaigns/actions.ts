@@ -18,7 +18,7 @@ import { isRateLimited } from "@/lib/rate-limit";
 export async function createCampaignAction(formData: FormData) {
   const user = await requireUser();
   // each campaign notifies up to 200 people — cap the blast radius per account
-  if (isRateLimited(`campaign:${user.id}`, 6, 60 * 60_000)) {
+  if (await isRateLimited(`campaign:${user.id}`, 6, 60 * 60_000)) {
     return { error: "أنشأت حملات كثيرة خلال وقت قصير — انتظر قليلاً ثم حاول مجدداً" };
   }
   const listingId = String(formData.get("listingId"));

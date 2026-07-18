@@ -15,7 +15,7 @@ const TOKEN_TTL_MIN = 30;
  * (local dev) the link is returned to the client and shown on-screen.
  */
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "forgot", 5, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "forgot", 5, 10 * 60_000);
   if (limited) return limited;
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
   // per-address cap so a rotating-IP attacker can't mail-bomb one inbox.
   // Keyed on the *submitted* address and checked before any lookup, so it
   // still reveals nothing about whether the account exists.
-  if (isRateLimited(`forgot:mail:${email}`, 3, 60 * 60_000)) {
+  if (await isRateLimited(`forgot:mail:${email}`, 3, 60 * 60_000)) {
     return NextResponse.json(
       { error: "طلبت رابط الاستعادة عدة مرات — راجع بريدك أو انتظر ساعة" },
       { status: 429, headers: { "Retry-After": "3600" } }

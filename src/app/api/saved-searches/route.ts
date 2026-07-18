@@ -16,7 +16,7 @@ const schema = z.object({
 
 /** Save a search → the user gets notified when a matching listing lands. */
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "saved-search", 10, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "saved-search", 10, 10 * 60_000);
   if (limited) return limited;
   const user = await getCurrentUser();
   if (!user) {

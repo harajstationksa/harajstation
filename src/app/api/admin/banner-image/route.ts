@@ -6,7 +6,7 @@ import { rateLimitGuard } from "@/lib/rate-limit";
 
 /** Upload a banner image (admins only). Returns the stored URL for the form. */
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "banner-image", 20, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "banner-image", 20, 10 * 60_000);
   if (limited) return limited;
 
   const user = await getCurrentUser();

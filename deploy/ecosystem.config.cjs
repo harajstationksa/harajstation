@@ -14,11 +14,13 @@ module.exports = {
       script: "node_modules/next/dist/bin/next",
       args: "start -p 3000 -H 127.0.0.1",
 
-      // ONE instance, on purpose. The rate limiter (src/lib/rate-limit.ts) keeps
-      // its counters in memory, so a second worker would silently double every
-      // anti-spam limit. Put the buckets in Redis before switching to cluster.
-      instances: 1,
-      exec_mode: "fork",
+      // TWO cluster workers: `pm2 reload` becomes zero-downtime (one worker
+      // serves while the other restarts). Safe since 2026-07-18 — rate-limit
+      // and login-guard counters live in Redis (REDIS_URL in .env); only the
+      // page/settings caches stay per-worker, which just means each worker
+      // warms its own copy for a few seconds.
+      instances: 2,
+      exec_mode: "cluster",
 
       max_memory_restart: "1G",
       env: { NODE_ENV: "production", PORT: "3000" },

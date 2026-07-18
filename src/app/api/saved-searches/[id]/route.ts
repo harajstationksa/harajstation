@@ -7,7 +7,7 @@ export async function DELETE(
   req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const limited = rateLimitGuard(req, "saved-search-del", 30, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "saved-search-del", 30, 10 * 60_000);
   if (limited) return limited;
   const user = await getCurrentUser();
   if (!user) {

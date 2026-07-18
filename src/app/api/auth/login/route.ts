@@ -51,7 +51,7 @@ async function startOtpChallenge(user: { id: string; email: string }) {
   if (pending && now - pending.lastSentAt.getTime() < OTP_RESEND_COOLDOWN_MS) {
     return { ok: true as const, challenge: pending.challenge };
   }
-  if (isRateLimited(`otp-send:${user.id}`, 6, 60 * 60_000)) {
+  if (await isRateLimited(`otp-send:${user.id}`, 6, 60 * 60_000)) {
     return {
       ok: false as const,
       error: "طلبت رموزاً كثيرة خلال ساعة — هدّئ عليك شوي وحاول بعدين 😉",
@@ -77,7 +77,7 @@ async function startOtpChallenge(user: { id: string; email: string }) {
 }
 
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "login", 8, 60_000);
+  const limited = await rateLimitGuard(req, "login", 8, 60_000);
   if (limited) return limited;
 
   const body = await req.json().catch(() => null);
@@ -100,7 +100,7 @@ export async function POST(req: Request) {
     ? user.lockUntil && user.lockUntil > now
       ? user.lockUntil
       : null
-    : ghostLock(idKey);
+    : await ghostLock(idKey);
   if (lock) {
     return NextResponse.json(
       { error: lockedError(lock), locked: true, suggestReset: true },
@@ -112,7 +112,7 @@ export async function POST(req: Request) {
     if (!user) {
       // same escalation for identifiers that match no account, so responses
       // never reveal which accounts exist
-      const verdict = ghostFailure(idKey);
+      const verdict = await ghostFailure(idKey);
       return NextResponse.json(
         { error: verdict.error, suggestReset: verdict.suggestReset, locked: !!verdict.lockedUntil },
         { status: verdict.lockedUntil ? 423 : 401 }

@@ -14,7 +14,7 @@ import { isRateLimited, rateLimitGuard } from "@/lib/rate-limit";
  * so it can't be used to discover which addresses have accounts.
  */
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "verify-resend", 3, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "verify-resend", 3, 10 * 60_000);
   if (limited) return limited;
 
   if (!emailConfigured()) {
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     if (!email) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
-    if (isRateLimited(`verify-resend:mail:${email}`, 5, 60 * 60_000)) {
+    if (await isRateLimited(`verify-resend:mail:${email}`, 5, 60 * 60_000)) {
       return NextResponse.json(
         { error: "أرسلنا رسائل كثيرة لهذا البريد — راجع صندوق الوارد والسبام" },
         { status: 429 }
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
   }
   // the IP cap above doesn't stop the same account resending from many
   // networks — bound the account itself too
-  if (isRateLimited(`verify-resend:u:${session.id}`, 5, 60 * 60_000)) {
+  if (await isRateLimited(`verify-resend:u:${session.id}`, 5, 60 * 60_000)) {
     return NextResponse.json(
       { error: "أرسلنا رسائل تأكيد كثيرة — راجع بريدك (وصندوق الرسائل غير المرغوبة) أو انتظر قليلاً" },
       { status: 429 }

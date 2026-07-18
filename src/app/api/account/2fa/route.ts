@@ -9,7 +9,7 @@ const schema = z.object({ enabled: z.boolean() });
 
 /** Toggle email 2FA (a one-time code mailed on every login). */
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "2fa-toggle", 10, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "2fa-toggle", 10, 10 * 60_000);
   if (limited) return limited;
   const user = await getCurrentUser();
   if (!user) {

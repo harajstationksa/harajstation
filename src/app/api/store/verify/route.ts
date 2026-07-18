@@ -11,7 +11,7 @@ import { rateLimitGuard } from "@/lib/rate-limit";
  * Approval sets Store.isVerified → «متجر موثّق» badge.
  */
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "store-verify", 5, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "store-verify", 5, 10 * 60_000);
   if (limited) return limited;
 
   const user = await getCurrentUser();

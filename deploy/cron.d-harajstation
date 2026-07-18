@@ -4,3 +4,6 @@ SHELL=/bin/sh
 PATH=/usr/local/bin:/usr/bin:/bin
 
 * * * * * root /usr/local/bin/haraj-cron.sh
+
+# weekly DB backup (Monday 03:17) — log lands next to the dumps
+17 3 * * 1 haraj /var/www/harajstation/deploy/backup.sh >> /var/backups/harajstation/backup.log 2>&1

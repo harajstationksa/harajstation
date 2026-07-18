@@ -4,7 +4,7 @@ import { rateLimitGuard } from "@/lib/rate-limit";
 
 /** Send the visitor to Google's consent screen. */
 export async function GET(req: Request) {
-  const limited = rateLimitGuard(req, "google-start", 10, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "google-start", 10, 10 * 60_000);
   if (limited) return limited;
 
   if (!googleConfigured()) {

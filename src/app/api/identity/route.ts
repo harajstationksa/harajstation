@@ -25,7 +25,7 @@ export async function GET() {
  * The image is stored outside /public and is only viewable by staff.
  */
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "identity", 5, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "identity", 5, 10 * 60_000);
   if (limited) return limited;
 
   const user = await getCurrentUser();

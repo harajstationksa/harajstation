@@ -5,7 +5,7 @@ import { saveImages, MAX_FILE } from "@/lib/uploads";
 import { rateLimitGuard } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
-  const limited = rateLimitGuard(req, "avatar", 10, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "avatar", 10, 10 * 60_000);
   if (limited) return limited;
 
   const user = await getCurrentUser();

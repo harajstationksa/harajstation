@@ -61,7 +61,7 @@ export async function relistAction(formData: FormData) {
   const user = await requireUser();
   // relisting resets createdAt, so the listing jumps back to the top of
   // "الأحدث" — cap it so nobody can bump-spam the feed in a loop
-  if (isRateLimited(`relist:${user.id}`, 20, 24 * 3_600_000)) return;
+  if (await isRateLimited(`relist:${user.id}`, 20, 24 * 3_600_000)) return;
   const id = String(formData.get("listingId"));
   const listing = await db.listing.findUnique({ where: { id } });
   if (!listing || listing.sellerId !== user.id) return;

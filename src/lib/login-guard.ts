@@ -9,6 +9,7 @@
  */
 
 import { createHash } from "node:crypto";
+import { redis } from "./redis";
 
 export const LOCK_AFTER = 8; // wrong attempts before the door closes
 export const LOCK_MINUTES = 15;
@@ -59,7 +60,10 @@ export function lockNowError(): string {
   return `يا بطل وقّف تخمين 🛑 قفلنا الدخول ${LOCK_MINUTES} دقيقة لحماية حسابك — ارجع بعدها، أو الأفضل غيّر كلمة المرور من «نسيت كلمة المرور»`;
 }
 
-/* ── in-memory counter for identifiers that don't match any account ── */
+/* ── failure counter for identifiers that don't match any account ──
+   Redis-backed when REDIS_URL is set (shared across cluster workers, same as
+   rate-limit.ts), in-process Map otherwise. Responses stay byte-identical to
+   the real-account path, so account existence never leaks. */
 
 type GhostEntry = { count: number; lastAt: number; lockUntil: number };
 const ghosts = new Map<string, GhostEntry>();
@@ -72,15 +76,47 @@ function sweepGhosts() {
 }
 
 /** Active lock for an unknown identifier, if any. */
-export function ghostLock(key: string): Date | null {
+export async function ghostLock(key: string): Promise<Date | null> {
+  const r = redis();
+  if (r) {
+    try {
+      const ttl = await r.pttl(`ghost:lock:${key}`);
+      return ttl > 0 ? new Date(Date.now() + ttl) : null;
+    } catch {
+      return null; // fail open, same as rate-limit.ts
+    }
+  }
   const g = ghosts.get(key);
   return g && g.lockUntil > Date.now() ? new Date(g.lockUntil) : null;
 }
 
 /** Register a failure for an unknown identifier; returns the verdict. */
-export function ghostFailure(key: string): FailVerdict {
-  sweepGhosts();
+export async function ghostFailure(key: string): Promise<FailVerdict> {
   const now = Date.now();
+  const r = redis();
+  if (r) {
+    try {
+      const k = `ghost:fail:${key}`;
+      const count = await r.incr(k);
+      await r.pexpire(k, FAIL_WINDOW_MS);
+      if (count >= LOCK_AFTER) {
+        await r
+          .multi()
+          .set(`ghost:lock:${key}`, "1", "PX", LOCK_MINUTES * 60_000)
+          .del(k)
+          .exec();
+        return {
+          error: lockNowError(),
+          suggestReset: true,
+          lockedUntil: new Date(now + LOCK_MINUTES * 60_000),
+        };
+      }
+      return { ...teaseFor(count), lockedUntil: null };
+    } catch {
+      return { ...teaseFor(1), lockedUntil: null }; // fail open
+    }
+  }
+  sweepGhosts();
   const prev = ghosts.get(key);
   const stale = !prev || now - prev.lastAt > FAIL_WINDOW_MS;
   const count = stale ? 1 : prev.count + 1;
