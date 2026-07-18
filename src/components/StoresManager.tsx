@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BadgeCheck,
   Camera,
@@ -172,6 +172,97 @@ function StoreImageField({
   );
 }
 
+/** Pick a logo/banner while the store is still being created — uploaded right after creation. */
+function PendingImageField({
+  label,
+  hint,
+  file,
+  onPick,
+  wide,
+}: {
+  label: string;
+  hint: string;
+  file: File | null;
+  onPick: (f: File | null) => void;
+  wide?: boolean;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState("");
+  const preview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+  }, [preview]);
+
+  return (
+    <div>
+      <label className="block text-sm font-medium mb-1.5">{label}</label>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className={`relative overflow-hidden rounded-xl border-2 border-dashed border-neutral-200 hover:border-primary-400 transition-colors cursor-pointer bg-neutral-50 flex items-center justify-center shrink-0 ${
+            wide ? "h-20 w-52" : "size-20"
+          }`}
+        >
+          {preview ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={preview} alt="" className="size-full object-cover" />
+          ) : (
+            <span className="flex flex-col items-center gap-1 text-neutral-400">
+              <ImageIcon className="size-5" />
+              <span className="text-[10px]">اختر صورة</span>
+            </span>
+          )}
+        </button>
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="act-btn bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+            >
+              <Camera className="size-3.5" />
+              {file ? "تغيير" : "رفع صورة"}
+            </button>
+            {file && (
+              <button
+                type="button"
+                onClick={() => onPick(null)}
+                className="act-btn bg-red-50 text-red-600 hover:bg-red-100"
+              >
+                <Trash2 className="size-3.5" />
+                إزالة
+              </button>
+            )}
+          </div>
+          <p className="text-[11px] text-neutral-400">{hint}</p>
+          {error && <p className="text-[11px] text-red-600">{error}</p>}
+        </div>
+      </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) {
+            if (f.size > 5 * 1024 * 1024) {
+              setError("حجم الصورة يتجاوز 5 ميجابايت");
+            } else {
+              setError("");
+              onPick(f);
+            }
+          }
+          e.target.value = "";
+        }}
+      />
+    </div>
+  );
+}
+
 function StoreEditor({
   store,
   onClose,
@@ -192,6 +283,11 @@ function StoreEditor({
     youtube: store?.youtube ?? "",
     whatsapp: store?.whatsapp ?? "",
   });
+  // images picked while creating — uploaded right after the store exists
+  const [picked, setPicked] = useState<{ logo: File | null; banner: File | null }>({
+    logo: null,
+    banner: null,
+  });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -208,11 +304,23 @@ function StoreEditor({
       }),
     });
     const data = await res.json().catch(() => ({}));
-    setLoading(false);
     if (!res.ok) {
+      setLoading(false);
       setError(data.error ?? "تعذّر الحفظ");
       return;
     }
+    if (!store && data.id) {
+      for (const kind of ["logo", "banner"] as const) {
+        const file = picked[kind];
+        if (!file) continue;
+        const fd = new FormData();
+        fd.set("storeId", data.id);
+        fd.set("kind", kind);
+        fd.set("image", file);
+        await fetch("/api/store/images", { method: "POST", body: fd });
+      }
+    }
+    setLoading(false);
     onClose();
     router.refresh();
   }
@@ -289,37 +397,51 @@ function StoreEditor({
         </div>
       </div>
 
-      {store ? (
-        <div className="grid sm:grid-cols-2 gap-4 border-t border-neutral-100 pt-4">
-          <StoreImageField
-            storeId={store.id}
-            kind="logo"
-            label="شعار المتجر"
-            hint="مربعة، تظهر بجانب اسم المتجر"
-            current={store.logoUrl}
-          />
-          <StoreImageField
-            storeId={store.id}
-            kind="banner"
-            label="بانر المتجر"
-            hint="عريضة (يفضل 1200×300)، تظهر أعلى صفحة المتجر"
-            current={store.bannerUrl}
-            wide
-          />
-        </div>
-      ) : null}
+      <div className="grid sm:grid-cols-2 gap-4 border-t border-neutral-100 pt-4">
+        {store ? (
+          <>
+            <StoreImageField
+              storeId={store.id}
+              kind="logo"
+              label="شعار المتجر"
+              hint="مربعة، تظهر بجانب اسم المتجر"
+              current={store.logoUrl}
+            />
+            <StoreImageField
+              storeId={store.id}
+              kind="banner"
+              label="بانر المتجر"
+              hint="عريضة (يفضل 1200×300)، تظهر أعلى صفحة المتجر"
+              current={store.bannerUrl}
+              wide
+            />
+          </>
+        ) : (
+          <>
+            <PendingImageField
+              label="شعار المتجر"
+              hint="مربعة، تظهر بجانب اسم المتجر"
+              file={picked.logo}
+              onPick={(f) => setPicked((p) => ({ ...p, logo: f }))}
+            />
+            <PendingImageField
+              label="بانر المتجر"
+              hint="عريضة (يفضل 1200×300)، تظهر أعلى صفحة المتجر"
+              file={picked.banner}
+              onPick={(f) => setPicked((p) => ({ ...p, banner: f }))}
+              wide
+            />
+          </>
+        )}
+      </div>
 
-      {store ? (
+      {store && (
         <StoreVerifyCard
           storeId={store.id}
           verified={store.isVerified}
           status={store.verifyStatus}
           note={store.verifyNote}
         />
-      ) : (
-        <p className="text-xs text-neutral-400 border-t border-neutral-100 pt-3">
-          بعد إنشاء المتجر يمكنك إضافة الشعار والبانر من زر «تعديل».
-        </p>
       )}
       {error && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>

@@ -113,7 +113,7 @@ export async function POST(req: Request) {
   const store = await db.store.create({
     data: { userId: user.id, name, slug, description, ...socials.fields },
   });
-  return NextResponse.json({ ok: true, slug: store.slug });
+  return NextResponse.json({ ok: true, id: store.id, slug: store.slug });
 }
 
 /** Delete one of the user's stores. */
