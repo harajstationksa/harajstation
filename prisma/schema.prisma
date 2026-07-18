@@ -73,6 +73,14 @@ model User {
   emailVerifiedAt DateTime?
   emailTokens     EmailVerificationToken[]
 
+  // login security: consecutive wrong-password counter → temporary lockout,
+  // plus opt-in email 2FA (a one-time code mailed on every login)
+  failedLogins   Int       @default(0)
+  lastFailedAt   DateTime?
+  lockUntil      DateTime?
+  twoFactorEmail Boolean   @default(false)
+  loginOtps      LoginOtp[]
+
   // referral program: every user carries a shareable code; referredById links
   // the invitee to their referrer forever — the referrer earns a percentage
   // (admin-set) of every points purchase the invitee makes.
@@ -232,6 +240,24 @@ model Presence {
 }
 
 // Forgot-password flow: single-use, short-lived reset tokens
+// One-time login codes for email 2FA. `challenge` is the opaque token the
+// browser holds between the password step and the code step (returned only
+// after a correct password); the 6-digit code itself is stored hashed.
+model LoginOtp {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge  String    @unique
+  codeHash   String
+  attempts   Int       @default(0)
+  lastSentAt DateTime  @default(now())
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+}
+
 model PasswordResetToken {
   id        String    @id @default(cuid())
   userId    String

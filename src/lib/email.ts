@@ -135,6 +135,21 @@ export async function sendVerificationEmail(to: string, verifyUrl: string) {
   });
 }
 
+export async function sendLoginCodeEmail(to: string, code: string) {
+  return sendEmail({
+    to,
+    subject: `${code} — رمز تسجيل الدخول | حراج ستيشن`,
+    html: shell(
+      "رمز تسجيل الدخول",
+      `أحد يحاول الدخول لحسابك (غالباً أنت 👀) — استخدم الرمز التالي لإتمام الدخول. الرمز صالح لمدة 10 دقائق:
+       <div style="padding:20px 0;text-align:center">
+         <span dir="ltr" style="display:inline-block;background:#fff7ed;border:1px dashed #fdba74;color:#c2410c;border-radius:12px;padding:14px 32px;font-size:28px;font-weight:bold;letter-spacing:8px">${code}</span>
+       </div>
+       إذا ما كنت أنت من يحاول الدخول، غيّر كلمة المرور فوراً — لا تشارك هذا الرمز مع أي أحد، حتى لو قال إنه من فريق حراج ستيشن.`
+    ),
+  });
+}
+
 export async function sendPasswordResetEmail(to: string, resetUrl: string) {
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const link = `${site}${resetUrl}`;
