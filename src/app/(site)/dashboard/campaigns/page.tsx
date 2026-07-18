@@ -17,23 +17,14 @@ import { str, type SP } from "@/lib/listing-query";
 import { cn, parseImages, timeAgo } from "@/lib/utils";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { EmptyState } from "@/components/EmptyState";
+import { getT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "الحملات الإعلانية" };
-
-const STATUS: Record<string, [string, string]> = {
-  ACTIVE: ["نشطة", "bg-green-50 text-green-700 border-green-100"],
-  COMPLETED: ["مكتملة", "bg-blue-50 text-blue-700 border-blue-100"],
-  CANCELLED: ["ملغاة", "bg-neutral-100 text-neutral-500 border-neutral-200"],
-};
-
-const STATUS_TABS = [
-  { key: undefined, label: "الكل" },
-  { key: "ACTIVE", label: "نشطة" },
-  { key: "COMPLETED", label: "مكتملة" },
-  { key: "CANCELLED", label: "ملغاة" },
-] as const;
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t.dash.campaigns.title };
+}
 
 export default async function CampaignsPage({
   searchParams,
@@ -41,6 +32,19 @@ export default async function CampaignsPage({
   searchParams: Promise<SP>;
 }) {
   const user = await requireUser();
+  const { lang, t } = await getT();
+  const d = t.dash.campaigns;
+  const STATUS: Record<string, [string, string]> = {
+    ACTIVE: [d.stActive, "bg-green-50 text-green-700 border-green-100"],
+    COMPLETED: [d.stCompleted, "bg-blue-50 text-blue-700 border-blue-100"],
+    CANCELLED: [d.stCancelled, "bg-neutral-100 text-neutral-500 border-neutral-200"],
+  };
+  const STATUS_TABS = [
+    { key: undefined, label: d.stAll },
+    { key: "ACTIVE", label: d.stActive },
+    { key: "COMPLETED", label: d.stCompleted },
+    { key: "CANCELLED", label: d.stCancelled },
+  ] as const;
   const sp = await searchParams;
   const statusFilter = str(sp.status);
   const catFilter = str(sp.category);
@@ -52,7 +56,7 @@ export default async function CampaignsPage({
         include: {
           auction: true,
           category: {
-            select: { id: true, slug: true, nameAr: true, icon: true, parent: { select: { id: true, slug: true, nameAr: true, icon: true } } },
+            select: { id: true, slug: true, nameAr: true, nameEn: true, icon: true, parent: { select: { id: true, slug: true, nameAr: true, nameEn: true, icon: true } } },
           },
         },
       },
@@ -73,10 +77,10 @@ export default async function CampaignsPage({
     totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : null;
 
   // category chips from the user's own campaigns (rolled up to main category)
-  const catMap = new Map<string, { slug: string; nameAr: string; icon: string; count: number }>();
+  const catMap = new Map<string, { slug: string; name: string; icon: string; count: number }>();
   for (const c of campaigns) {
     const root = c.listing.category.parent ?? c.listing.category;
-    const entry = catMap.get(root.id) ?? { slug: root.slug, nameAr: root.nameAr, icon: root.icon, count: 0 };
+    const entry = catMap.get(root.id) ?? { slug: root.slug, name: lang === "en" ? root.nameEn : root.nameAr, icon: root.icon, count: 0 };
     entry.count++;
     catMap.set(root.id, entry);
   }
@@ -100,10 +104,10 @@ export default async function CampaignsPage({
   const hasFilters = !!(statusFilter || catFilter);
 
   const summary = [
-    { icon: Eye, label: "إجمالي الظهور", value: totals.impressions.toLocaleString("en-US"), tile: "bg-blue-50 text-blue-600 border-blue-100" },
-    { icon: MousePointerClick, label: "إجمالي النقرات", value: totals.clicks.toLocaleString("en-US"), tile: "bg-primary-50 text-primary-600 border-primary-100" },
-    { icon: TrendingUp, label: "نسبة النقر", value: totalCtr != null ? `${totalCtr.toFixed(1)}%` : "—", tile: "bg-green-50 text-green-600 border-green-100" },
-    { icon: Users, label: "زوار وصلوا لإعلاناتك", value: totals.delivered.toLocaleString("en-US"), tile: "bg-amber-50 text-amber-600 border-amber-100" },
+    { icon: Eye, label: d.sumImpressions, value: totals.impressions.toLocaleString("en-US"), tile: "bg-blue-50 text-blue-600 border-blue-100" },
+    { icon: MousePointerClick, label: d.sumClicks, value: totals.clicks.toLocaleString("en-US"), tile: "bg-primary-50 text-primary-600 border-primary-100" },
+    { icon: TrendingUp, label: d.sumCtr, value: totalCtr != null ? `${totalCtr.toFixed(1)}%` : "—", tile: "bg-green-50 text-green-600 border-green-100" },
+    { icon: Users, label: d.sumReached, value: totals.delivered.toLocaleString("en-US"), tile: "bg-amber-50 text-amber-600 border-amber-100" },
   ];
 
   return (
@@ -115,15 +119,15 @@ export default async function CampaignsPage({
             <Megaphone className="size-6" />
           </span>
           <div>
-            <h1 className="section-title">الحملات الإعلانية</h1>
+            <h1 className="section-title">{d.title}</h1>
             <p className="text-sm text-neutral-500 mt-0.5">
-              استهداف ذكي حسب فئة إعلانك — في الرئيسية والفئات ونتائج البحث
+              {d.sub}
             </p>
           </div>
         </div>
         <Link href="/dashboard/campaigns/new" className="btn-primary">
           <Megaphone className="size-4" />
-          حملة جديدة
+          {d.newBtn}
         </Link>
       </div>
 
@@ -183,7 +187,7 @@ export default async function CampaignsPage({
                     : "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400"
                 )}
               >
-                كل الفئات
+                {d.allCats}
               </Link>
               {catChips.map((c) => (
                 <Link
@@ -197,7 +201,7 @@ export default async function CampaignsPage({
                   )}
                 >
                   <CategoryIcon name={c.icon} className="size-3.5" />
-                  {c.nameAr}
+                  {c.name}
                   <span className={cn("text-[10px] tabular-nums", catFilter === c.slug ? "text-white/70" : "text-neutral-400")}>
                     {c.count}
                   </span>
@@ -209,7 +213,7 @@ export default async function CampaignsPage({
                   className="shrink-0 inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold text-neutral-400 hover:text-neutral-600 transition-colors"
                 >
                   <X className="size-3.5" />
-                  مسح الفلاتر
+                  {d.clearFilters}
                 </Link>
               )}
             </div>
@@ -220,15 +224,15 @@ export default async function CampaignsPage({
       {/* ── campaign list ── */}
       {campaigns.length === 0 ? (
         <EmptyState
-          title="لم تطلق أي حملة بعد"
-          hint="روّج إعلانك لجمهور مستهدف واجلب زواراً حقيقيين مقابل نقاط"
-          action={<Link href="/dashboard/campaigns/new" className="btn-primary mt-2">أطلق حملتك الأولى</Link>}
+          title={d.emptyTitle}
+          hint={d.emptyHint}
+          action={<Link href="/dashboard/campaigns/new" className="btn-primary mt-2">{d.launchFirst}</Link>}
         />
       ) : filtered.length === 0 ? (
         <EmptyState
-          title="لا توجد حملات مطابقة للفلتر"
-          hint="جرّب تغيير الحالة أو الفئة"
-          action={<Link href="/dashboard/campaigns" className="btn-secondary mt-2">عرض كل الحملات</Link>}
+          title={d.emptyFiltered}
+          hint={d.emptyFilteredHint}
+          action={<Link href="/dashboard/campaigns" className="btn-secondary mt-2">{d.showAllC}</Link>}
         />
       ) : (
         <div className="grid gap-3">
@@ -272,12 +276,12 @@ export default async function CampaignsPage({
                     <p className="text-xs text-neutral-400 mt-0.5 flex items-center gap-2 flex-wrap" suppressHydrationWarning>
                       <span className="flex items-center gap-1">
                         <CategoryIcon name={rootCat.icon} className="size-3" />
-                        {rootCat.nameAr}
+                        {lang === "en" ? rootCat.nameEn : rootCat.nameAr}
                       </span>
-                      <span>{c.pointsSpent.toLocaleString("en-US")} نقطة · {timeAgo(c.createdAt)}</span>
+                      <span>{c.pointsSpent.toLocaleString("en-US")} {d.pointsUnit} · {timeAgo(c.createdAt, lang)}</span>
                       <span className="flex items-center gap-0.5">
                         <MapPin className="size-3" />
-                        {c.targetCity || "كل المدن"}
+                        {c.targetCity || d.allCities}
                       </span>
                     </p>
                   </div>
@@ -288,8 +292,8 @@ export default async function CampaignsPage({
                 {/* compact stat row */}
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { icon: Eye, label: "ظهور", value: c.impressions.toLocaleString("en-US") },
-                    { icon: MousePointerClick, label: "نقرات", value: c.clicks.toLocaleString("en-US") },
+                    { icon: Eye, label: d.impressions, value: c.impressions.toLocaleString("en-US") },
+                    { icon: MousePointerClick, label: d.clicks, value: c.clicks.toLocaleString("en-US") },
                     { icon: BarChart3, label: "CTR", value: ctr != null ? `${ctr.toFixed(1)}%` : "—" },
                   ].map(({ icon: Icon, label: slabel, value }) => (
                     <div key={slabel} className="rounded-lg bg-neutral-50 border border-neutral-100 px-3 py-2">
@@ -307,9 +311,7 @@ export default async function CampaignsPage({
                     <div className="flex items-center justify-between text-[11px] text-neutral-400">
                       <span className="flex items-center gap-1">
                         <CalendarDays className="size-3" />
-                        {c.status === "ACTIVE"
-                          ? `باقي ${daysLeft} من ${c.days} ${c.days === 1 ? "يوم" : "أيام"}`
-                          : `مدة الحملة: ${c.days} ${c.days === 1 ? "يوم" : "أيام"}`}
+                        {c.status === "ACTIVE" ? d.daysLeft(daysLeft, c.days) : d.duration(c.days)}
                       </span>
                       <span className="tabular-nums">{pct}%</span>
                     </div>
@@ -326,7 +328,7 @@ export default async function CampaignsPage({
 
       <p className="text-xs text-neutral-400 flex items-center gap-1.5">
         <Users className="size-3.5" />
-        الأرقام تحتسب زائراً واحداً لكل شبكة — إعادة تحميل الصفحة لا تضخّم النتائج.
+        {d.honestNote}
       </p>
     </div>
   );

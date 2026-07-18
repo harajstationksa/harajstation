@@ -6,13 +6,19 @@ import { decryptText } from "@/lib/crypto";
 import { parseImages, timeAgo } from "@/lib/utils";
 import { EmptyState } from "@/components/EmptyState";
 import { Avatar } from "@/components/Avatar";
+import { getT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "الرسائل" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t.dash.messages.title };
+}
 
 export default async function MessagesPage() {
   const user = await requireUser();
+  const { lang, t } = await getT();
+  const d = t.dash.messages;
 
   const convs = await db.conversation.findMany({
     where: { OR: [{ buyerId: user.id }, { sellerId: user.id }] },
@@ -47,13 +53,13 @@ export default async function MessagesPage() {
     <div className="space-y-5">
       <h1 className="section-title flex items-center gap-2">
         <MessageSquare className="size-6 text-primary-500" />
-        الرسائل
+        {d.title}
       </h1>
 
       {convs.length === 0 ? (
         <EmptyState
-          title="لا توجد محادثات بعد"
-          hint="راسل أي بائع من صفحة إعلانه وستظهر المحادثة هنا"
+          title={d.emptyTitle}
+          hint={d.emptyHint}
         />
       ) : (
         <div className="card overflow-hidden divide-y divide-neutral-50">
@@ -73,14 +79,14 @@ export default async function MessagesPage() {
                     <p className="font-semibold text-sm">{other.name}</p>
                     {last && (
                       <span className="text-[11px] text-neutral-400 shrink-0" suppressHydrationWarning>
-                        {timeAgo(last.createdAt)}
+                        {timeAgo(last.createdAt, lang)}
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-neutral-500 line-clamp-1 mt-0.5">
                     {last
-                      ? decryptText(last.body) || (last.imageUrl ? "📷 صورة" : "")
-                      : "محادثة جديدة"}
+                      ? decryptText(last.body) || (last.imageUrl ? d.photo : "")
+                      : d.newConv}
                   </p>
                   <p className="text-[11px] text-primary-600 line-clamp-1 mt-0.5">
                     {c.listing.title}

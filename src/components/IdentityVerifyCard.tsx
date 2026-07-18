@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { BadgeCheck, Clock, Loader2, ShieldCheck, Upload, XCircle } from "lucide-react";
+import { useLang } from "@/components/LangProvider";
 
 /**
  * «توثيق الهوية» card in account settings: upload an ID document for manual
@@ -17,6 +18,8 @@ export function IdentityVerifyCard({
   status: "PENDING" | "APPROVED" | "REJECTED" | null;
   note: string | null;
 }) {
+  const { t } = useLang();
+  const d = t.dash.settings;
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
@@ -26,7 +29,7 @@ export function IdentityVerifyCard({
     e.preventDefault();
     const file = fileRef.current?.files?.[0];
     if (!file) {
-      setError("اختر صورة الهوية أولاً");
+      setError(d.idPickFirst);
       return;
     }
     setLoading(true);
@@ -37,7 +40,7 @@ export function IdentityVerifyCard({
     const data = await res.json().catch(() => ({}));
     setLoading(false);
     if (!res.ok) {
-      setError(data.error ?? "حدث خطأ — حاول مجدداً");
+      setError(data.error ?? d.genericError);
       return;
     }
     router.refresh();
@@ -47,37 +50,34 @@ export function IdentityVerifyCard({
     <div className="card p-5 space-y-4">
       <div className="flex items-center gap-2">
         <ShieldCheck className="size-5 text-primary-600" />
-        <h2 className="font-bold">توثيق الهوية</h2>
+        <h2 className="font-bold">{d.idTitle}</h2>
         {verified && (
           <span className="badge bg-green-50 text-green-700">
             <BadgeCheck className="size-3.5" />
-            موثّق
+            {d.idVerified}
           </span>
         )}
       </div>
 
       {verified ? (
         <p className="text-sm text-neutral-500">
-          حسابك موثّق — شارة «موثّق» ظاهرة للمشترين على إعلاناتك وملفك الشخصي وترفع
-          ثقتهم بالتعامل معك.
+          {d.idVerifiedBody}
         </p>
       ) : status === "PENDING" ? (
         <p className="flex items-start gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5">
           <Clock className="size-4 shrink-0 mt-0.5" />
-          طلبك قيد المراجعة — عادةً خلال 24 ساعة، وسيصلك إشعار فور اكتمالها.
+          {d.idPending}
         </p>
       ) : (
         <>
           <p className="text-sm text-neutral-500 leading-relaxed">
-            ارفع صورة واضحة لهويتك الوطنية أو الإقامة (يُقبل إخفاء الأرقام الحساسة).
-            بعد موافقة الإدارة تحصل على شارة <b>«موثّق»</b> التي تظهر للمشترين وترفع
-            مصداقية إعلاناتك. الصورة تُحفظ بشكل خاص ولا يطّلع عليها إلا فريق المراجعة.
+            {d.idBody}
           </p>
 
           {status === "REJECTED" && (
             <p className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2.5">
               <XCircle className="size-4 shrink-0 mt-0.5" />
-              رُفض طلبك السابق{note ? `: ${note}` : ""} — يمكنك إعادة المحاولة بصورة أوضح.
+              {d.idRejected(note ?? "")}
             </p>
           )}
 
@@ -90,7 +90,7 @@ export function IdentityVerifyCard({
             />
             <button className="btn-primary" disabled={loading}>
               {loading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-              إرسال للمراجعة
+              {d.idSubmit}
             </button>
           </form>
 

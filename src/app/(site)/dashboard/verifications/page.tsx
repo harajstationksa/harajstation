@@ -15,20 +15,25 @@ import { Avatar } from "@/components/Avatar";
 import { ConfirmCard, type ConfirmTx } from "@/components/ConfirmCard";
 import { EmptyState } from "@/components/EmptyState";
 import { RateForm } from "@/components/RateForm";
+import { getT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "التحققات" };
-
-const STATUS_LABEL: Record<string, [string, string]> = {
-  CONFIRMED: ["مؤكدة", "bg-green-50 text-green-700 border-green-100"],
-  CANCELLED: ["ملغاة", "bg-neutral-100 text-neutral-600 border-neutral-200"],
-  DISPUTED: ["متنازع عليها", "bg-red-50 text-red-600 border-red-100"],
-  EXPIRED: ["منتهية المهلة", "bg-amber-50 text-amber-700 border-amber-100"],
-};
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t.dash.verifications.title };
+}
 
 export default async function VerificationsPage() {
   const user = await requireUser();
+  const { lang, t } = await getT();
+  const d = t.dash.verifications;
+  const STATUS_LABEL: Record<string, [string, string]> = {
+    CONFIRMED: [d.stConfirmed, "bg-green-50 text-green-700 border-green-100"],
+    CANCELLED: [d.stCancelled, "bg-neutral-100 text-neutral-600 border-neutral-200"],
+    DISPUTED: [d.stDisputed, "bg-red-50 text-red-600 border-red-100"],
+    EXPIRED: [d.stExpired, "bg-amber-50 text-amber-700 border-amber-100"],
+  };
 
   const txs = await db.transaction.findMany({
     where: { OR: [{ sellerId: user.id }, { buyerId: user.id }] },
@@ -57,25 +62,25 @@ export default async function VerificationsPage() {
   const summary = [
     {
       icon: Hourglass,
-      label: "بانتظار التأكيد",
+      label: d.sumOpen,
       value: open.length.toLocaleString("en-US"),
       tile: "bg-amber-50 text-amber-600 border-amber-100",
     },
     {
       icon: BadgeCheck,
-      label: "معاملات مؤكدة",
+      label: d.sumConfirmed,
       value: confirmed.toLocaleString("en-US"),
       tile: "bg-green-50 text-green-600 border-green-100",
     },
     {
       icon: TrendingUp,
-      label: "نسبة النجاح",
+      label: d.sumRate,
       value: successRate != null ? `${successRate}%` : "—",
       tile: "bg-blue-50 text-blue-600 border-blue-100",
     },
     {
       icon: Star,
-      label: "المصداقية",
+      label: d.sumCred,
       value: `${user.credibility}/100`,
       tile: "bg-primary-50 text-primary-600 border-primary-100",
       valueColor: level.color,
@@ -90,9 +95,9 @@ export default async function VerificationsPage() {
           <ShieldCheck className="size-6" />
         </span>
         <div>
-          <h1 className="section-title">التحققات</h1>
+          <h1 className="section-title">{d.title}</h1>
           <p className="text-sm text-neutral-500 mt-0.5">
-            نظام التحقق المتبادل يحمي الطرفين ويبني سمعتك في المنصة.
+            {d.sub}
           </p>
         </div>
       </div>
@@ -122,13 +127,13 @@ export default async function VerificationsPage() {
       {/* ── how it works ── */}
       <div className="card overflow-hidden">
         <div className="px-4 py-3 border-b border-neutral-100 bg-neutral-50/60">
-          <p className="text-sm font-bold text-neutral-700">كيف يعمل نظام التحقق؟</p>
+          <p className="text-sm font-bold text-neutral-700">{d.howTitle}</p>
         </div>
         <div className="p-4 grid sm:grid-cols-3 gap-4 text-sm">
           {[
-            { n: "1", icon: Handshake, title: "تتم الصفقة", sub: "بيع مباشر أو فوز بمزاد — تُفتح نافذة تحقق لمدة 48 ساعة" },
-            { n: "2", icon: UserCheck, title: "يؤكد الطرفان", sub: "كلٌّ من البائع والمشتري يؤكد إتمام التسليم والاستلام" },
-            { n: "3", icon: Star, title: "ترتفع مصداقيتكما", sub: "التأكيد المتبادل يمنح الطرفين +5 نقاط، والتجاهل ينقص -3" },
+            { n: "1", icon: Handshake, title: d.how1t, sub: d.how1s },
+            { n: "2", icon: UserCheck, title: d.how2t, sub: d.how2s },
+            { n: "3", icon: Star, title: d.how3t, sub: d.how3s },
           ].map(({ n, icon: Icon, title, sub }) => (
             <div key={title} className="flex gap-3">
               <div className="relative shrink-0">
@@ -154,15 +159,15 @@ export default async function VerificationsPage() {
           <span className="size-7 rounded-md bg-amber-50 border border-amber-100 text-amber-600 flex items-center justify-center">
             <Hourglass className="size-4" />
           </span>
-          بانتظار إجراءك
+          {d.openTitle}
           {open.length > 0 && (
             <span className="tag bg-amber-50 text-amber-700 border border-amber-100">{open.length}</span>
           )}
         </h2>
         {open.length === 0 ? (
           <EmptyState
-            title="لا توجد معاملات بانتظار التحقق"
-            hint="عند فوزك بمزاد أو بيع منتجك، ستظهر هنا مطالبة التأكيد"
+            title={d.openEmpty}
+            hint={d.openEmptyHint}
           />
         ) : (
           <div className="grid gap-4">
@@ -200,7 +205,7 @@ export default async function VerificationsPage() {
             <span className="size-7 rounded-md bg-neutral-100 border border-neutral-200 text-neutral-500 flex items-center justify-center">
               <History className="size-4" />
             </span>
-            سجل المعاملات
+            {d.historyTitle}
             <span className="tag bg-neutral-100 text-neutral-500 border border-neutral-200">{history.length}</span>
           </h2>
           <div className="card overflow-hidden">
@@ -222,8 +227,8 @@ export default async function VerificationsPage() {
                         <div className="min-w-0">
                           <p className="font-semibold line-clamp-1">{t.listing.title}</p>
                           <p className="text-xs text-neutral-500" suppressHydrationWarning>
-                            {t.sellerId === user.id ? "بعت إلى" : "اشتريت من"} {other.name} ·{" "}
-                            {formatSAR(t.amount)} · {timeAgo(t.createdAt)}
+                            {t.sellerId === user.id ? d.soldTo : d.boughtFrom} {other.name} ·{" "}
+                            {formatSAR(t.amount)} · {timeAgo(t.createdAt, lang)}
                           </p>
                         </div>
                       </div>

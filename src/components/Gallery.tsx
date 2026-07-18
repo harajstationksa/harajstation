@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLang } from "@/components/LangProvider";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Maximize2, Minus, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -15,6 +16,7 @@ const ZOOM_STEP = 0.5;
  * navigation, and a thumbnail strip. The inline image supports touch swipe.
  */
 export function Gallery({ images, title }: { images: string[]; title: string }) {
+  const { t } = useLang();
   const list = images.length > 0 ? images : ["/images/ph/chair1.svg"];
   const [active, setActive] = useState(0);
   const [open, setOpen] = useState(false);
@@ -144,7 +146,7 @@ export function Gallery({ images, title }: { images: string[]; title: string }) 
             }
           }}
           className="block w-full cursor-zoom-in touch-pan-y"
-          aria-label="تكبير الصورة"
+          aria-label={t.pub.gOpen}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -173,7 +175,7 @@ export function Gallery({ images, title }: { images: string[]; title: string }) 
                 "w-20 aspect-4/3 rounded-lg overflow-hidden border-2 shrink-0 transition-colors cursor-pointer",
                 i === active ? "border-primary-500" : "border-transparent hover:border-neutral-300"
               )}
-              aria-label={`صورة ${i + 1}`}
+              aria-label={t.pub.gImageN(i + 1)}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={src} alt="" className="size-full object-cover" />
@@ -193,7 +195,7 @@ export function Gallery({ images, title }: { images: string[]; title: string }) 
               type="button"
               onClick={() => setOpen(false)}
               className="size-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
-              aria-label="إغلاق"
+              aria-label={t.pub.gClose}
             >
               <X className="size-5" />
             </button>
@@ -204,7 +206,7 @@ export function Gallery({ images, title }: { images: string[]; title: string }) 
                 onClick={() => zoomBy(-ZOOM_STEP)}
                 disabled={zoom <= MIN_ZOOM}
                 className="size-8 rounded-full hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent flex items-center justify-center transition-colors cursor-pointer disabled:cursor-default"
-                aria-label="تصغير"
+                aria-label={t.pub.gZoomOut}
               >
                 <Minus className="size-4" />
               </button>
@@ -212,7 +214,7 @@ export function Gallery({ images, title }: { images: string[]; title: string }) 
                 type="button"
                 onClick={() => (zoom > 1 ? resetView() : zoomBy(1.5))}
                 className="min-w-14 text-center text-xs font-semibold tabular-nums cursor-pointer select-none"
-                title={zoom > 1 ? "إعادة الحجم الأصلي" : "تكبير"}
+                title={zoom > 1 ? t.pub.gResetZoom : t.pub.gZoomIn}
               >
                 {Math.round(zoom * 100)}%
               </button>
@@ -221,7 +223,7 @@ export function Gallery({ images, title }: { images: string[]; title: string }) 
                 onClick={() => zoomBy(ZOOM_STEP)}
                 disabled={zoom >= MAX_ZOOM}
                 className="size-8 rounded-full hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent flex items-center justify-center transition-colors cursor-pointer disabled:cursor-default"
-                aria-label="تكبير"
+                aria-label={t.pub.gZoomIn}
               >
                 <Plus className="size-4" />
               </button>
@@ -266,7 +268,7 @@ export function Gallery({ images, title }: { images: string[]; title: string }) 
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={next}
                   className="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 size-10 sm:size-11 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-colors cursor-pointer"
-                  aria-label="الصورة التالية"
+                  aria-label={t.pub.gNext}
                 >
                   <ChevronLeft className="size-6" />
                 </button>
@@ -275,7 +277,7 @@ export function Gallery({ images, title }: { images: string[]; title: string }) 
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={prev}
                   className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 size-10 sm:size-11 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-colors cursor-pointer"
-                  aria-label="الصورة السابقة"
+                  aria-label={t.pub.gPrev}
                 >
                   <ChevronRight className="size-6" />
                 </button>
@@ -296,7 +298,7 @@ export function Gallery({ images, title }: { images: string[]; title: string }) 
                       ? "border-primary-500 opacity-100"
                       : "border-transparent opacity-50 hover:opacity-80"
                   )}
-                  aria-label={`صورة ${i + 1}`}
+                  aria-label={t.pub.gImageN(i + 1)}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={src} alt="" className="size-full object-cover" />

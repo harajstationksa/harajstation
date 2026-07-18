@@ -251,7 +251,7 @@ export default async function ListingPage({
             showContact={listing.showPhone}
             phone={listing.phone}
             whatsapp={listing.whatsapp}
-            contactNote="فضّل البائع إخفاء بيانات التواصل المباشر."
+            contactNote={t.pub.listingContactNote}
           />
 
           <SharePanel path={`/listings/${listing.id}`} title={listing.title} />

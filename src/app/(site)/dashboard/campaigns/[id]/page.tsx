@@ -18,16 +18,14 @@ import { requireUser } from "@/lib/auth";
 import { formatDate, parseImages } from "@/lib/utils";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 import { cancelCampaignAction } from "../actions";
+import { getT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "تفاصيل الحملة" };
-
-const STATUS: Record<string, [string, string]> = {
-  ACTIVE: ["نشطة", "bg-green-50 text-green-700"],
-  COMPLETED: ["مكتملة", "bg-blue-50 text-blue-700"],
-  CANCELLED: ["ملغاة", "bg-neutral-100 text-neutral-500"],
-};
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t.dash.campaignDetail.title };
+}
 
 export default async function CampaignDetailPage({
   params,
@@ -35,6 +33,14 @@ export default async function CampaignDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const user = await requireUser();
+  const { lang, t } = await getT();
+  const d = t.dash.campaignDetail;
+  const dc = t.dash.campaigns;
+  const STATUS: Record<string, [string, string]> = {
+    ACTIVE: [dc.stActive, "bg-green-50 text-green-700"],
+    COMPLETED: [dc.stCompleted, "bg-blue-50 text-blue-700"],
+    CANCELLED: [dc.stCancelled, "bg-neutral-100 text-neutral-500"],
+  };
   const { id } = await params;
   const nowMs = new Date().getTime();
 
@@ -83,10 +89,10 @@ export default async function CampaignDetailPage({
   );
   const buckets: { key: string; label: string; count: number }[] = [];
   for (let i = windowDays - 1; i >= 0; i--) {
-    const d = new Date(today.getTime() - i * dayMs);
+    const d2 = new Date(today.getTime() - i * dayMs);
     buckets.push({
-      key: d.toISOString().slice(0, 10),
-      label: d.toLocaleDateString("ar-SA", { day: "numeric", month: "short" }),
+      key: d2.toISOString().slice(0, 10),
+      label: d2.toLocaleDateString(lang === "en" ? "en-US" : "ar-SA", { day: "numeric", month: "short" }),
       count: 0,
     });
   }
@@ -101,39 +107,39 @@ export default async function CampaignDetailPage({
   const kpis = [
     {
       icon: Eye,
-      label: "مرات الظهور",
+      label: d.kImpressions,
       value: c.impressions.toLocaleString("en-US"),
-      hint: "زوار فريدون ظهر لهم إعلانك الممول — إعادة تحميل الصفحة لا تُحتسب",
+      hint: d.kImpressionsHint,
     },
     {
       icon: MousePointerClick,
-      label: "النقرات",
+      label: d.kClicks,
       value: c.clicks.toLocaleString("en-US"),
-      hint: "دخول لصفحة إعلانك من الأماكن الممولة",
+      hint: d.kClicksHint,
     },
     {
       icon: TrendingUp,
-      label: "نسبة النقر (CTR)",
+      label: d.kCtr,
       value: ctr != null ? `${ctr.toFixed(1)}%` : "—",
-      hint: "النقرات ÷ مرات الظهور",
+      hint: d.kCtrHint,
     },
     {
       icon: Users,
-      label: "زوار وصلوا لإعلانك",
+      label: d.kReached,
       value: c.delivered.toLocaleString("en-US"),
-      hint: "زوار فريدون فتحوا صفحة الإعلان خلال الحملة",
+      hint: d.kReachedHint,
     },
     {
       icon: Send,
-      label: "إشعارات مستهدفة",
+      label: d.kNotified,
       value: c.notified.toLocaleString("en-US"),
-      hint: "مستخدمون مهتمون بفئة إعلانك وصلهم إشعار",
+      hint: d.kNotifiedHint,
     },
     {
       icon: Wallet,
-      label: "النقاط المصروفة",
+      label: d.kSpent,
       value: c.pointsSpent.toLocaleString("en-US"),
-      hint: `${c.days} ${c.days === 1 ? "يوم" : "أيام"}`,
+      hint: dc.duration(c.days),
     },
   ];
 
@@ -144,7 +150,7 @@ export default async function CampaignDetailPage({
         className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-primary-600 transition-colors"
       >
         <ArrowRight className="size-4" />
-        كل الحملات
+        {d.allCampaigns}
       </Link>
 
       {/* ── header ── */}
@@ -159,15 +165,15 @@ export default async function CampaignDetailPage({
           <div className="min-w-0">
             <p className="font-bold line-clamp-1">{c.listing.title}</p>
             <p className="text-xs text-neutral-400 mt-1 flex items-center gap-2 flex-wrap">
-              <span>{c.listing.category.nameAr}</span>
+              <span>{lang === "en" ? c.listing.category.nameEn : c.listing.category.nameAr}</span>
               <span className="flex items-center gap-1">
                 <MapPin className="size-3" />
-                {c.targetCity || "كل المدن"}
+                {c.targetCity || dc.allCities}
               </span>
               <span className="flex items-center gap-1">
                 <CalendarDays className="size-3" />
-                {formatDate(c.createdAt)}
-                {c.endsAt && ` ← ${formatDate(c.endsAt)}`}
+                {formatDate(c.createdAt, lang)}
+                {c.endsAt && ` ← ${formatDate(c.endsAt, lang)}`}
               </span>
             </p>
           </div>
@@ -181,9 +187,7 @@ export default async function CampaignDetailPage({
           <div className="flex items-center justify-between text-xs text-neutral-500">
             <span className="flex items-center gap-1">
               <CalendarDays className="size-3.5" />
-              {c.status === "ACTIVE"
-                ? `باقي ${daysLeft} من ${c.days} ${c.days === 1 ? "يوم" : "أيام"}`
-                : `مدة الحملة: ${c.days} ${c.days === 1 ? "يوم" : "أيام"}`}
+              {c.status === "ACTIVE" ? dc.daysLeft(daysLeft, c.days) : dc.duration(c.days)}
             </span>
             <span className="tabular-nums font-semibold">{pct}%</span>
           </div>
@@ -214,16 +218,16 @@ export default async function CampaignDetailPage({
 
       {/* ── daily impressions ── */}
       <div className="card p-4 sm:p-5">
-        <p className="font-bold text-sm">الظهور اليومي (زوار فريدون)</p>
+        <p className="font-bold text-sm">{d.dailyTitle}</p>
         <p className="text-xs text-neutral-400 mt-0.5 mb-4">
-          آخر {windowDays} {windowDays === 1 ? "يوم" : "يوماً"}
+          {d.lastDays(windowDays)}
         </p>
         <div className="flex items-end gap-1 h-28" dir="rtl">
           {buckets.map((b) => (
             <div
               key={b.key}
               className="flex-1 flex flex-col items-center gap-1 min-w-0 group"
-              title={`${b.label}: ${b.count.toLocaleString("en-US")} ظهور`}
+              title={d.barTitle(b.label, b.count.toLocaleString("en-US"))}
             >
               <span className="text-[10px] tabular-nums text-neutral-500 opacity-0 group-hover:opacity-100 transition-opacity">
                 {b.count}
@@ -247,15 +251,15 @@ export default async function CampaignDetailPage({
       <div className="rounded-xl border border-primary-100 bg-primary-50/60 p-4 flex gap-3">
         <Lightbulb className="size-5 text-primary-600 shrink-0 mt-0.5" />
         <div className="text-sm text-neutral-700 leading-relaxed space-y-1">
-          <p className="font-bold text-neutral-900">اقرأ أرقامك صح</p>
+          <p className="font-bold text-neutral-900">{d.insightTitle}</p>
           <p>
             {ctr == null
-              ? "لا توجد بيانات كافية بعد — امنح الحملة يوماً أو يومين."
+              ? d.insightNone
               : ctr >= 5
-                ? "نسبة نقر ممتازة — إعلانك يجذب المهتمين. تأكد أن صفحة الإعلان (الصور والسعر والوصف) تُقنع الزائر بالتواصل."
+                ? d.insightGreat
                 : ctr >= 2
-                  ? "نسبة النقر جيدة. لرفعها: اجعل الصورة الأولى أوضح وأقرب للمنتج، وراجع السعر مقارنة بالإعلانات المشابهة."
-                  : "نسبة النقر منخفضة — جرّب صورة غلاف أوضح وعنواناً أدق، وراجع السعر؛ فهي أول ما يراه الزائر في البطاقة الممولة."}
+                  ? d.insightGood
+                  : d.insightLow}
           </p>
         </div>
       </div>
@@ -266,11 +270,11 @@ export default async function CampaignDetailPage({
           <form action={cancelCampaignAction}>
             <input type="hidden" name="campaignId" value={c.id} />
             <ConfirmSubmit
-              confirm="إيقاف الحملة؟ النقاط المستهلكة لا تُسترد."
+              confirm={d.stopConfirm}
               className="act-btn text-red-600 hover:bg-red-50"
             >
               <Square className="size-3.5" />
-              إيقاف الحملة
+              {d.stopBtn}
             </ConfirmSubmit>
           </form>
         </div>

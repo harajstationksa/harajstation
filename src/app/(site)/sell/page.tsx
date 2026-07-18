@@ -1,3 +1,4 @@
+import { getT } from "@/lib/i18n";
 import Link from "next/link";
 import { PlusCircle } from "lucide-react";
 import { db } from "@/lib/db";
@@ -7,20 +8,24 @@ import { SellForm } from "@/components/SellForm";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "أضف إعلان" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t.dash.postAd };
+}
 
 export default async function SellPage() {
   const user = await getCurrentUser();
+  const { t } = await getT();
 
   if (!user) {
     return (
       <div className="container-page py-20 text-center space-y-4">
         <PlusCircle className="size-12 text-primary-400 mx-auto" />
-        <h1 className="section-title">أضف إعلانك في حراج ستيشن</h1>
-        <p className="text-neutral-500">سجّل دخولك أولاً لتتمكن من نشر إعلان أو إطلاق مزاد</p>
+        <h1 className="section-title">{t.pub.sellLoginTitle}</h1>
+        <p className="text-neutral-500">{t.pub.sellLoginSub}</p>
         <div className="flex items-center justify-center gap-3">
-          <Link href="/login" className="btn-primary">تسجيل الدخول</Link>
-          <Link href="/register" className="btn-secondary">حساب جديد</Link>
+          <Link href="/login" className="btn-primary">{t.pub.login}</Link>
+          <Link href="/register" className="btn-secondary">{t.pub.register}</Link>
         </div>
       </div>
     );
@@ -47,18 +52,20 @@ export default async function SellPage() {
 
   return (
     <div className="container-page py-8 pb-12 max-w-3xl">
-      <h1 className="section-title mb-1">أضف إعلان جديد</h1>
+      <h1 className="section-title mb-1">{t.pub.sellTitle}</h1>
       <p className="text-sm text-neutral-500 mb-6">
-        لديك {activeListings} إعلان نشط
-        {user.isPro ? " (غير محدود — برو)" : ` من أصل ${maxListings}`} و{" "}
-        {activeAuctions} مزاد نشط من أصل {maxAuctions}
+        {t.pub.sellQuota(
+          t.pub.sellActive(activeListings, user.isPro ? t.pub.sellUnlimited : t.pub.sellOf(maxListings)),
+          t.pub.sellAuctions(activeAuctions, maxAuctions)
+        )}
       </p>
       <SellForm
         categories={categories.map((c) => ({
           id: c.id,
           slug: c.slug,
           nameAr: c.nameAr,
-          children: c.children.map((ch) => ({ id: ch.id, nameAr: ch.nameAr })),
+          nameEn: c.nameEn,
+          children: c.children.map((ch) => ({ id: ch.id, nameAr: ch.nameAr, nameEn: ch.nameEn })),
         }))}
         stores={stores.map((s) => ({ id: s.id, name: s.name }))}
         canListing={activeListings < maxListings}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BellOff, BellRing, Loader2, MonitorSmartphone, Share } from "lucide-react";
+import { useLang } from "@/components/LangProvider";
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -17,6 +18,8 @@ function urlBase64ToUint8Array(base64String: string) {
  * install hint for iOS where push requires adding the site to the home screen.
  */
 export function PushManager() {
+  const { t } = useLang();
+  const d = t.dash.push;
   const [supported, setSupported] = useState<boolean | null>(null);
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -46,7 +49,7 @@ export function PushManager() {
     try {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
-        setError("رفضت السماح بالإشعارات — فعّلها من إعدادات المتصفح ثم أعد المحاولة");
+        setError(d.denied);
         return;
       }
       const reg = await navigator.serviceWorker.ready;
@@ -64,7 +67,7 @@ export function PushManager() {
       if (!res.ok) throw new Error();
       setSubscribed(true);
     } catch {
-      setError("تعذر تفعيل الإشعارات — جرّب من متصفح آخر");
+      setError(d.failed);
     } finally {
       setLoading(false);
     }
@@ -101,10 +104,9 @@ export function PushManager() {
             <MonitorSmartphone className="size-5" />
           </span>
           <div className="text-sm">
-            <p className="font-bold">فعّل الإشعارات على آيفون</p>
+            <p className="font-bold">{d.iosTitle}</p>
             <p className="text-neutral-500 text-xs mt-1 leading-relaxed">
-              اضغط زر المشاركة <Share className="size-3.5 inline" /> في سفاري ثم
-              «إضافة إلى الشاشة الرئيسية» — بعدها افتح التطبيق وفعّل الإشعارات من هنا.
+              {d.iosHint1} <Share className="size-3.5 inline" /> {d.iosHint2}
             </p>
           </div>
         </div>
@@ -126,11 +128,9 @@ export function PushManager() {
           {subscribed ? <BellRing className="size-5" /> : <BellOff className="size-5" />}
         </span>
         <div className="min-w-0">
-          <p className="font-bold text-sm">إشعارات المتصفح</p>
+          <p className="font-bold text-sm">{d.title}</p>
           <p className="text-xs text-neutral-500 mt-0.5">
-            {subscribed
-              ? "مفعّلة على هذا الجهاز — تصلك المزايدات والرسائل حتى والموقع مغلق"
-              : "فعّلها ليصلك إشعار فوري: مزايدة جديدة، رسالة، إعلان يطابق بحثك المحفوظ"}
+            {subscribed ? d.onHint : d.offHint}
           </p>
           {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
         </div>
@@ -142,7 +142,7 @@ export function PushManager() {
         className={subscribed ? "btn-secondary" : "btn-primary"}
       >
         {loading && <Loader2 className="size-4 animate-spin" />}
-        {subscribed ? "إيقاف" : "تفعيل الإشعارات"}
+        {subscribed ? d.stop : d.enable}
       </button>
     </div>
   );

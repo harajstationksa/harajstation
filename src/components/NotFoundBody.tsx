@@ -1,3 +1,4 @@
+import { getT } from "@/lib/i18n";
 import Link from "next/link";
 import { Suspense } from "react";
 import { Compass, Gavel, LayoutGrid, Store } from "lucide-react";
@@ -14,6 +15,7 @@ import { SearchBar } from "@/components/SearchBar";
  * categories, not just a link home.
  */
 export async function NotFoundBody() {
+  const { t } = await getT();
   const categories = await db.category
     .findMany({
       where: { parentId: null },
@@ -24,10 +26,10 @@ export async function NotFoundBody() {
     .catch(() => []);
 
   const links = [
-    { href: "/listings", icon: Compass, label: "تصفح الإعلانات" },
-    { href: "/auctions", icon: Gavel, label: "المزادات المباشرة" },
-    { href: "/categories", icon: LayoutGrid, label: "كل الفئات" },
-    { href: "/sell", icon: Store, label: "أضف إعلانك" },
+    { href: "/listings", icon: Compass, label: t.pub.nfBrowse },
+    { href: "/auctions", icon: Gavel, label: t.pub.nfAuctions },
+    { href: "/categories", icon: LayoutGrid, label: t.pub.nfCategories },
+    { href: "/sell", icon: Store, label: t.pub.nfSell },
   ];
 
   return (
@@ -42,15 +44,14 @@ export async function NotFoundBody() {
           404
         </p>
 
-        <h1 className="section-title mt-2">ما لقينا الصفحة اللي تدور عليها</h1>
+        <h1 className="section-title mt-2">{t.pub.nfTitle}</h1>
         <p className="mt-3 text-sm sm:text-base text-neutral-500 leading-relaxed text-balance">
-          يمكن الإعلان انباع أو انحذف، أو الرابط فيه غلطة. جرّب تدوّر من هنا — أو
-          ابدأ من الفئات تحت.
+          {t.pub.nfBody}
         </p>
 
         <div className="mt-7">
           <Suspense fallback={<div className="h-11 rounded-xl bg-neutral-100 animate-pulse" />}>
-            <SearchBar placeholder="وش تدور؟ سيارات، عقارات، جوالات..." />
+            <SearchBar placeholder={t.nav.searchPh} />
           </Suspense>
         </div>
 
@@ -73,7 +74,7 @@ export async function NotFoundBody() {
       {categories.length > 0 && (
         <div className="mx-auto mt-10 sm:mt-12 max-w-3xl">
           <p className="mb-3 text-center text-xs font-semibold text-neutral-400">
-            أو تصفّح الأقسام
+            {t.pub.nfSections}
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {categories.map((c) => (

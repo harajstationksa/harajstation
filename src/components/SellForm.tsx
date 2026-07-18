@@ -13,9 +13,10 @@ import {
 } from "@/lib/category-fields";
 import { cn } from "@/lib/utils";
 import { compressImage } from "@/lib/image-compress";
+import { useLang } from "@/components/LangProvider";
 
-type SubCat = { id: string; nameAr: string };
-type Cat = { id: string; slug: string; nameAr: string; children: SubCat[] };
+type SubCat = { id: string; nameAr: string; nameEn: string };
+type Cat = { id: string; slug: string; nameAr: string; nameEn: string; children: SubCat[] };
 type StoreOpt = { id: string; name: string };
 
 
@@ -53,6 +54,8 @@ export function SellForm({
   canAuction: boolean;
 }) {
   const router = useRouter();
+  const { lang, t } = useLang();
+  const d = t.sellForm;
   const [goal, setGoal] = useState<ListingGoal | "">("");
   const [categoryId, setCategoryId] = useState("");
   const type = GOAL_TYPE[goal || "SELL"];
@@ -104,9 +107,9 @@ export function SellForm({
       if (result !== f) compressed++;
       kept.push(result);
     }
-    if (compressed > 0) setImgNote(`تم ضغط ${compressed} صورة تلقائياً`);
+    if (compressed > 0) setImgNote(d.compressed(compressed));
     if (rejected > 0)
-      setImgNote((n) => `${n ? n + " · " : ""}استُبعدت ${rejected} صورة لتجاوزها الحد`);
+      setImgNote((n) => `${n ? n + " · " : ""}${d.rejected(rejected)}`);
     setFiles((prev) => [...prev, ...kept].slice(0, 10));
   }
 
@@ -124,7 +127,7 @@ export function SellForm({
     const res = await fetch("/api/listings", { method: "POST", body: fd });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(data.error ?? "تعذّر نشر الإعلان");
+      setError(data.error ?? d.publishFail);
       setFieldErrors(data.fields ?? {});
       setLoading(false);
       return;
@@ -144,12 +147,12 @@ export function SellForm({
     <form onSubmit={submit} className="space-y-5">
       {/* ── the goal drives everything: sell / auction / announce ── */}
       <div>
-        <p className="font-bold mb-3">وش هدفك من الإعلان؟</p>
+        <p className="font-bold mb-3">{d.goalQ}</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
-            { v: "SELL" as const, icon: Tag, title: "بيع", sub: "حدد سعرك ويتواصل معك المشترون مباشرة", cls: "border-primary-500 bg-primary-50/50 ring-1 ring-primary-500", ic: "text-primary-500" },
-            { v: "AUCTION" as const, icon: Gavel, title: "مزاد", sub: "دع المشترين يتنافسون — والسعر يرتفع", cls: "border-red-500 bg-red-50/50 ring-1 ring-red-500", ic: "text-red-500" },
-            { v: "ANNOUNCE" as const, icon: Megaphone, title: "إعلان", sub: "وظيفة، خدمة، إيجار... بدون بيع مباشر", cls: "border-sky-500 bg-sky-50/50 ring-1 ring-sky-500", ic: "text-sky-500" },
+            { v: "SELL" as const, icon: Tag, title: d.sellT, sub: d.sellS, cls: "border-primary-500 bg-primary-50/50 ring-1 ring-primary-500", ic: "text-primary-500" },
+            { v: "AUCTION" as const, icon: Gavel, title: d.aucT, sub: d.aucS, cls: "border-red-500 bg-red-50/50 ring-1 ring-red-500", ic: "text-red-500" },
+            { v: "ANNOUNCE" as const, icon: Megaphone, title: d.annT, sub: d.annS, cls: "border-sky-500 bg-sky-50/50 ring-1 ring-sky-500", ic: "text-sky-500" },
           ].map(({ v, icon: Icon, title, sub, cls, ic }) => (
             <button
               key={v}
@@ -168,21 +171,20 @@ export function SellForm({
         </div>
         {!goal && (
           <p className="text-xs text-neutral-400 mt-2">
-            اختر الهدف أولاً — الخطوات التالية تتغير حسبه.
+            {d.goalFirst}
           </p>
         )}
       </div>
 
       {goal && typeBlocked && (
         <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-          وصلت للحد الأقصى من {isAuction ? "المزادات" : "الإعلانات"} النشطة.
-          رقِّ حسابك إلى برو لرفع الحد.
+          {isAuction ? d.limitAuc : d.limitList}
         </p>
       )}
 
       {/* 1 — category (filtered by the goal) */}
       {goal && (
-        <SectionCard step={1} title="الفئة">
+        <SectionCard step={1} title={d.category}>
           <select
             name="categoryId"
             className={`input ${fieldErrors.categoryId ? "border-red-400 ring-2 ring-red-500/15" : ""}`}
@@ -190,26 +192,22 @@ export function SellForm({
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
           >
-            <option value="" disabled>اختر الفئة المناسبة</option>
+            <option value="" disabled>{d.pickCat}</option>
             {goalCategories.map((cat) =>
               cat.children.length > 0 ? (
-                <optgroup key={cat.id} label={cat.nameAr}>
+                <optgroup key={cat.id} label={lang === "en" ? cat.nameEn : cat.nameAr}>
                   {cat.children.map((child) => (
-                    <option key={child.id} value={child.id}>{child.nameAr}</option>
+                    <option key={child.id} value={child.id}>{lang === "en" ? child.nameEn : child.nameAr}</option>
                   ))}
                 </optgroup>
               ) : (
-                <option key={cat.id} value={cat.id}>{cat.nameAr}</option>
+                <option key={cat.id} value={cat.id}>{lang === "en" ? cat.nameEn : cat.nameAr}</option>
               )
             )}
           </select>
           {!categoryId && (
             <p className="text-xs text-neutral-400">
-              {goal === "AUCTION"
-                ? "تظهر فقط الفئات القابلة للمزاد — الوظائف والخدمات لا يُزايَد عليها."
-                : goal === "ANNOUNCE"
-                  ? "فئات الإعلانات: وظائف، خدمات، عقارات، وأخرى."
-                  : "اختر الفئة أولاً لتظهر الحقول المناسبة لها."}
+              {goal === "AUCTION" ? d.catHintAuction : goal === "ANNOUNCE" ? d.catHintAnnounce : d.catHintSell}
             </p>
           )}
         </SectionCard>
@@ -217,10 +215,10 @@ export function SellForm({
 
       {/* 2 — basic details (revealed after category) */}
       {categoryId && (
-        <SectionCard step={2} title="تفاصيل الإعلان">
+        <SectionCard step={2} title={d.details}>
           <div>
             <label className="block text-sm font-medium mb-1.5">
-              العنوان <span className="text-xs text-neutral-400 font-normal">(4 أحرف على الأقل)</span>
+              {d.titleL} <span className="text-xs text-neutral-400 font-normal">{d.titleMin}</span>
             </label>
             <input
               name="title"
@@ -228,7 +226,7 @@ export function SellForm({
               required
               minLength={4}
               maxLength={100}
-              placeholder="عنوان واضح ومختصر"
+              placeholder={d.titlePh}
             />
             {fieldErrors.title && (
               <p className="text-xs text-red-600 mt-1">{fieldErrors.title}</p>
@@ -237,7 +235,7 @@ export function SellForm({
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-sm font-medium">
-                الوصف <span className="text-xs text-neutral-400 font-normal">(20 حرفاً على الأقل)</span>
+                {d.descL} <span className="text-xs text-neutral-400 font-normal">{d.descMin}</span>
               </label>
               <span
                 className={`text-xs tabular-nums ${
@@ -247,7 +245,7 @@ export function SellForm({
                 }`}
               >
                 {description.length}/5000
-                {description.length > 0 && description.length < 20 && ` — باقي ${20 - description.length} حرف`}
+                {description.length > 0 && description.length < 20 && d.descLeft(20 - description.length)}
               </span>
             </div>
             <textarea
@@ -258,7 +256,7 @@ export function SellForm({
               maxLength={5000}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="اكتب وصفاً دقيقاً: الحالة، المميزات، سبب البيع، ما يشمله البيع..."
+              placeholder={d.descPh}
             />
             {fieldErrors.description && (
               <p className="text-xs text-red-600 mt-1">{fieldErrors.description}</p>
@@ -268,16 +266,16 @@ export function SellForm({
           <div className="grid grid-cols-2 gap-3">
             {cfg.showCondition && (
               <div>
-                <label className="block text-sm font-medium mb-1.5">الحالة</label>
+                <label className="block text-sm font-medium mb-1.5">{d.condition}</label>
                 <select name="condition" className="input" defaultValue="USED">
-                  {Object.entries(CONDITIONS).map(([k, v]) => (
-                    <option key={k} value={k}>{v}</option>
+                  {Object.keys(CONDITIONS).map((k) => (
+                    <option key={k} value={k}>{t.card.conditions[k] ?? k}</option>
                   ))}
                 </select>
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium mb-1.5">المدينة</label>
+              <label className="block text-sm font-medium mb-1.5">{d.city}</label>
               <select name="city" className="input" defaultValue="الرياض">
                 {CITIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
@@ -286,17 +284,17 @@ export function SellForm({
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">
-                الحي <span className="text-neutral-400">(اختياري)</span>
+                {d.neighborhood} <span className="text-neutral-400">{d.optional}</span>
               </label>
-              <input name="neighborhood" className="input" placeholder="مثال: حي النرجس" />
+              <input name="neighborhood" className="input" placeholder={d.neighborhoodPh} />
             </div>
             {cfg.showDelivery && (
               <div>
-                <label className="block text-sm font-medium mb-1.5">طريقة التسليم</label>
+                <label className="block text-sm font-medium mb-1.5">{d.delivery}</label>
                 <select name="deliveryMethod" className="input" defaultValue="PICKUP">
-                  <option value="PICKUP">استلام يدوي (مقابلة)</option>
-                  <option value="SHIPPING">شحن</option>
-                  <option value="DELIVERY">توصيل</option>
+                  <option value="PICKUP">{d.dPickup}</option>
+                  <option value="SHIPPING">{d.dShipping}</option>
+                  <option value="DELIVERY">{d.dDelivery}</option>
                 </select>
               </div>
             )}
@@ -306,13 +304,13 @@ export function SellForm({
 
       {/* 3 — category-specific fields */}
       {categoryId && cfg.fields.length > 0 && (
-        <SectionCard step={3} title="المواصفات">
+        <SectionCard step={3} title={d.specs}>
           <div className="grid grid-cols-2 gap-3">
             {cfg.fields.map((f) => (
               <div key={f.key}>
                 <label className="block text-sm font-medium mb-1.5">
                   {f.label}
-                  {!f.required && <span className="text-neutral-400"> (اختياري)</span>}
+                  {!f.required && <span className="text-neutral-400"> {d.optional}</span>}
                 </label>
                 {f.type === "select" ? (
                   <select
@@ -321,7 +319,7 @@ export function SellForm({
                     defaultValue=""
                     required={f.required}
                   >
-                    <option value="">— اختر —</option>
+                    <option value="">{d.pick}</option>
                     {f.options!.map((o) => (
                       <option key={o} value={o}>{o}</option>
                     ))}
@@ -357,13 +355,13 @@ export function SellForm({
 
       {/* 4 — pricing / auction */}
       {categoryId && (
-        <SectionCard step={priceStep} title={isAuction ? "إعدادات المزاد" : "السعر"}>
+        <SectionCard step={priceStep} title={isAuction ? d.aucSettings : d.price}>
           {!isAuction ? (
             <>
               <div>
                 <label className="block text-sm font-medium mb-1.5">
                   {cfg.priceLabel}
-                  {goal === "ANNOUNCE" && <span className="text-neutral-400"> (اختياري — اتركه فارغاً ليظهر «على السوم»)</span>}
+                  {goal === "ANNOUNCE" && <span className="text-neutral-400">{d.priceOptional}</span>}
                 </label>
                 <input
                   name="price"
@@ -371,7 +369,7 @@ export function SellForm({
                   required={goal !== "ANNOUNCE" && goalRequiresPrice(goal || "SELL")}
                   inputMode="numeric"
                   pattern="\d*"
-                  placeholder="مثال: 1500"
+                  placeholder={d.pricePh}
                 />
                 {fieldErrors.price && (
                   <p className="text-xs text-red-600 mt-1">{fieldErrors.price}</p>
@@ -379,44 +377,43 @@ export function SellForm({
               </div>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" name="showPhone" defaultChecked className="size-4 accent-primary-500" />
-                إظهار رقم جوالي في الإعلان (واتساب واتصال)
+                {d.showPhone}
               </label>
             </>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">سعر البداية (ر.س)</label>
+                  <label className="block text-sm font-medium mb-1.5">{d.startPrice}</label>
                   <input name="startPrice" className="input" required inputMode="numeric" pattern="\d+" placeholder="1000" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">الحد الأدنى للزيادة (ر.س)</label>
+                  <label className="block text-sm font-medium mb-1.5">{d.minIncrement}</label>
                   <input name="minIncrement" className="input" required inputMode="numeric" pattern="\d+" defaultValue="50" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">مدة المزاد</label>
+                  <label className="block text-sm font-medium mb-1.5">{d.duration}</label>
                   <select name="durationHours" className="input" defaultValue="72">
-                    {AUCTION_DURATIONS.map((d) => (
-                      <option key={d.hours} value={d.hours}>{d.label}</option>
+                    {AUCTION_DURATIONS.map((dur) => (
+                      <option key={dur.hours} value={dur.hours}>{lang === "en" ? dur.labelEn : dur.label}</option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1.5">
-                    الشراء الفوري <span className="text-neutral-400">(اختياري)</span>
+                    {d.buyNow} <span className="text-neutral-400">{d.optional}</span>
                   </label>
-                  <input name="buyNowPrice" className="input" inputMode="numeric" pattern="\d*" placeholder="اتركه فارغاً لتعطيله" />
+                  <input name="buyNowPrice" className="input" inputMode="numeric" pattern="\d*" placeholder={d.buyNowPh} />
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1.5">
-                  شروط المزاد <span className="text-neutral-400">(اختياري)</span>
+                  {d.terms} <span className="text-neutral-400">{d.optional}</span>
                 </label>
-                <textarea name="terms" className="input min-h-20 py-3" placeholder="مثال: المعاينة قبل الاستلام، البيع نهائي..." />
+                <textarea name="terms" className="input min-h-20 py-3" placeholder={d.termsPh} />
               </div>
               <p className="text-xs text-neutral-500 bg-neutral-50 rounded-lg p-3 leading-relaxed">
-                حماية المزاد: هويات المزايدين تُخفى تلقائياً، ولا يمكنك المزايدة على
-                مزادك، وأي مزايدة في آخر دقيقتين تمدد المزاد دقيقتين.
+                {d.aucProtect}
               </p>
             </>
           )}
@@ -427,14 +424,14 @@ export function SellForm({
       {categoryId && (
         <>
           {stores.length > 0 && (
-            <SectionCard step={storeStep} title="المتجر">
+            <SectionCard step={storeStep} title={d.store}>
               <div>
                 <label className="block text-sm font-medium mb-1.5 flex items-center gap-1.5">
                   <Store className="size-4 text-neutral-400" />
-                  انشر ضمن أحد متاجرك <span className="text-neutral-400">(اختياري)</span>
+                  {d.storeL} <span className="text-neutral-400">{d.optional}</span>
                 </label>
                 <select name="storeId" className="input" defaultValue="">
-                  <option value="">بدون متجر (حسابك الشخصي)</option>
+                  <option value="">{d.noStore}</option>
                   {stores.map((s) => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}
@@ -443,11 +440,11 @@ export function SellForm({
             </SectionCard>
           )}
 
-          <SectionCard step={imagesStep} title="الصور">
+          <SectionCard step={imagesStep} title={d.photos}>
             <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-neutral-200 py-8 cursor-pointer hover:border-primary-400 hover:bg-primary-50/40 transition-colors">
               <ImagePlus className="size-8 text-neutral-400" />
               <span className="text-sm text-neutral-500">
-                اضغط لاختيار الصور (JPG / PNG / WebP — حتى 5MB، والأكبر يُضغط تلقائياً)
+                {d.photosHint}
               </span>
               <input
                 type="file"
@@ -465,13 +462,13 @@ export function SellForm({
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={URL.createObjectURL(f)} alt="" className="size-20 rounded-lg object-cover border border-neutral-200" />
                     {i === 0 && (
-                      <span className="absolute bottom-1 right-1 badge bg-primary-500 text-white text-[10px]">غلاف</span>
+                      <span className="absolute bottom-1 right-1 badge bg-primary-500 text-white text-[10px]">{d.cover}</span>
                     )}
                     <button
                       type="button"
                       onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
                       className="absolute -top-1.5 -left-1.5 size-5 rounded-full bg-neutral-900 text-white flex items-center justify-center cursor-pointer"
-                      aria-label="حذف الصورة"
+                      aria-label={d.removePhoto}
                     >
                       <X className="size-3" />
                     </button>
@@ -480,7 +477,7 @@ export function SellForm({
               </div>
             )}
             {imgNote && <p className="text-xs text-amber-700">{imgNote}</p>}
-            <p className="text-xs text-neutral-400">بدون صور؟ سنستخدم صورة رمزية حسب الفئة.</p>
+            <p className="text-xs text-neutral-400">{d.noPhotos}</p>
           </SectionCard>
         </>
       )}
@@ -489,9 +486,7 @@ export function SellForm({
       {categoryId && (
         <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 space-y-3">
           <p className="text-xs text-amber-900 leading-relaxed">
-            <b>إخلاء مسؤولية:</b> حراج ستيشن منصة وسيطة بين المستخدمين فقط — لا تستلم
-            المنتجات ولا الأموال، وغير مسؤولة عن جودة المنتج أو سلامة الصفقة. يتحمل
-            المستخدم مسؤولية صحة إعلانه والالتزام بأنظمة المملكة.
+            <b>{d.disclaimerB}</b> {d.disclaimer}
           </p>
           <label className="flex items-start gap-2.5 text-sm font-medium text-amber-900 cursor-pointer">
             <input
@@ -500,7 +495,7 @@ export function SellForm({
               onChange={(e) => setAccepted(e.target.checked)}
               className="size-4 accent-primary-500 mt-0.5 shrink-0"
             />
-            أقر بأنني قرأت إخلاء المسؤولية وأن إعلاني متوافق مع الأنظمة المحلية
+            {d.ack}
           </label>
         </div>
       )}
@@ -512,7 +507,7 @@ export function SellForm({
       {categoryId && (
         <button className="btn-primary w-full text-base" disabled={loading || typeBlocked || !accepted}>
           {loading && <Loader2 className="size-4 animate-spin" />}
-          {goal === "AUCTION" ? "إطلاق المزاد" : goal === "ANNOUNCE" ? "نشر الإعلان" : "نشر إعلان البيع"}
+          {goal === "AUCTION" ? d.submitAuc : goal === "ANNOUNCE" ? d.submitAnn : d.submitSell}
         </button>
       )}
     </form>

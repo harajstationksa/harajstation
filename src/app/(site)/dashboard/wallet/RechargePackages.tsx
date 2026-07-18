@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { BadgePercent, CheckCircle2, Gift, Loader2, XCircle } from "lucide-react";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
+import { useLang } from "@/components/LangProvider";
 import { buyPointsAction } from "./actions";
 
 type Pkg = { id: string; points: number; bonus: number; price: number };
@@ -19,6 +20,8 @@ export function RechargePackages({
   packages: Pkg[];
   promoError?: string;
 }) {
+  const { t } = useLang();
+  const d = t.dash.wallet;
   const [promo, setPromo] = useState("");
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<
@@ -43,10 +46,10 @@ export function RechargePackages({
       if (res.ok && data.valid) {
         setResult({ state: "valid", percent: data.percent });
       } else {
-        setResult({ state: "invalid", error: data.error ?? "كود غير صحيح" });
+        setResult({ state: "invalid", error: data.error ?? d.invalidCode });
       }
     } catch {
-      setResult({ state: "invalid", error: "تعذر التحقق — حاول مرة أخرى" });
+      setResult({ state: "invalid", error: d.checkFail });
     } finally {
       setChecking(false);
     }
@@ -58,7 +61,7 @@ export function RechargePackages({
       <div className="card p-4">
         <label className="text-sm font-semibold flex items-center gap-1.5 mb-2">
           <BadgePercent className="size-4 text-primary-500" />
-          عندك كود خصم؟
+          {d.promoQ}
         </label>
         <div className="flex gap-2">
           <input
@@ -79,13 +82,13 @@ export function RechargePackages({
             className="btn-secondary shrink-0"
           >
             {checking && <Loader2 className="size-4 animate-spin" />}
-            تحقق
+            {d.check}
           </button>
         </div>
         {result.state === "valid" && (
           <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 mt-2 flex items-center gap-1.5">
             <CheckCircle2 className="size-4 shrink-0" />
-            كود صحيح — ستحصل على {result.percent}% نقاط إضافية على أي باقة تشحنها
+            {d.promoOk(result.percent)}
           </p>
         )}
         {result.state === "invalid" && (
@@ -108,24 +111,24 @@ export function RechargePackages({
               <p className="font-display font-extrabold text-2xl text-neutral-900">
                 {pkg.points.toLocaleString("en-US")}
               </p>
-              <p className="text-xs text-neutral-500">نقطة</p>
+              <p className="text-xs text-neutral-500">{d.pointsUnit}</p>
               {pkg.bonus > 0 && (
                 <span className="badge bg-green-50 text-green-700 mx-auto">
                   <Gift className="size-3" />
-                  +{pkg.bonus} هدية
+                  {d.bonusGift(pkg.bonus)}
                 </span>
               )}
               {promoPts > 0 && (
                 <span className="badge bg-primary-50 text-primary-700 mx-auto">
                   <BadgePercent className="size-3" />
-                  +{promoPts} كود خصم
+                  {d.promoExtra(promoPts)}
                 </span>
               )}
               <ConfirmSubmit
-                confirm={`شراء ${pkg.points} نقطة بمبلغ ${(pkg.price * 1.15).toFixed(2)} ر.س (شامل الضريبة)؟ سيتم تحويلك لصفحة الدفع الآمنة.`}
+                confirm={d.buyConfirm(pkg.points, (pkg.price * 1.15).toFixed(2))}
                 className="btn-primary w-full mt-1"
               >
-                {pkg.price} ر.س
+                {pkg.price} {d.sar}
               </ConfirmSubmit>
             </form>
           );

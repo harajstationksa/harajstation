@@ -65,15 +65,15 @@ export function RegisterForm({
       <div className="min-h-[70vh] flex items-center justify-center py-12 px-4">
         <div className="card w-full max-w-md p-8 space-y-5 text-center">
           <MailCheck className="size-14 mx-auto text-primary-500" />
-          <h1 className="font-display font-bold text-2xl">فعّل بريدك لتكمل</h1>
+          <h1 className="font-display font-bold text-2xl">{t.pub.regVerifyTitle}</h1>
           <p className="text-sm text-neutral-600 leading-loose">
-            أنشأنا حسابك وأرسلنا رابط التفعيل إلى{" "}
+            {t.pub.regVerify1}{" "}
             <span className="font-semibold text-neutral-900" dir="ltr">{sentTo}</span>.
             <br />
-            اضغط الرابط ثم سجّل دخولك — الرابط صالح ٤٨ ساعة.
+            {t.pub.regVerify2}
           </p>
           <p className="text-xs text-neutral-500">
-            لم تجد الرسالة؟ راجع صندوق الرسائل غير المرغوبة (Spam).
+            {t.pub.regVerifySpam}
           </p>
           <Link href="/login" className="btn-primary w-full">
             {a.loginBtn}

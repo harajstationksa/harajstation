@@ -260,6 +260,7 @@ async function SuggestedCategories({ sp }: { sp: SP }) {
 
 /** the search matched sellers by name — surface their profiles */
 async function MatchingSellers({ sp }: { sp: SP }) {
+  const { t } = await getT();
   const { sellers } = await loadResults(sp);
   if (sellers.length === 0) return null;
 
@@ -267,7 +268,7 @@ async function MatchingSellers({ sp }: { sp: SP }) {
     <div className="flex items-center gap-2 flex-wrap">
       <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-500">
         <Users className="size-3.5" />
-        بائعون مطابقون
+        {t.pub.sellersMatch}
       </span>
       {sellers.map((u) => (
         <Link
@@ -296,6 +297,7 @@ async function MatchingSellers({ sp }: { sp: SP }) {
 
 /** the search matched stores by name — surface them above the listings */
 async function MatchingStores({ sp }: { sp: SP }) {
+  const { t } = await getT();
   const { stores } = await loadResults(sp);
   if (stores.length === 0) return null;
 
@@ -303,7 +305,7 @@ async function MatchingStores({ sp }: { sp: SP }) {
     <div className="flex items-center gap-2 flex-wrap">
       <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-500">
         <Store className="size-3.5" />
-        متاجر مطابقة
+        {t.pub.storesMatch}
       </span>
       {stores.map((s) => (
         <Link
@@ -359,7 +361,7 @@ async function Results({ sp }: { sp: SP }) {
         {correction && (
           <div className="flex items-center gap-2 text-sm bg-primary-50 border border-primary-100 rounded-xl px-4 py-3">
             <Search className="size-4 text-primary-500 shrink-0" />
-            <span className="text-neutral-600">هل تقصد</span>
+            <span className="text-neutral-600">{t.pub.didYouMean}</span>
             <Link href={correctedLink()} className="font-bold text-primary-700 hover:underline">
               «{correction}»
             </Link>

@@ -3,13 +3,19 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { getPlanLimits } from "@/lib/limits";
 import { StoresManager } from "@/components/StoresManager";
+import { getT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "متاجري" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t.dash.storePage.title };
+}
 
 export default async function StorePage() {
   const user = await requireUser();
+  const { t } = await getT();
+  const d = t.dash.storePage;
   const [stores, limits] = await Promise.all([
     db.store.findMany({
       where: { userId: user.id },
@@ -27,10 +33,10 @@ export default async function StorePage() {
       <div>
         <h1 className="section-title flex items-center gap-2">
           <Store className="size-6 text-primary-500" />
-          متاجري
+          {d.title}
         </h1>
         <p className="text-sm text-neutral-500 mt-1">
-          كل متجر يجمع إعلاناتك تحت هوية ورابط خاص. عدد المتاجر يعتمد على خطتك.
+          {d.sub}
         </p>
       </div>
 

@@ -1,3 +1,4 @@
+import { getT } from "@/lib/i18n";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -52,6 +53,7 @@ export default async function PublicStorePage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  const { lang, t } = await getT();
   const { slug } = await params;
   const store = await db.store.findUnique({
     where: { slug },
@@ -114,7 +116,7 @@ export default async function PublicStorePage({
               {store.isVerified && (
                 <span className="badge bg-green-500/15 text-green-400 border border-green-500/30">
                   <BadgeCheck className="size-4" />
-                  متجر موثّق
+                  {t.pub.verifiedStore}
                 </span>
               )}
               {owner.isPro && <span className="badge bg-white/10 text-primary-400">PRO</span>}
@@ -127,15 +129,15 @@ export default async function PublicStorePage({
                 <MapPin className="size-4" />
                 {owner.city}
               </span>
-              <span>منذ {formatDate(store.createdAt)}</span>
+              <span>{t.pub.since} {formatDate(store.createdAt, lang)}</span>
               <span className="flex items-center gap-1">
                 <Users className="size-4" />
-                {followerCount.toLocaleString("en-US")} متابع
+                {followerCount.toLocaleString("en-US")} {t.pub.followers}
               </span>
               {avgRating != null && (
                 <span className="flex items-center gap-1 text-amber-400 font-semibold">
                   <Star className="size-4 fill-current" />
-                  {avgRating.toFixed(1)} ({ratings.length} تقييم)
+                  {avgRating.toFixed(1)} ({ratings.length} {t.pub.ratingsUnit})
                 </span>
               )}
             </div>
@@ -163,7 +165,7 @@ export default async function PublicStorePage({
               <CredibilityBadge score={owner.credibility} compact />
               <span className="text-xs text-neutral-400 flex items-center gap-1">
                 <BadgeCheck className="size-3.5" />
-                {owner.successfulTx} معاملة
+                {owner.successfulTx} {t.pub.dealsUnit}
               </span>
               <ReportButton targetType="USER" targetId={owner.id} compact />
             </div>
@@ -181,10 +183,10 @@ export default async function PublicStorePage({
 
       <div className="container-page mt-8">
         <h2 className="section-title mb-4">
-          منتجات المتجر ({listings.length})
+          {t.pub.storeProducts(listings.length)}
         </h2>
         {listings.length === 0 ? (
-          <EmptyState title="لا توجد منتجات معروضة حالياً" hint="لم يُسنِد صاحب المتجر أي إعلان لهذا المتجر بعد" />
+          <EmptyState title={t.pub.storeEmptyTitle} hint={t.pub.storeEmptyHint} />
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {listings.map((listing) =>

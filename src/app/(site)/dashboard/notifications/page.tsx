@@ -12,10 +12,14 @@ import { requireUser } from "@/lib/auth";
 import { cn, timeAgo } from "@/lib/utils";
 import { EmptyState } from "@/components/EmptyState";
 import { PushManager } from "@/components/PushManager";
+import { getT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "الإشعارات" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t.dash.notifications.title };
+}
 
 const TYPE_ICON: Record<string, { icon: typeof Bell; cls: string }> = {
   BID: { icon: Gavel, cls: "bg-primary-50 text-primary-600" },
@@ -30,6 +34,8 @@ const TYPE_ICON: Record<string, { icon: typeof Bell; cls: string }> = {
 
 export default async function NotificationsPage() {
   const user = await requireUser();
+  const { lang, t } = await getT();
+  const d = t.dash.notifications;
 
   const notifications = await db.notification.findMany({
     where: { userId: user.id },
@@ -45,10 +51,10 @@ export default async function NotificationsPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="section-title">الإشعارات</h1>
+      <h1 className="section-title">{d.title}</h1>
       <PushManager />
       {notifications.length === 0 ? (
-        <EmptyState title="لا توجد إشعارات" hint="ستصلك هنا تحديثات مزاداتك ومعاملاتك" />
+        <EmptyState title={d.emptyTitle} hint={d.emptyHint} />
       ) : (
         <div className="card overflow-hidden divide-y divide-neutral-50">
           {notifications.map((n) => {
@@ -64,7 +70,7 @@ export default async function NotificationsPage() {
                   </p>
                   <p className="text-sm text-neutral-500 mt-0.5 leading-relaxed">{n.body}</p>
                   <p className="text-xs text-neutral-400 mt-1" suppressHydrationWarning>
-                    {timeAgo(n.createdAt)}
+                    {timeAgo(n.createdAt, lang)}
                   </p>
                 </div>
                 {!n.readAt && <span className="size-2 rounded-full bg-primary-500 shrink-0 mt-2" />}

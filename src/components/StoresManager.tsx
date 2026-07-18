@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { StoreVerifyCard } from "@/components/StoreVerifyCard";
+import { useLang } from "@/components/LangProvider";
 
 type StoreT = {
   id: string;
@@ -39,15 +40,15 @@ type StoreT = {
   whatsapp: string | null;
 };
 
-/** platform key → input label + placeholder (editor only) */
-const SOCIAL_FIELDS: { key: SocialKey; label: string; placeholder: string }[] = [
-  { key: "twitter", label: "X (تويتر)", placeholder: "@mystore أو رابط الحساب" },
-  { key: "instagram", label: "إنستغرام", placeholder: "@mystore أو رابط الحساب" },
-  { key: "tiktok", label: "تيك توك", placeholder: "@mystore أو رابط الحساب" },
-  { key: "snapchat", label: "سناب شات", placeholder: "@mystore أو رابط الحساب" },
-  { key: "youtube", label: "يوتيوب", placeholder: "@mystore أو رابط القناة" },
-  { key: "whatsapp", label: "واتساب", placeholder: "9665xxxxxxxx" },
-  { key: "website", label: "الموقع الإلكتروني", placeholder: "https://example.com" },
+/** platform key → placeholder kind ("handle" | "channel" | literal) */
+const SOCIAL_FIELDS: { key: SocialKey; ph: "handle" | "channel" | string }[] = [
+  { key: "twitter", ph: "handle" },
+  { key: "instagram", ph: "handle" },
+  { key: "tiktok", ph: "handle" },
+  { key: "snapchat", ph: "handle" },
+  { key: "youtube", ph: "channel" },
+  { key: "whatsapp", ph: "9665xxxxxxxx" },
+  { key: "website", ph: "https://example.com" },
 ];
 type SocialKey =
   | "website"
@@ -75,6 +76,8 @@ function StoreImageField({
   wide?: boolean;
 }) {
   const router = useRouter();
+  const { t } = useLang();
+  const ds = t.dash.stores;
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -90,7 +93,7 @@ function StoreImageField({
     const data = await res.json().catch(() => ({}));
     setBusy(false);
     if (!res.ok) {
-      setError(data.error ?? "تعذّر رفع الصورة");
+      setError(data.error ?? ds.uploadFail);
       return;
     }
     router.refresh();
@@ -121,7 +124,7 @@ function StoreImageField({
           ) : (
             <span className="flex flex-col items-center gap-1 text-neutral-400">
               <ImageIcon className="size-5" />
-              <span className="text-[10px]">اختر صورة</span>
+              <span className="text-[10px]">{ds.pickImage}</span>
             </span>
           )}
           {busy && (
@@ -139,7 +142,7 @@ function StoreImageField({
               className="act-btn bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
             >
               <Camera className="size-3.5" />
-              {current ? "تغيير" : "رفع صورة"}
+              {current ? ds.change : ds.upload}
             </button>
             {current && (
               <button
@@ -149,7 +152,7 @@ function StoreImageField({
                 className="act-btn bg-red-50 text-red-600 hover:bg-red-100"
               >
                 <Trash2 className="size-3.5" />
-                إزالة
+                {ds.remove}
               </button>
             )}
           </div>
@@ -186,6 +189,8 @@ function PendingImageField({
   onPick: (f: File | null) => void;
   wide?: boolean;
 }) {
+  const { t } = useLang();
+  const ds = t.dash.stores;
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const preview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
@@ -212,7 +217,7 @@ function PendingImageField({
           ) : (
             <span className="flex flex-col items-center gap-1 text-neutral-400">
               <ImageIcon className="size-5" />
-              <span className="text-[10px]">اختر صورة</span>
+              <span className="text-[10px]">{ds.pickImage}</span>
             </span>
           )}
         </button>
@@ -224,7 +229,7 @@ function PendingImageField({
               className="act-btn bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
             >
               <Camera className="size-3.5" />
-              {file ? "تغيير" : "رفع صورة"}
+              {file ? ds.change : ds.upload}
             </button>
             {file && (
               <button
@@ -233,7 +238,7 @@ function PendingImageField({
                 className="act-btn bg-red-50 text-red-600 hover:bg-red-100"
               >
                 <Trash2 className="size-3.5" />
-                إزالة
+                {ds.remove}
               </button>
             )}
           </div>
@@ -250,7 +255,7 @@ function PendingImageField({
           const f = e.target.files?.[0];
           if (f) {
             if (f.size > 5 * 1024 * 1024) {
-              setError("حجم الصورة يتجاوز 5 ميجابايت");
+              setError(ds.tooBig);
             } else {
               setError("");
               onPick(f);
@@ -271,6 +276,8 @@ function StoreEditor({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const { t } = useLang();
+  const ds = t.dash.stores;
   const [form, setForm] = useState({
     name: store?.name ?? "",
     slug: store?.slug ?? "",
@@ -306,7 +313,7 @@ function StoreEditor({
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       setLoading(false);
-      setError(data.error ?? "تعذّر الحفظ");
+      setError(data.error ?? ds.saveFail);
       return;
     }
     if (!store && data.id) {
@@ -328,24 +335,24 @@ function StoreEditor({
   return (
     <form onSubmit={submit} className="card p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <p className="font-bold">{store ? "تعديل المتجر" : "متجر جديد"}</p>
+        <p className="font-bold">{store ? ds.editTitle : ds.newTitle}</p>
         <button type="button" onClick={onClose} className="text-neutral-400 cursor-pointer">
           <X className="size-4" />
         </button>
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1.5">اسم المتجر</label>
+        <label className="block text-sm font-medium mb-1.5">{ds.name}</label>
         <input
           className="input"
           value={form.name}
           onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-          placeholder="مثال: متجر العمري للتقنية"
+          placeholder={ds.namePh}
           required
           minLength={3}
         />
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1.5">معرف المتجر (الرابط)</label>
+        <label className="block text-sm font-medium mb-1.5">{ds.slug}</label>
         <div className="flex items-center gap-2" dir="ltr">
           <span className="text-sm text-neutral-400">
             {(process.env.NEXT_PUBLIC_SITE_URL ?? "https://harajstation.com").replace(/^https?:\/\//, "")}/store/
@@ -359,15 +366,15 @@ function StoreEditor({
             required
           />
         </div>
-        <p className="text-xs text-neutral-400 mt-1">أحرف إنجليزية صغيرة وأرقام وشرطات (3–30)</p>
+        <p className="text-xs text-neutral-400 mt-1">{ds.slugHint}</p>
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1.5">وصف المتجر</label>
+        <label className="block text-sm font-medium mb-1.5">{ds.desc}</label>
         <textarea
           className="input min-h-20 py-3"
           value={form.description}
           onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-          placeholder="ماذا تبيع؟ ما الذي يميز متجرك؟"
+          placeholder={ds.descPh}
           maxLength={500}
         />
       </div>
@@ -376,21 +383,21 @@ function StoreEditor({
       <div className="border-t border-neutral-100 pt-4">
         <p className="text-sm font-bold mb-1 flex items-center gap-1.5">
           <Share2 className="size-4 text-primary-500" />
-          حسابات التواصل الاجتماعي
+          {ds.socialTitle}
         </p>
         <p className="text-xs text-neutral-400 mb-3">
-          اختيارية — تظهر كأيقونات أعلى صفحة متجرك وتزيد ثقة الزوار.
+          {ds.socialHint}
         </p>
         <div className="grid sm:grid-cols-2 gap-3">
-          {SOCIAL_FIELDS.map(({ key, label, placeholder }) => (
+          {SOCIAL_FIELDS.map(({ key, ph }) => (
             <div key={key}>
-              <label className="block text-xs font-medium mb-1 text-neutral-600">{label}</label>
+              <label className="block text-xs font-medium mb-1 text-neutral-600">{ds.socials[key]}</label>
               <input
                 className="input !text-sm"
                 dir="ltr"
                 value={form[key]}
                 onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-                placeholder={placeholder}
+                placeholder={ph === "handle" ? ds.socials.handlePh : ph === "channel" ? ds.socials.channelPh : ph}
               />
             </div>
           ))}
@@ -403,15 +410,15 @@ function StoreEditor({
             <StoreImageField
               storeId={store.id}
               kind="logo"
-              label="شعار المتجر"
-              hint="مربعة، تظهر بجانب اسم المتجر"
+              label={ds.logoLabel}
+              hint={ds.logoHint}
               current={store.logoUrl}
             />
             <StoreImageField
               storeId={store.id}
               kind="banner"
-              label="بانر المتجر"
-              hint="عريضة (يفضل 1200×300)، تظهر أعلى صفحة المتجر"
+              label={ds.bannerLabel}
+              hint={ds.bannerHint}
               current={store.bannerUrl}
               wide
             />
@@ -419,14 +426,14 @@ function StoreEditor({
         ) : (
           <>
             <PendingImageField
-              label="شعار المتجر"
-              hint="مربعة، تظهر بجانب اسم المتجر"
+              label={ds.logoLabel}
+              hint={ds.logoHint}
               file={picked.logo}
               onPick={(f) => setPicked((p) => ({ ...p, logo: f }))}
             />
             <PendingImageField
-              label="بانر المتجر"
-              hint="عريضة (يفضل 1200×300)، تظهر أعلى صفحة المتجر"
+              label={ds.bannerLabel}
+              hint={ds.bannerHint}
               file={picked.banner}
               onPick={(f) => setPicked((p) => ({ ...p, banner: f }))}
               wide
@@ -448,7 +455,7 @@ function StoreEditor({
       )}
       <button className="btn-primary" disabled={loading}>
         {loading ? <Loader2 className="size-4 animate-spin" /> : <Store className="size-4" />}
-        {store ? "حفظ التغييرات" : "إنشاء المتجر"}
+        {store ? ds.save : ds.create}
       </button>
     </form>
   );
@@ -462,11 +469,13 @@ export function StoresManager({
   maxStores: number;
 }) {
   const router = useRouter();
+  const { t } = useLang();
+  const ds = t.dash.stores;
   const [editing, setEditing] = useState<string | null>(null); // store id
   const [creating, setCreating] = useState(false);
 
   async function remove(id: string) {
-    if (!window.confirm("حذف المتجر نهائياً؟")) return;
+    if (!window.confirm(ds.delConfirm)) return;
     await fetch(`/api/store?id=${id}`, { method: "DELETE" });
     router.refresh();
   }
@@ -476,7 +485,7 @@ export function StoresManager({
   return (
     <div className="space-y-3">
       <p className="text-sm text-neutral-500">
-        لديك {stores.length} من أصل {maxStores} متجر متاح لخطتك
+        {ds.quota(stores.length, maxStores)}
       </p>
 
       {stores.map((s) =>
@@ -501,14 +510,14 @@ export function StoresManager({
                 <p className="font-semibold text-sm line-clamp-1 flex items-center gap-1.5">
                   {s.name}
                   {s.isVerified && (
-                    <BadgeCheck className="size-4 text-green-600 shrink-0" aria-label="متجر موثّق" />
+                    <BadgeCheck className="size-4 text-green-600 shrink-0" aria-label={ds.verifiedBadge} />
                   )}
                 </p>
                 <p className="text-xs text-neutral-400 flex items-center gap-2">
                   <span dir="ltr">/store/{s.slug}</span>
                   <span className="flex items-center gap-0.5">
                     <Users className="size-3" />
-                    {s.followers.toLocaleString("en-US")} متابع
+                    {s.followers.toLocaleString("en-US")} {ds.followers}
                   </span>
                 </p>
               </div>
@@ -516,11 +525,11 @@ export function StoresManager({
             <div className="flex items-center gap-1.5 shrink-0">
               <Link href={`/store/${s.slug}`} className="badge bg-neutral-100 text-neutral-700 hover:bg-neutral-200">
                 <ExternalLink className="size-3.5" />
-                عرض
+                {ds.view}
               </Link>
               <button onClick={() => setEditing(s.id)} className="badge bg-neutral-100 text-neutral-700 hover:bg-neutral-200 cursor-pointer">
                 <Pencil className="size-3.5" />
-                تعديل
+                {ds.edit}
               </button>
               <button onClick={() => remove(s.id)} className="badge bg-red-50 text-red-600 hover:bg-red-100 cursor-pointer">
                 <Trash2 className="size-3.5" />
@@ -538,12 +547,12 @@ export function StoresManager({
           className="w-full card p-4 flex items-center justify-center gap-2 text-sm font-semibold text-primary-600 border-dashed hover:bg-primary-50/40 transition-colors cursor-pointer"
         >
           <Plus className="size-4" />
-          إنشاء متجر جديد
+          {ds.createNew}
         </button>
       ) : (
         <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800 flex items-center justify-between gap-2">
-          <span>وصلت للحد الأقصى من المتاجر لخطتك.</span>
-          <Link href="/pro" className="font-semibold hover:underline shrink-0">رقِّ للبرو</Link>
+          <span>{ds.maxReached}</span>
+          <Link href="/pro" className="font-semibold hover:underline shrink-0">{ds.goPro}</Link>
         </div>
       )}
     </div>

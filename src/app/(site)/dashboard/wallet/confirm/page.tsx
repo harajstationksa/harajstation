@@ -3,10 +3,14 @@ import { CheckCircle2, Clock, XCircle } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { confirmPayment } from "@/lib/payments";
+import { getT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "تأكيد الدفع" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t.dash.payConfirm.title };
+}
 
 /** Moyasar redirects here after checkout — verify server-side and credit. */
 export default async function PaymentConfirmPage({
@@ -15,6 +19,8 @@ export default async function PaymentConfirmPage({
   searchParams: Promise<{ p?: string }>;
 }) {
   const user = await requireUser();
+  const { t } = await getT();
+  const d = t.dash.payConfirm;
   const { p } = await searchParams;
 
   const payment = p ? await db.payment.findUnique({ where: { id: p } }) : null;
@@ -24,23 +30,23 @@ export default async function PaymentConfirmPage({
   const view = {
     paid: {
       icon: <CheckCircle2 className="size-12 text-green-600 mx-auto" />,
-      title: "تم الدفع بنجاح 🎉",
-      body: `أُضيفت ${payment?.points.toLocaleString("en-US")} نقطة لرصيدك — استخدمها لتمييز إعلاناتك أو إطلاق حملة.`,
+      title: d.paidTitle,
+      body: d.paidBody(payment?.points.toLocaleString("en-US") ?? "0"),
     },
     pending: {
       icon: <Clock className="size-12 text-amber-500 mx-auto" />,
-      title: "الدفع قيد المعالجة",
-      body: "لم يتأكد الدفع بعد — سيُضاف رصيدك تلقائياً فور التأكيد. حدّث الصفحة بعد لحظات.",
+      title: d.pendingTitle,
+      body: d.pendingBody,
     },
     failed: {
       icon: <XCircle className="size-12 text-red-600 mx-auto" />,
-      title: "لم يكتمل الدفع",
-      body: "أُلغيت العملية أو فشلت — لم يُخصم منك شيء. جرّب مرة أخرى.",
+      title: d.failedTitle,
+      body: d.failedBody,
     },
     not_found: {
       icon: <XCircle className="size-12 text-red-600 mx-auto" />,
-      title: "عملية غير معروفة",
-      body: "لم نعثر على عملية الدفع هذه.",
+      title: d.notFoundTitle,
+      body: d.notFoundBody,
     },
   }[result];
 
@@ -51,7 +57,7 @@ export default async function PaymentConfirmPage({
         <h1 className="font-display font-bold text-2xl">{view.title}</h1>
         <p className="text-sm text-neutral-500 leading-relaxed">{view.body}</p>
         <Link href="/dashboard/wallet" className="btn-primary w-full">
-          العودة للمحفظة
+          {d.backToWallet}
         </Link>
       </div>
     </div>

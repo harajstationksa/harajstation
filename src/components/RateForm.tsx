@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2, Star } from "lucide-react";
+import { useLang } from "@/components/LangProvider";
 import { cn } from "@/lib/utils";
 
 export function RateForm({
@@ -12,6 +13,7 @@ export function RateForm({
   transactionId: string;
   targetName: string;
 }) {
+  const { t } = useLang();
   const router = useRouter();
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
@@ -32,7 +34,7 @@ export function RateForm({
       router.refresh();
     } else {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "تعذّر إرسال التقييم");
+      setError(data.error ?? t.dash.rate.fail);
       setState("error");
     }
   }
@@ -44,7 +46,7 @@ export function RateForm({
         className="badge bg-amber-50 text-amber-700 border border-amber-200 cursor-pointer hover:bg-amber-100"
       >
         <Star className="size-3.5" />
-        قيّم {targetName}
+        {t.dash.rate.rateBtn(targetName)}
       </button>
     );
   }
@@ -57,7 +59,7 @@ export function RateForm({
             key={n}
             type="button"
             onClick={() => setRating(n)}
-            aria-label={`${n} نجوم`}
+            aria-label={t.dash.rate.stars(n)}
             className="cursor-pointer"
           >
             <Star
@@ -73,13 +75,13 @@ export function RateForm({
         className="input min-h-9 text-xs"
         value={comment}
         onChange={(e) => setComment(e.target.value)}
-        placeholder="تعليق مختصر (اختياري)..."
+        placeholder={t.dash.rate.commentPh}
         maxLength={500}
       />
       {error && <p className="text-xs text-red-600">{error}</p>}
       <button className="btn-primary min-h-9 text-xs" disabled={rating === 0 || state === "sending"}>
         {state === "sending" && <Loader2 className="size-3 animate-spin" />}
-        إرسال التقييم
+        {t.dash.rate.submit}
       </button>
     </form>
   );

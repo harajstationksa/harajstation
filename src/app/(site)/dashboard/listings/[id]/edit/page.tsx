@@ -3,10 +3,14 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { parseImages } from "@/lib/utils";
 import { EditListingForm } from "@/components/EditListingForm";
+import { getT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "تعديل الإعلان" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t.dash.editListing.title };
+}
 
 export default async function EditListingPage({
   params,
@@ -14,6 +18,7 @@ export default async function EditListingPage({
   params: Promise<{ id: string }>;
 }) {
   const user = await requireUser();
+  const { t } = await getT();
   const { id } = await params;
 
   const listing = await db.listing.findUnique({ where: { id } });
@@ -23,7 +28,7 @@ export default async function EditListingPage({
   return (
     <div className="space-y-5 max-w-3xl">
       <div>
-        <h1 className="section-title">تعديل الإعلان</h1>
+        <h1 className="section-title">{t.dash.editListing.title}</h1>
         <p className="text-sm text-neutral-500 mt-1 line-clamp-1">{listing.title}</p>
       </div>
       <EditListingForm

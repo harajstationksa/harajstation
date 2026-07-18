@@ -7,6 +7,7 @@ import { parseImages } from "@/lib/utils";
 import { Avatar } from "@/components/Avatar";
 import { ChatThread } from "@/components/ChatThread";
 import { ReportButton } from "@/components/ReportButton";
+import { getT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export default async function ConversationPage({
   params: Promise<{ id: string }>;
 }) {
   const user = await requireUser();
+  const { t } = await getT();
   const { id } = await params;
 
   const conv = await db.conversation.findUnique({
@@ -36,7 +38,7 @@ export default async function ConversationPage({
         className="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-primary-600"
       >
         <ChevronRight className="size-4" />
-        كل الرسائل
+        {t.dash.thread.all}
       </Link>
 
       <div className="card p-3.5 flex items-center gap-3">
@@ -49,7 +51,7 @@ export default async function ConversationPage({
             <ReportButton targetType="USER" targetId={other.id} compact />
           </p>
           <Link href={listingHref} className="text-xs text-primary-600 hover:underline line-clamp-1">
-            بخصوص: {conv.listing.title}
+            {t.dash.thread.about} {conv.listing.title}
           </Link>
         </div>
         {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -43,18 +43,18 @@ export const LISTING_STATUS = {
 } as const;
 
 export const AUCTION_DURATIONS = [
-  { hours: 24, label: "يوم واحد" },
-  { hours: 72, label: "3 أيام" },
-  { hours: 120, label: "5 أيام" },
-  { hours: 168, label: "7 أيام" },
+  { hours: 24, label: "يوم واحد", labelEn: "1 day" },
+  { hours: 72, label: "3 أيام", labelEn: "3 days" },
+  { hours: 120, label: "5 أيام", labelEn: "5 days" },
+  { hours: 168, label: "7 أيام", labelEn: "7 days" },
 ] as const;
 
 export const TRUST_LEVELS = [
-  { min: 81, label: "ممتاز", color: "#16a34a", stars: 5 },
-  { min: 61, label: "موثوق", color: "#65a30d", stars: 4 },
-  { min: 41, label: "متوسط", color: "#eab308", stars: 3 },
-  { min: 21, label: "مبتدئ", color: "#db7759", stars: 2 },
-  { min: 0, label: "غير موثوق", color: "#dc2626", stars: 1 },
+  { min: 81, label: "ممتاز", labelEn: "Excellent", color: "#16a34a", stars: 5 },
+  { min: 61, label: "موثوق", labelEn: "Trusted", color: "#65a30d", stars: 4 },
+  { min: 41, label: "متوسط", labelEn: "Average", color: "#eab308", stars: 3 },
+  { min: 21, label: "مبتدئ", labelEn: "Beginner", color: "#db7759", stars: 2 },
+  { min: 0, label: "غير موثوق", labelEn: "Untrusted", color: "#dc2626", stars: 1 },
 ] as const;
 
 export const STAFF_ROLES = ["ADMIN", "MODERATOR", "SUPPORT", "ACCOUNTANT"];

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLang } from "@/components/LangProvider";
 import { Check, Link2, MessageCircle, QrCode, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +19,7 @@ export function ShareButtons({
   title: string;
   qrDataUrl: string;
 }) {
+  const { t } = useLang();
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
 
@@ -60,7 +62,7 @@ export function ShareButtons({
           className={cn(itemCls, "border-green-200 bg-green-50 text-green-700 hover:bg-green-100")}
         >
           <MessageCircle className="size-4 shrink-0" />
-          واتساب
+          {t.pub.shWhatsapp}
         </a>
         <button
           type="button"
@@ -73,7 +75,7 @@ export function ShareButtons({
           )}
         >
           {copied ? <Check className="size-4 shrink-0" /> : <Link2 className="size-4 shrink-0" />}
-          {copied ? "نُسخ!" : "نسخ الرابط"}
+          {copied ? t.pub.shCopied : t.pub.shCopy}
         </button>
         <button
           type="button"
@@ -87,7 +89,7 @@ export function ShareButtons({
           aria-expanded={showQr}
         >
           <QrCode className="size-4 shrink-0" />
-          رمز QR
+          {t.pub.shQr}
         </button>
         {/* system share sheet — mobile only (desktop rarely supports it) */}
         <button
@@ -99,16 +101,16 @@ export function ShareButtons({
           )}
         >
           <Share2 className="size-4 shrink-0" />
-          مشاركة
+          {t.pub.shShare}
         </button>
       </div>
 
       {showQr && (
         <div className="rounded-lg border border-neutral-100 bg-neutral-50 p-4 flex flex-col items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={qrDataUrl} alt="QR للإعلان" className="size-40 rounded-lg border border-neutral-200 bg-white p-2" />
+          <img src={qrDataUrl} alt={t.pub.shQrAlt} className="size-40 rounded-lg border border-neutral-200 bg-white p-2" />
           <p className="text-[11px] text-neutral-400 text-center">
-            امسح الرمز بكاميرا الجوال لفتح الإعلان مباشرة
+            {t.pub.shQrHint}
           </p>
         </div>
       )}

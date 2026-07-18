@@ -8,10 +8,17 @@ import { useLang } from "@/components/LangProvider";
 import { SocialButtons } from "@/components/SocialButtons";
 
 // the Google routes bounce failures back here as ?error=…
-const SOCIAL_ERRORS: Record<string, string> = {
-  google: "تعذّر تسجيل الدخول عبر Google — حاول مرة أخرى",
-  google_unverified: "بريد حساب Google غير مؤكد لدى Google نفسها",
-  banned: "هذا الحساب محظور.",
+const SOCIAL_ERRORS: Record<string, Record<string, string>> = {
+  ar: {
+    google: "تعذّر تسجيل الدخول عبر Google — حاول مرة أخرى",
+    google_unverified: "بريد حساب Google غير مؤكد لدى Google نفسها",
+    banned: "هذا الحساب محظور.",
+  },
+  en: {
+    google: "Google sign-in failed — try again",
+    google_unverified: "This Google account's email isn't verified with Google itself",
+    banned: "This account is banned.",
+  },
 };
 
 export default function LoginPage() {
@@ -25,7 +32,8 @@ export default function LoginPage() {
 
 function LoginForm() {
   const router = useRouter();
-  const socialError = SOCIAL_ERRORS[useSearchParams().get("error") ?? ""] ?? "";
+  const { lang, t } = useLang();
+  const socialError = SOCIAL_ERRORS[lang]?.[useSearchParams().get("error") ?? ""] ?? "";
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(socialError);
@@ -39,7 +47,6 @@ function LoginForm() {
   const [otp, setOtp] = useState<{ challenge: string; email: string } | null>(null);
   const [code, setCode] = useState("");
   const [cooldown, setCooldown] = useState(0);
-  const { t } = useLang();
   const a = t.auth;
 
   // ticking countdown for the "resend code" button
@@ -147,10 +154,9 @@ function LoginForm() {
           <img src="/logo.png" alt="حراج ستيشن" className="h-20 w-auto inline-block" />
           {otp ? (
             <>
-              <h1 className="font-display font-bold text-2xl">رمز التحقق</h1>
+              <h1 className="font-display font-bold text-2xl">{t.pub.otpTitle}</h1>
               <p className="text-sm text-neutral-500">
-                أرسلنا رمزاً من 6 أرقام إلى <b dir="ltr">{otp.email}</b> — راجع بريدك
-                (وصندوق الرسائل غير المرغوبة).
+                {t.pub.otpSub1} <b dir="ltr">{otp.email}</b> {t.pub.otpSub2}
               </p>
             </>
           ) : (
@@ -166,7 +172,7 @@ function LoginForm() {
             <div>
               <label className="text-sm font-medium mb-1.5 flex items-center gap-1.5">
                 <MailCheck className="size-4 text-primary-500" />
-                رمز التحقق
+                {t.pub.otpLabel}
               </label>
               <input
                 className="input text-center !text-2xl tracking-[0.5em] font-bold"
@@ -191,7 +197,7 @@ function LoginForm() {
 
             <button className="btn-primary w-full" disabled={loading || code.length !== 6}>
               {loading && <Loader2 className="size-4 animate-spin" />}
-              تأكيد الدخول
+              {t.pub.otpConfirm}
             </button>
 
             <div className="flex items-center justify-between text-sm">
@@ -201,7 +207,7 @@ function LoginForm() {
                 disabled={loading || cooldown > 0}
                 className="text-primary-600 font-semibold hover:underline disabled:text-neutral-400 disabled:no-underline"
               >
-                {cooldown > 0 ? `إعادة الإرسال بعد ${cooldown} ثانية` : "إعادة إرسال الرمز"}
+                {cooldown > 0 ? t.pub.otpResendIn(cooldown) : t.pub.otpResend}
               </button>
               <button
                 type="button"
@@ -213,7 +219,7 @@ function LoginForm() {
                 className="text-neutral-500 hover:underline flex items-center gap-1"
               >
                 <ArrowRight className="size-3.5" />
-                رجوع
+                {t.pub.back}
               </button>
             </div>
           </form>
@@ -263,7 +269,7 @@ function LoginForm() {
                     className="mt-2 inline-flex items-center gap-1.5 font-semibold underline underline-offset-2 hover:no-underline"
                   >
                     <KeyRound className="size-3.5" />
-                    استعادة كلمة المرور
+                    {t.pub.resetPw}
                   </Link>
                 )}
                 {unverified && !resent && (
@@ -273,12 +279,12 @@ function LoginForm() {
                     disabled={loading}
                     className="mt-2 font-semibold underline underline-offset-2 hover:no-underline"
                   >
-                    إعادة إرسال رابط التفعيل
+                    {t.pub.resendActivation}
                   </button>
                 )}
                 {resent && (
                   <p className="mt-2 font-semibold">
-                    أرسلنا رابطاً جديداً إلى {unverified} — راجع بريدك وصندوق الرسائل غير المرغوبة.
+                    {t.pub.resentTo(unverified)}
                   </p>
                 )}
               </div>

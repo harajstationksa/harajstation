@@ -1,14 +1,17 @@
 import { Star } from "lucide-react";
 import { trustLevel } from "@/lib/utils";
+import { getLang } from "@/lib/i18n";
 
-export function CredibilityBadge({
+export async function CredibilityBadge({
   score,
   compact = false,
 }: {
   score: number;
   compact?: boolean;
 }) {
+  const lang = await getLang();
   const level = trustLevel(score);
+  const label = lang === "en" ? level.labelEn : level.label;
   if (compact) {
     return (
       <span className="inline-flex items-center gap-1 text-xs font-semibold" style={{ color: level.color }}>
@@ -27,7 +30,7 @@ export function CredibilityBadge({
       }}
     >
       <Star className="size-3.5 fill-current" />
-      {level.label} · {score}/100
+      {label} · {score}/100
     </span>
   );
 }

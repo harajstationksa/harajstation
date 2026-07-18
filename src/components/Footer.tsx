@@ -23,7 +23,7 @@ function FacebookIcon({ className }: { className?: string }) {
 }
 
 export async function Footer() {
-  const [{ t }, settings] = await Promise.all([getT(), allSettings()]);
+  const [{ lang, t }, settings] = await Promise.all([getT(), allSettings()]);
   const f = t.footer;
 
   // admin-editable from /admin/banners — an empty link hides its icon
@@ -115,7 +115,7 @@ export async function Footer() {
             {f.safety}
           </p>
           <div className="flex items-center gap-2">
-            {["مدى", "Apple Pay", "STC Pay", "Visa"].map((m) => (
+            {[lang === "en" ? "mada" : "مدى", "Apple Pay", "STC Pay", "Visa"].map((m) => (
               <span key={m} className="rounded-md bg-neutral-800 px-2.5 py-1 text-[11px] text-neutral-300">
                 {m}
               </span>

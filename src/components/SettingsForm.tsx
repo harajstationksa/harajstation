@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Camera, CheckCircle2, Loader2, Mail, Trash2 } from "lucide-react";
+import { useLang } from "@/components/LangProvider";
 import { CITIES } from "@/lib/constants";
 import { Avatar } from "./Avatar";
 import { AvatarCropper } from "./AvatarCropper";
@@ -19,6 +20,8 @@ export function SettingsForm({
     avatarColor: string;
   };
 }) {
+  const { t } = useLang();
+  const d = t.dash.settings;
   const router = useRouter();
   const [form, setForm] = useState(initial);
   const [emailUnlocked, setEmailUnlocked] = useState(false);
@@ -41,7 +44,7 @@ export function SettingsForm({
     setAvatarBusy(false);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setError(data.error ?? "تعذّر رفع الصورة");
+      setError(data.error ?? d.genericError);
       return;
     }
     setAvatarUrl(data.url);
@@ -77,7 +80,7 @@ export function SettingsForm({
     setLoading(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "تعذّر الحفظ");
+      setError(data.error ?? d.genericError);
       return;
     }
     setSaved(true);
@@ -103,7 +106,7 @@ export function SettingsForm({
           )}
         </div>
         <div className="space-y-2">
-          <p className="font-semibold text-sm">الصورة الشخصية</p>
+          <p className="font-semibold text-sm">{d.avatar}</p>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -112,7 +115,7 @@ export function SettingsForm({
               className="btn-secondary min-h-9 px-4 text-xs"
             >
               <Camera className="size-4" />
-              تغيير الصورة
+              {d.changePhoto}
             </button>
             {avatarUrl && (
               <button
@@ -122,11 +125,11 @@ export function SettingsForm({
                 className="btn-ghost min-h-9 px-3 text-xs text-red-600"
               >
                 <Trash2 className="size-4" />
-                إزالة
+                {d.remove}
               </button>
             )}
           </div>
-          <p className="text-[11px] text-neutral-400">JPG / PNG / WebP — تُضغط تلقائياً إلى 512px</p>
+          <p className="text-[11px] text-neutral-400">{d.photoHint}</p>
         </div>
         <input
           ref={fileRef}
@@ -147,16 +150,16 @@ export function SettingsForm({
           onCancel={() => setCropFile(null)}
           onSave={uploadAvatar}
           labels={{
-            title: "ضبط الصورة الشخصية",
-            save: "حفظ الصورة",
-            cancel: "إلغاء",
-            hint: "اسحب الصورة لتحريكها داخل الدائرة، واستخدم الشريط للتكبير",
+            title: d.cropTitle,
+            save: d.cropSave,
+            cancel: d.cropCancel,
+            hint: d.cropHint,
           }}
         />
       )}
 
       <div className="border-t border-neutral-100 pt-4">
-        <label className="block text-sm font-medium mb-1.5">الاسم الكامل</label>
+        <label className="block text-sm font-medium mb-1.5">{d.fullName}</label>
         <input
           className="input"
           value={form.name}
@@ -167,7 +170,7 @@ export function SettingsForm({
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-1.5">البريد الإلكتروني</label>
+        <label className="block text-sm font-medium mb-1.5">{d.email}</label>
         <div className="flex gap-2">
           <input
             className={`input flex-1 ${emailUnlocked ? "" : "bg-neutral-50 text-neutral-500"}`}
@@ -185,7 +188,7 @@ export function SettingsForm({
               className="btn-secondary shrink-0 px-4 text-xs"
             >
               <Mail className="size-4" />
-              تغيير البريد
+              {d.changeEmail}
             </button>
           ) : (
             <button
@@ -197,19 +200,19 @@ export function SettingsForm({
               }}
               className="btn-ghost shrink-0 px-3 text-xs text-neutral-500"
             >
-              إلغاء
+              {d.cancel}
             </button>
           )}
         </div>
         <p className="text-xs text-neutral-400 mt-1">
-          البريد هو معرف حسابك — تغييره يتطلب إدخال كلمة المرور الحالية
+          {d.emailNote}
         </p>
       </div>
 
       {emailUnlocked && emailChanged && (
         <div className="rounded-lg bg-amber-50 border border-amber-100 p-3">
           <label className="block text-sm font-medium mb-1.5">
-            كلمة المرور الحالية <span className="text-neutral-400">(لتأكيد تغيير البريد)</span>
+            {d.currentPassword} <span className="text-neutral-400">{d.currentPasswordWhy}</span>
           </label>
           <input
             className="input bg-white"
@@ -223,7 +226,7 @@ export function SettingsForm({
       )}
 
       <div>
-        <label className="block text-sm font-medium mb-1.5">المدينة</label>
+        <label className="block text-sm font-medium mb-1.5">{d.city}</label>
         <select
           className="input"
           value={form.city}
@@ -237,7 +240,7 @@ export function SettingsForm({
 
       <div>
         <label className="block text-sm font-medium mb-1.5">
-          رقم الجوال <span className="text-neutral-400">(اختياري)</span>
+          {d.phone} <span className="text-neutral-400">{d.optional}</span>
         </label>
         <input
           className="input"
@@ -247,9 +250,7 @@ export function SettingsForm({
           placeholder="05XXXXXXXX"
         />
         <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
-          إضافة رقمك تسهّل تواصل المشترين معك (واتساب واتصال). مستقبلاً سيُطلب
-          توثيق الرقم برسالة نصية عند الإجراءات الحساسة مثل المزادات وإنشاء
-          المتاجر.
+          {d.phoneNote}
         </p>
       </div>
 
@@ -261,13 +262,13 @@ export function SettingsForm({
       {saved && !error && (
         <p className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
           <CheckCircle2 className="size-4" />
-          تم حفظ التغييرات
+          {d.saved}
         </p>
       )}
 
       <button className="btn-primary" disabled={loading}>
         {loading && <Loader2 className="size-4 animate-spin" />}
-        حفظ التغييرات
+        {d.saveBtn}
       </button>
     </form>
   );

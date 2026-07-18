@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { emailConfigured } from "@/lib/email";
+import { getT } from "@/lib/i18n";
 import { Avatar } from "@/components/Avatar";
 import { CredibilityBadge } from "@/components/CredibilityBadge";
 import { DashboardNav } from "@/components/DashboardNav";
@@ -12,6 +13,7 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
+  const { t } = await getT();
 
   return (
     <div className="container-page py-6 pb-12">
@@ -27,7 +29,7 @@ export default async function DashboardLayout({
             <span className="text-xs text-neutral-400">{user.city}</span>
           </div>
         </div>
-        <Link href="/sell" className="btn-primary max-sm:hidden">أضف إعلان</Link>
+        <Link href="/sell" className="btn-primary max-sm:hidden">{t.dash.postAd}</Link>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6 items-start">

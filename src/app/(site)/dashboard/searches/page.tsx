@@ -5,20 +5,25 @@ import { requireUser } from "@/lib/auth";
 import { timeAgo } from "@/lib/utils";
 import { DeleteSavedSearch } from "@/components/DeleteSavedSearch";
 import { EmptyState } from "@/components/EmptyState";
+import { getT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-/** How a saved search's type filter reads back to the user. */
-const TYPE_CHIP: Record<string, { icon: typeof Search; label: string }> = {
-  STANDARD: { icon: Tag, label: "بيع عادي فقط" },
-  AUCTION: { icon: Gavel, label: "مزادات فقط" },
-  ANNOUNCE: { icon: Megaphone, label: "إعلانات فقط" },
-};
-
-export const metadata = { title: "تنبيهات البحث" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t.dash.searches.title };
+}
 
 export default async function SavedSearchesPage() {
   const user = await requireUser();
+  const { lang, t } = await getT();
+  const d = t.dash.searches;
+  // how a saved search's type filter reads back to the user
+  const TYPE_CHIP: Record<string, { icon: typeof Search; label: string }> = {
+    STANDARD: { icon: Tag, label: d.typeStandard },
+    AUCTION: { icon: Gavel, label: d.typeAuction },
+    ANNOUNCE: { icon: Megaphone, label: d.typeAnnounce },
+  };
   const searches = await db.savedSearch.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
@@ -28,7 +33,7 @@ export default async function SavedSearchesPage() {
   const cats = catSlugs.length
     ? await db.category.findMany({ where: { slug: { in: catSlugs } } })
     : [];
-  const catName = new Map(cats.map((c) => [c.slug, c.nameAr]));
+  const catName = new Map(cats.map((c) => [c.slug, lang === "en" ? c.nameEn : c.nameAr]));
 
   return (
     <div className="space-y-6">
@@ -38,18 +43,18 @@ export default async function SavedSearchesPage() {
           <BellRing className="size-6" />
         </span>
         <div>
-          <h1 className="section-title">تنبيهات البحث المحفوظ</h1>
+          <h1 className="section-title">{d.title}</h1>
           <p className="text-sm text-neutral-500 mt-0.5">
-            احفظ بحثاً («كامري 2020 الرياض») ويصلك إشعار فور نزول إعلان مطابق.
+            {d.sub}
           </p>
         </div>
       </div>
 
       {searches.length === 0 ? (
         <EmptyState
-          title="لا توجد تنبيهات بحث محفوظة"
-          hint="ابحث عمّا يهمك ثم اضغط «نبّهني عند نزول إعلان مشابه»"
-          action={<Link href="/listings" className="btn-primary mt-2">ابدأ البحث</Link>}
+          title={d.emptyTitle}
+          hint={d.emptyHint}
+          action={<Link href="/listings" className="btn-primary mt-2">{d.start}</Link>}
         />
       ) : (
         <div className="card overflow-hidden">
@@ -86,14 +91,14 @@ export default async function SavedSearchesPage() {
                       ))}
                     </p>
                     <p className="text-xs text-neutral-400 mt-0.5" suppressHydrationWarning>
-                      حُفظ {timeAgo(s.createdAt)}
+                      {d.savedAgo} {timeAgo(s.createdAt, lang)}
                       {s.hits > 0 && (
                         <>
                           {" · "}
                           <span className="text-green-600 font-semibold">
-                            {s.hits.toLocaleString("en-US")} إعلان مطابق
+                            {s.hits.toLocaleString("en-US")} {d.matches}
                           </span>
-                          {s.lastHitAt && ` · آخر تطابق ${timeAgo(s.lastHitAt)}`}
+                          {s.lastHitAt && ` · ${d.lastMatch} ${timeAgo(s.lastHitAt, lang)}`}
                         </>
                       )}
                     </p>
@@ -107,7 +112,7 @@ export default async function SavedSearchesPage() {
       )}
 
       <p className="text-xs text-neutral-400">
-        فعّل إشعارات المتصفح من صفحة الإشعارات ليصلك التنبيه حتى والموقع مغلق.
+        {d.pushHint}
       </p>
     </div>
   );

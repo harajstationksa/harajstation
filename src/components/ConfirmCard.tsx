@@ -12,6 +12,7 @@ import {
   Phone,
   X,
 } from "lucide-react";
+import { useLang } from "@/components/LangProvider";
 import { formatSAR } from "@/lib/utils";
 import { ChatButton } from "./ChatButton";
 import { Countdown } from "./Countdown";
@@ -31,14 +32,16 @@ export type ConfirmTx = {
 };
 
 export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
+  const { t } = useLang();
+  const d = t.dash.confirmCard;
   const router = useRouter();
   const [loading, setLoading] = useState<"YES" | "NO" | "EVIDENCE" | null>(null);
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
 
   async function answer(value: "YES" | "NO") {
-    const q = tx.role === "SELLER" ? "تأكيد التسليم" : "تأكيد الاستلام";
-    if (!confirm(`${q}: هل أنت متأكد من إجابتك «${value === "YES" ? "نعم" : "لا"}»؟ لا يمكن التراجع.`)) return;
+    const q = tx.role === "SELLER" ? d.confirmDeliver : d.confirmReceive;
+    if (!confirm(d.confirmQ(q, value === "YES" ? d.yes : d.no))) return;
     setLoading(value);
     setError("");
     const res = await fetch(`/api/transactions/${tx.id}/confirm`, {
@@ -49,7 +52,7 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
     setLoading(null);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "حدث خطأ");
+      setError(data.error ?? d.err);
       return;
     }
     router.refresh();
@@ -67,7 +70,7 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
     setLoading(null);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "حدث خطأ");
+      setError(data.error ?? d.err);
       return;
     }
     setNote("");
@@ -75,9 +78,7 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
   }
 
   const question =
-    tx.role === "SELLER"
-      ? `هل قمت بتسليم المنتج إلى المشتري (${tx.counterpart.name})؟`
-      : `هل استلمت المنتج من البائع (${tx.counterpart.name})؟`;
+    tx.role === "SELLER" ? d.qSeller(tx.counterpart.name) : d.qBuyer(tx.counterpart.name);
 
   return (
     <div className="card p-5 space-y-4">
@@ -85,18 +86,18 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
         <div>
           <p className="font-bold">{tx.title}</p>
           <p className="text-sm text-neutral-500 mt-0.5">
-            {tx.role === "SELLER" ? "أنت البائع" : "أنت المشتري"} · {formatSAR(tx.amount)}
+            {tx.role === "SELLER" ? d.youSeller : d.youBuyer} · {formatSAR(tx.amount)}
           </p>
         </div>
         {tx.status === "DISPUTED" ? (
           <span className="badge bg-red-50 text-red-600 shrink-0">
             <AlertTriangle className="size-3.5" />
-            متنازع عليها
+            {d.disputed}
           </span>
         ) : (
           <span className="badge bg-amber-50 text-amber-700 shrink-0">
             <Hourglass className="size-3.5" />
-            بانتظار التأكيد
+            {d.awaiting}
           </span>
         )}
       </div>
@@ -105,7 +106,7 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
       <div className="rounded-lg bg-neutral-50 border border-neutral-100 p-3 flex items-center justify-between gap-2 flex-wrap">
         <p className="text-sm">
           <span className="text-neutral-500">
-            {tx.role === "SELLER" ? "المشتري:" : "البائع:"}
+            {tx.role === "SELLER" ? d.buyerLabel : d.sellerLabel}
           </span>{" "}
           <span className="font-semibold">{tx.counterpart.name}</span>
           {tx.counterpart.phone && (
@@ -124,20 +125,20 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
                 className="badge bg-green-600 text-white hover:bg-green-700"
               >
                 <MessageCircle className="size-3.5" />
-                واتساب
+                {d.whatsapp}
               </a>
               <a href={`tel:${tx.counterpart.phone}`} className="badge bg-neutral-200 text-neutral-700">
                 <Phone className="size-3.5" />
-                اتصال
+                {d.call}
               </a>
             </>
           ) : (
-            <span className="text-xs text-neutral-400">لم يضف رقم جوال — استخدم الشات</span>
+            <span className="text-xs text-neutral-400">{d.noPhone}</span>
           )}
           <ChatButton
             listingId={tx.listingId}
             buyerId={tx.role === "SELLER" ? tx.counterpart.id : undefined}
-            label="شات"
+            label={d.chat}
             className="min-h-7 px-3 text-xs rounded-full"
           />
         </div>
@@ -153,7 +154,7 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
               className="btn bg-green-600 text-white hover:bg-green-700"
             >
               {loading === "YES" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-              {tx.role === "SELLER" ? "نعم، تم التسليم" : "نعم، تم الاستلام"}
+              {tx.role === "SELLER" ? d.yesDelivered : d.yesReceived}
             </button>
             <button
               onClick={() => answer("NO")}
@@ -161,11 +162,11 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
               className="btn-danger"
             >
               {loading === "NO" ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
-              {tx.role === "SELLER" ? "لا، لم يتم التسليم" : "لا، لم أستلم"}
+              {tx.role === "SELLER" ? d.noDelivered : d.noReceived}
             </button>
           </div>
           <div className="flex items-center justify-between text-xs text-neutral-500">
-            <span>المهلة المتبقية للرد:</span>
+            <span>{d.deadline}</span>
             <Countdown endsAt={tx.deadline} />
           </div>
         </>
@@ -173,27 +174,25 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
 
       {tx.status === "PENDING" && tx.myAnswer && (
         <p className="text-sm text-neutral-600 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
-          سجّلنا إجابتك ({tx.myAnswer === "YES" ? "نعم" : "لا"}) — بانتظار رد الطرف الآخر
-          قبل انتهاء المهلة.
+          {d.answered(tx.myAnswer === "YES" ? d.yes : d.no)}
         </p>
       )}
 
       {tx.status === "DISPUTED" && (
         <div className="space-y-3">
           <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
-            تعارضت الإجابتان حول هذه المعاملة. فريق الدعم سيراجع الحالة — أرفق ما
-            يدعم موقفك (وصف ما حدث، تفاصيل الموعد، أي إثبات).
+            {d.disputeBody}
           </p>
           {tx.evidenceSubmitted && (
             <p className="text-xs text-green-700 flex items-center gap-1.5">
               <Check className="size-3.5" />
-              تم استلام إفادتك — يمكنك إضافة المزيد
+              {d.evidenceOk}
             </p>
           )}
           <form onSubmit={sendEvidence} className="space-y-2">
             <textarea
               className="input min-h-24 py-3"
-              placeholder="اشرح ما حدث بالتفصيل..."
+              placeholder={d.evidencePh}
               value={note}
               onChange={(e) => setNote(e.target.value)}
               minLength={10}
@@ -205,7 +204,7 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
               ) : (
                 <Paperclip className="size-4" />
               )}
-              إرسال الإفادة لفريق الدعم
+              {d.evidenceBtn}
             </button>
           </form>
         </div>

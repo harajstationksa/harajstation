@@ -14,8 +14,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { db } from "@/lib/db";
+import { getT } from "@/lib/i18n";
 import { requireUser } from "@/lib/auth";
-import { LISTING_STATUS } from "@/lib/constants";
 import { getSettingInt } from "@/lib/settings";
 import { cn, formatSAR, parseImages, timeAgo } from "@/lib/utils";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
@@ -29,7 +29,10 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "إعلاناتي" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t.dash.myListings.title };
+}
 
 const STATUS_CLS: Record<string, string> = {
   ACTIVE: "bg-green-50 text-green-700",
@@ -39,35 +42,31 @@ const STATUS_CLS: Record<string, string> = {
   REMOVED: "bg-red-50 text-red-600",
 };
 
-const STATUS_FILTERS = [
-  ["", "الكل"],
-  ["ACTIVE", "نشطة"],
-  ["SOLD", "مباعة"],
-  ["EXPIRED", "منتهية"],
-] as const;
-
-const TYPE_FILTERS = [
-  ["", "الكل"],
-  ["STANDARD", "بيع"],
-  ["AUCTION", "مزاد"],
-  ["ANNOUNCE", "إعلان"],
-] as const;
-
-const TYPE_BADGE: Record<
-  string,
-  { label: string; icon: typeof Tag; cls: string }
-> = {
-  STANDARD: { label: "بيع عادي", icon: Tag, cls: "bg-primary-50 text-primary-700" },
-  AUCTION: { label: "مزاد", icon: Gavel, cls: "bg-red-50 text-red-600" },
-  ANNOUNCE: { label: "إعلان", icon: Megaphone, cls: "bg-sky-50 text-sky-700" },
-};
-
 export default async function MyListingsPage({
   searchParams,
 }: {
   searchParams: Promise<{ status?: string; type?: string }>;
 }) {
   const user = await requireUser();
+  const { lang, t } = await getT();
+  const d = t.dash.myListings;
+  const STATUS_FILTERS = [
+    ["", d.fAll],
+    ["ACTIVE", d.fActive],
+    ["SOLD", d.fSold],
+    ["EXPIRED", d.fExpired],
+  ] as const;
+  const TYPE_FILTERS = [
+    ["", d.fAll],
+    ["STANDARD", d.tSale],
+    ["AUCTION", d.tAuction],
+    ["ANNOUNCE", d.tAnnounce],
+  ] as const;
+  const TYPE_BADGE: Record<string, { label: string; icon: typeof Tag; cls: string }> = {
+    STANDARD: { label: d.badgeSale, icon: Tag, cls: "bg-primary-50 text-primary-700" },
+    AUCTION: { label: d.badgeAuction, icon: Gavel, cls: "bg-red-50 text-red-600" },
+    ANNOUNCE: { label: d.badgeAnnounce, icon: Megaphone, cls: "bg-sky-50 text-sky-700" },
+  };
   const sp = await searchParams;
   const status = sp.status ?? "";
   const type = sp.type ?? "";
@@ -96,22 +95,22 @@ export default async function MyListingsPage({
   const summary = [
     {
       icon: ListChecks,
-      label: "إعلانات نشطة",
+      label: d.sumActive,
       value: all.filter((l) => l.status === "ACTIVE" && l.type !== "AUCTION").length,
     },
     {
       icon: Gavel,
-      label: "مزادات نشطة",
+      label: d.sumAuctions,
       value: all.filter((l) => l.status === "ACTIVE" && l.type === "AUCTION").length,
     },
     {
       icon: BadgeCheck,
-      label: "مباعة",
+      label: d.sumSold,
       value: all.filter((l) => l.status === "SOLD").length,
     },
     {
       icon: Eye,
-      label: "إجمالي المشاهدات",
+      label: d.sumViews,
       value: all.reduce((s, l) => s + l.views, 0),
     },
   ];
@@ -127,10 +126,10 @@ export default async function MyListingsPage({
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="section-title">إعلاناتي ومزاداتي</h1>
+        <h1 className="section-title">{d.title}</h1>
         <Link href="/sell" className="btn-primary">
           <Plus className="size-4" />
-          أضف إعلان
+          {t.dash.postAd}
         </Link>
       </div>
 
@@ -152,7 +151,7 @@ export default async function MyListingsPage({
       {/* ── filters ── */}
       <div className="card p-3 flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs font-semibold text-neutral-400 me-1">الحالة:</span>
+          <span className="text-xs font-semibold text-neutral-400 me-1">{d.statusLabel}</span>
           {STATUS_FILTERS.map(([v, label]) => (
             <Link
               key={v}
@@ -169,7 +168,7 @@ export default async function MyListingsPage({
           ))}
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs font-semibold text-neutral-400 me-1">النوع:</span>
+          <span className="text-xs font-semibold text-neutral-400 me-1">{d.typeLabel}</span>
           {TYPE_FILTERS.map(([v, label]) => (
             <Link
               key={v}
@@ -186,23 +185,23 @@ export default async function MyListingsPage({
           ))}
         </div>
         <span className="text-xs text-neutral-400 ms-auto tabular-nums">
-          {listings.length.toLocaleString("en-US")} إعلان
+          {listings.length.toLocaleString("en-US")} {d.countUnit}
         </span>
       </div>
 
       {listings.length === 0 ? (
         <EmptyState
-          title={status || type ? "لا توجد إعلانات مطابقة للفلتر" : "لم تنشر أي إعلان بعد"}
+          title={status || type ? d.emptyFiltered : d.emptyTitle}
           hint={
             status || type
-              ? "جرّب فلتراً آخر أو اعرض الكل"
-              : "ابدأ ببيع ما لا تحتاجه — أو أطلق مزاداً واترك السوق يحدد السعر"
+              ? d.emptyFilteredHint
+              : d.emptyHint
           }
           action={
             status || type ? (
-              <Link href="/dashboard/listings" className="btn-secondary mt-2">عرض الكل</Link>
+              <Link href="/dashboard/listings" className="btn-secondary mt-2">{d.showAll}</Link>
             ) : (
-              <Link href="/sell" className="btn-primary mt-2">أضف إعلانك الأول</Link>
+              <Link href="/sell" className="btn-primary mt-2">{d.addFirst}</Link>
             )
           }
         />
@@ -241,16 +240,16 @@ export default async function MyListingsPage({
                           {(TYPE_BADGE[l.type] ?? TYPE_BADGE.STANDARD).label}
                         </span>
                         <span className={`badge ${STATUS_CLS[l.status] ?? "bg-neutral-100"}`}>
-                          {LISTING_STATUS[l.status as keyof typeof LISTING_STATUS] ?? l.status}
+                          {t.dash.listingStatus[l.status] ?? l.status}
                         </span>
-                        {l.isFeatured && <span className="badge bg-primary-500 text-white">مميز</span>}
-                        {l.isPromoted && <span className="badge bg-amber-500 text-white">ممول</span>}
+                        {l.isFeatured && <span className="badge bg-primary-500 text-white">{d.featured}</span>}
+                        {l.isPromoted && <span className="badge bg-amber-500 text-white">{d.promoted}</span>}
                       </div>
                     </div>
                   </Link>
                   <div className="text-left shrink-0">
                     <p className="font-bold text-primary-600 tabular-nums">
-                      {price != null ? formatSAR(price) : "على السوم"}
+                      {price != null ? formatSAR(price) : d.negotiable}
                     </p>
                     <p className="text-xs text-neutral-400 flex items-center gap-1 justify-end mt-0.5">
                       <Eye className="size-3.5" />
@@ -258,7 +257,7 @@ export default async function MyListingsPage({
                       <Heart className="size-3.5 ms-1" />
                       {l._count.favorites}
                       <span className="mx-1">·</span>
-                      <span suppressHydrationWarning>{timeAgo(l.createdAt)}</span>
+                      <span suppressHydrationWarning>{timeAgo(l.createdAt, lang)}</span>
                     </p>
                   </div>
                 </div>
@@ -268,13 +267,13 @@ export default async function MyListingsPage({
                   {canEdit && (
                     <Link href={`/dashboard/listings/${l.id}/edit`} className="act-btn bg-neutral-100 text-neutral-700 hover:bg-neutral-200">
                       <Pencil className="size-3.5" />
-                      تعديل
+                      {d.edit}
                     </Link>
                   )}
                   {canPromote && (
                     <Link href={`/dashboard/campaigns/new?listing=${l.id}`} className="act-btn bg-primary-50 text-primary-700 hover:bg-primary-100">
                       <Megaphone className="size-3.5" />
-                      حملة إعلانية
+                      {d.campaign}
                     </Link>
                   )}
                   {canFeature && (
@@ -282,7 +281,7 @@ export default async function MyListingsPage({
                       <input type="hidden" name="listingId" value={l.id} />
                       <ConfirmSubmit className="act-btn bg-amber-100 text-amber-800 hover:bg-amber-200">
                         <Sparkles className="size-3.5" />
-                        تمييز بـ{featureCost} نقطة
+                        {d.featureFor(featureCost)}
                       </ConfirmSubmit>
                     </form>
                   )}
@@ -290,11 +289,11 @@ export default async function MyListingsPage({
                     <form action={markSoldAction}>
                       <input type="hidden" name="listingId" value={l.id} />
                       <ConfirmSubmit
-                        confirm="تأكيد أن هذا الإعلان تم بيعه؟"
+                        confirm={d.soldConfirm}
                         className="act-btn bg-blue-50 text-blue-700 hover:bg-blue-100"
                       >
                         <BadgeCheck className="size-3.5" />
-                        تم البيع
+                        {d.soldBtn}
                       </ConfirmSubmit>
                     </form>
                   )}
@@ -303,18 +302,18 @@ export default async function MyListingsPage({
                       <input type="hidden" name="listingId" value={l.id} />
                       <ConfirmSubmit className="act-btn bg-green-50 text-green-700 hover:bg-green-100">
                         <RotateCcw className="size-3.5" />
-                        إعادة نشر
+                        {d.relist}
                       </ConfirmSubmit>
                     </form>
                   )}
                   <form action={deleteListingAction} className="ms-auto">
                     <input type="hidden" name="listingId" value={l.id} />
                     <ConfirmSubmit
-                      confirm="حذف الإعلان نهائياً؟ لا يمكن التراجع."
+                      confirm={d.delConfirm}
                       className="act-btn bg-red-50 text-red-600 hover:bg-red-100"
                     >
                       <Trash2 className="size-3.5" />
-                      حذف
+                      {d.del}
                     </ConfirmSubmit>
                   </form>
                 </div>

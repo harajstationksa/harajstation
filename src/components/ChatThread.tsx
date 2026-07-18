@@ -22,6 +22,7 @@ import {
   unlockChatSound,
 } from "@/lib/chat-sound";
 import { ReportButton } from "./ReportButton";
+import { useLang } from "./LangProvider";
 
 type Msg = {
   id: string;
@@ -34,17 +35,19 @@ type Msg = {
 };
 
 /** ✓ sent · ✓✓ delivered · ✓✓ (accent) read — only ever on your own messages. */
-function Ticks({ msg }: { msg: Msg }) {
+function Ticks({ msg, labels }: { msg: Msg; labels: { read: string; delivered: string; sent: string } }) {
   if (msg.readAt) {
-    return <CheckCheck className="size-3.5 text-sky-300" aria-label="تمت القراءة" />;
+    return <CheckCheck className="size-3.5 text-sky-300" aria-label={labels.read} />;
   }
   if (msg.deliveredAt) {
-    return <CheckCheck className="size-3.5 opacity-80" aria-label="تم التسليم" />;
+    return <CheckCheck className="size-3.5 opacity-80" aria-label={labels.delivered} />;
   }
-  return <Check className="size-3.5 opacity-70" aria-label="أُرسلت" />;
+  return <Check className="size-3.5 opacity-70" aria-label={labels.sent} />;
 }
 
 export function ChatThread({ conversationId }: { conversationId: string }) {
+  const { t } = useLang();
+  const d = t.dash.chat;
   const [messages, setMessages] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [image, setImage] = useState<File | null>(null);
@@ -106,7 +109,7 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
     if (!file) return;
     const compressed = await compressImage(file);
     if (!compressed) {
-      setError("تعذّر معالجة الصورة — جرّب صورة أصغر");
+      setError(d.imageFail);
       return;
     }
     setImage(compressed);
@@ -138,7 +141,7 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
     setSending(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "تعذّر الإرسال");
+      setError(data.error ?? d.sendFail);
       return;
     }
     setText("");
@@ -159,7 +162,7 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
       <div className="px-3 py-1.5 border-b border-neutral-100 flex items-center gap-1.5 text-[11px] text-neutral-400">
         <span className="flex-1 flex items-center justify-center gap-1.5">
           <Lock className="size-3" />
-          الرسائل مشفّرة — لا يطّلع عليها أحد غيرك أنت والطرف الآخر
+          {d.encrypted}
         </span>
         <button
           type="button"
@@ -170,8 +173,8 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
             if (!next) unlockChatSound(); // this click is the gesture that allows it
           }}
           className="shrink-0 size-6 rounded-full hover:bg-neutral-100 flex items-center justify-center transition-colors"
-          title={muted ? "تشغيل صوت الرسائل" : "كتم صوت الرسائل"}
-          aria-label={muted ? "تشغيل صوت الرسائل" : "كتم صوت الرسائل"}
+          title={muted ? d.unmute : d.mute}
+          aria-label={muted ? d.unmute : d.mute}
         >
           {muted ? <BellOff className="size-3.5" /> : <Bell className="size-3.5" />}
         </button>
@@ -179,14 +182,13 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
 
       <div className="px-4 py-2.5 border-b border-neutral-100 bg-amber-50/60 flex items-start gap-2 text-xs text-amber-800 leading-relaxed">
         <ShieldAlert className="size-4 shrink-0 mt-0.5" />
-        لأمانك: لا تشارك بياناتك البنكية أو أي أكواد تحقق، وقابل الطرف الآخر في
-        مكان عام، وألغِ الصفقة فوراً عند أي طلب مريب.
+        {d.safety}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 && (
           <p className="text-center text-sm text-neutral-400 py-8">
-            ابدأ المحادثة — اسأل عن التفاصيل قبل الشراء
+            {d.start}
           </p>
         )}
         {messages.map((m) => (
@@ -209,7 +211,7 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={m.imageUrl}
-                    alt="صورة مرفقة"
+                    alt={d.attachedAlt}
                     loading="lazy"
                     className="rounded-xl max-h-64 w-full object-cover"
                   />
@@ -228,7 +230,7 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
                 )}
               >
                 <span suppressHydrationWarning>{timeAgo(m.at)}</span>
-                {m.mine && <Ticks msg={m} />}
+                {m.mine && <Ticks msg={m} labels={d} />}
                 {!m.mine && <ReportButton targetType="MESSAGE" targetId={m.id} compact />}
               </div>
             </div>
@@ -259,7 +261,7 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
               if (fileRef.current) fileRef.current.value = "";
             }}
             className="size-6 rounded-full bg-neutral-900 text-white flex items-center justify-center cursor-pointer"
-            aria-label="إزالة الصورة"
+            aria-label={d.removeImage}
           >
             <X className="size-3.5" />
           </button>
@@ -269,7 +271,7 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
       <form onSubmit={send} className="p-3 border-t border-neutral-100 flex gap-2">
         <label
           className="btn-secondary px-3 shrink-0 cursor-pointer"
-          title="إرفاق صورة"
+          title={d.attachImage}
         >
           <ImagePlus className="size-4" />
           <input
@@ -284,7 +286,7 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
           className="input"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="اكتب رسالتك..."
+          placeholder={d.typePh}
           maxLength={2000}
         />
         <button
@@ -301,7 +303,7 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
           type="button"
           onClick={() => setLightbox(null)}
           className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-zoom-out"
-          aria-label="إغلاق الصورة"
+          aria-label={d.closeImage}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={lightbox} alt="" className="max-h-[90vh] max-w-full rounded-xl object-contain" />

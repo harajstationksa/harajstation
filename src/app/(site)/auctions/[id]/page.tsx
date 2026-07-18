@@ -180,10 +180,9 @@ export default async function AuctionPage({
 
       {isWinner && (
         <div className="mb-5 rounded-xl bg-green-50 border border-green-200 p-4 text-green-800 text-sm font-semibold">
-          مبروك! فزت بهذا المزاد — تم كشف بيانات التواصل مع البائع أدناه، وبانتظار
-          تأكيد الاستلام في{" "}
+          {t.pub.wonTitle}{" "}
           <Link href="/dashboard/verifications" className="underline">
-            صفحة التحققات
+            {t.pub.verificationsPage}
           </Link>
           .
         </div>
@@ -228,7 +227,7 @@ export default async function AuctionPage({
             showContact={isWinner}
             phone={listing.seller.phone}
             whatsapp={listing.seller.phone}
-            contactNote="حفاظاً على عدالة المزاد، تُكشف بيانات التواصل للفائز فقط بعد انتهاء المزاد."
+            contactNote={t.pub.auctionContactNote}
           />
 
           <SharePanel path={`/auctions/${auction.id}`} title={listing.title} />

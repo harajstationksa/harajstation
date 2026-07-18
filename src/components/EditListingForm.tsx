@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { CITIES, CONDITIONS } from "@/lib/constants";
 import { compressImage } from "@/lib/image-compress";
+import { useLang } from "@/components/LangProvider";
 
 export function EditListingForm({
   listing,
@@ -23,6 +24,8 @@ export function EditListingForm({
     images: string[];
   };
 }) {
+  const { t } = useLang();
+  const d = t.dash.editListing;
   const router = useRouter();
   const [existing, setExisting] = useState<string[]>(listing.images);
   const [files, setFiles] = useState<File[]>([]);
@@ -52,7 +55,7 @@ export function EditListingForm({
     const data = await res.json().catch(() => ({}));
     setLoading(false);
     if (!res.ok) {
-      setError(data.error ?? "تعذّر حفظ التعديلات");
+      setError(data.error ?? d.saveFail);
       return;
     }
     router.push(`/dashboard/listings`);
@@ -64,29 +67,29 @@ export function EditListingForm({
   return (
     <form onSubmit={submit} className="space-y-5">
       <div className="card p-5 space-y-4">
-        <h2 className="font-bold">تفاصيل الإعلان</h2>
+        <h2 className="font-bold">{d.details}</h2>
 
         <div>
-          <label className="block text-sm font-medium mb-1.5">العنوان</label>
+          <label className="block text-sm font-medium mb-1.5">{d.fTitle}</label>
           <input name="title" className="input" required maxLength={100} defaultValue={listing.title} />
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1.5">الوصف</label>
+          <label className="block text-sm font-medium mb-1.5">{d.fDesc}</label>
           <textarea name="description" className="input min-h-32 py-3" required minLength={20} defaultValue={listing.description} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium mb-1.5">الحالة</label>
+            <label className="block text-sm font-medium mb-1.5">{d.fCondition}</label>
             <select name="condition" className="input" defaultValue={listing.condition}>
-              {Object.entries(CONDITIONS).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
+              {Object.keys(CONDITIONS).map((k) => (
+                <option key={k} value={k}>{t.card.conditions[k] ?? k}</option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">المدينة</label>
+            <label className="block text-sm font-medium mb-1.5">{d.fCity}</label>
             <select name="city" className="input" defaultValue={listing.city}>
               {CITIES.map((c) => (
                 <option key={c} value={c}>{c}</option>
@@ -98,16 +101,16 @@ export function EditListingForm({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-medium mb-1.5">
-              الحي <span className="text-neutral-400">(اختياري)</span>
+              {d.fNeighborhood} <span className="text-neutral-400">{d.optional}</span>
             </label>
             <input name="neighborhood" className="input" defaultValue={listing.neighborhood ?? ""} />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">طريقة التسليم</label>
+            <label className="block text-sm font-medium mb-1.5">{d.fDelivery}</label>
             <select name="deliveryMethod" className="input" defaultValue={listing.deliveryMethod}>
-              <option value="PICKUP">استلام يدوي (مقابلة)</option>
-              <option value="SHIPPING">شحن</option>
-              <option value="DELIVERY">توصيل</option>
+              <option value="PICKUP">{d.dPickup}</option>
+              <option value="SHIPPING">{d.dShipping}</option>
+              <option value="DELIVERY">{d.dDelivery}</option>
             </select>
           </div>
         </div>
@@ -116,10 +119,10 @@ export function EditListingForm({
       {listing.type !== "AUCTION" && (
         <div className="card p-5 space-y-4">
           <h2 className="font-bold">
-            السعر
+            {d.priceTitle}
             {listing.type === "ANNOUNCE" && (
               <span className="text-neutral-400 font-normal text-sm">
-                {" "}(اختياري — اتركه فارغاً ليظهر «على السوم»)
+                {d.priceOptional}
               </span>
             )}
           </h2>
@@ -133,13 +136,13 @@ export function EditListingForm({
           />
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="showPhone" defaultChecked={listing.showPhone} className="size-4 accent-primary-500" />
-            إظهار رقم جوالي في الإعلان
+            {d.showPhone}
           </label>
         </div>
       )}
 
       <div className="card p-5 space-y-3">
-        <h2 className="font-bold">الصور</h2>
+        <h2 className="font-bold">{d.photos}</h2>
         {totalImages > 0 && (
           <div className="flex gap-2 flex-wrap">
             {existing.map((url) => (
@@ -150,7 +153,7 @@ export function EditListingForm({
                   type="button"
                   onClick={() => setExisting((prev) => prev.filter((u) => u !== url))}
                   className="absolute -top-1.5 -left-1.5 size-5 rounded-full bg-neutral-900 text-white flex items-center justify-center cursor-pointer"
-                  aria-label="حذف الصورة"
+                  aria-label={d.removePhoto}
                 >
                   <X className="size-3" />
                 </button>
@@ -160,12 +163,12 @@ export function EditListingForm({
               <div key={i} className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={URL.createObjectURL(f)} alt="" className="size-20 rounded-lg object-cover border border-neutral-200" />
-                <span className="absolute bottom-1 right-1 badge bg-primary-500 text-white text-[10px]">جديد</span>
+                <span className="absolute bottom-1 right-1 badge bg-primary-500 text-white text-[10px]">{d.newBadge}</span>
                 <button
                   type="button"
                   onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
                   className="absolute -top-1.5 -left-1.5 size-5 rounded-full bg-neutral-900 text-white flex items-center justify-center cursor-pointer"
-                  aria-label="حذف الصورة"
+                  aria-label={d.removePhoto}
                 >
                   <X className="size-3" />
                 </button>
@@ -175,7 +178,7 @@ export function EditListingForm({
         )}
         <label className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-neutral-200 py-4 cursor-pointer hover:border-primary-400 transition-colors text-sm text-neutral-500">
           <ImagePlus className="size-5" />
-          إضافة صور (حتى 10)
+          {d.addPhotos}
           <input type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={(e) => addFiles(e.target.files)} />
         </label>
       </div>
@@ -187,10 +190,10 @@ export function EditListingForm({
       <div className="flex gap-2">
         <button className="btn-primary" disabled={loading}>
           {loading && <Loader2 className="size-4 animate-spin" />}
-          حفظ التعديلات
+          {d.save}
         </button>
         <button type="button" onClick={() => router.back()} className="btn-secondary">
-          إلغاء
+          {d.cancel}
         </button>
       </div>
     </form>

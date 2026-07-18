@@ -1,10 +1,14 @@
+import { getT } from "@/lib/i18n";
 import Link from "next/link";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "تأكيد البريد الإلكتروني" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t.pub.verifyOkTitle.replace(" ✅", "") };
+}
 
 /** Landing page for the emailed confirmation link — single-use, 48h TTL. */
 export default async function VerifyEmailPage({
@@ -12,6 +16,7 @@ export default async function VerifyEmailPage({
 }: {
   params: Promise<{ token: string }>;
 }) {
+  const { t } = await getT();
   const { token } = await params;
 
   const row = await db.emailVerificationToken.findUnique({
@@ -42,23 +47,23 @@ export default async function VerifyEmailPage({
         {ok ? (
           <>
             <CheckCircle2 className="size-12 text-green-600 mx-auto" />
-            <h1 className="font-display font-bold text-2xl">تم تأكيد بريدك ✅</h1>
+            <h1 className="font-display font-bold text-2xl">{t.pub.verifyOkTitle}</h1>
             <p className="text-sm text-neutral-500">
-              شكراً لك — حسابك أصبح مؤكد البريد وجاهز تماماً.
+              {t.pub.verifyOkBody}
             </p>
             <Link href="/" className="btn-primary w-full">
-              ابدأ التصفح
+              {t.pub.startBrowsing}
             </Link>
           </>
         ) : (
           <>
             <XCircle className="size-12 text-red-600 mx-auto" />
-            <h1 className="font-display font-bold text-2xl">رابط غير صالح</h1>
+            <h1 className="font-display font-bold text-2xl">{t.pub.verifyBadTitle}</h1>
             <p className="text-sm text-neutral-500">
-              الرابط منتهي الصلاحية أو استُخدم من قبل — اطلب رابطاً جديداً من لوحة التحكم.
+              {t.pub.verifyBadBody}
             </p>
             <Link href="/dashboard" className="btn-primary w-full">
-              الذهاب للوحة التحكم
+              {t.pub.goDashboard}
             </Link>
           </>
         )}

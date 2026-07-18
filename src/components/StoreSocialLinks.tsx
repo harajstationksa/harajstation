@@ -1,4 +1,5 @@
 import { Globe } from "lucide-react";
+import { getT } from "@/lib/i18n";
 
 /**
  * Social icon row on the public store page. Brand glyphs are inline SVGs
@@ -41,29 +42,31 @@ const WHATSAPP_ICON = glyph(
   "M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.96-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.47-2.4-1.48-.88-.79-1.48-1.76-1.66-2.06-.17-.3-.02-.46.13-.6.14-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.5 0 1.47 1.07 2.9 1.22 3.1.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.7.63.71.22 1.36.19 1.87.12.57-.09 1.76-.72 2-1.42.25-.7.25-1.3.18-1.42-.08-.13-.28-.2-.57-.35m-5.42 7.4h-.01a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.9-9.88a9.83 9.83 0 0 1 6.99 2.9 9.82 9.82 0 0 1 2.9 7 9.9 9.9 0 0 1-9.9 9.87M20.47 3.6A11.8 11.8 0 0 0 12.05 0C5.5 0 .16 5.33.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.9 11.9 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.33 11.89-11.89 0-3.18-1.24-6.16-3.47-8.4"
 );
 
-export function StoreSocialLinks({ links }: { links: Links }) {
+export async function StoreSocialLinks({ links }: { links: Links }) {
+  const { t } = await getT();
+  const L = t.dash.stores.socials;
   const items: { key: string; href: string; label: string; icon: React.ReactNode }[] = [];
   if (links.twitter) items.push({ key: "x", href: links.twitter, label: "X", icon: X_ICON });
   if (links.instagram)
-    items.push({ key: "instagram", href: links.instagram, label: "إنستغرام", icon: INSTAGRAM_ICON });
+    items.push({ key: "instagram", href: links.instagram, label: L.instagram, icon: INSTAGRAM_ICON });
   if (links.tiktok)
-    items.push({ key: "tiktok", href: links.tiktok, label: "تيك توك", icon: TIKTOK_ICON });
+    items.push({ key: "tiktok", href: links.tiktok, label: L.tiktok, icon: TIKTOK_ICON });
   if (links.snapchat)
-    items.push({ key: "snapchat", href: links.snapchat, label: "سناب شات", icon: SNAPCHAT_ICON });
+    items.push({ key: "snapchat", href: links.snapchat, label: L.snapchat, icon: SNAPCHAT_ICON });
   if (links.youtube)
-    items.push({ key: "youtube", href: links.youtube, label: "يوتيوب", icon: YOUTUBE_ICON });
+    items.push({ key: "youtube", href: links.youtube, label: L.youtube, icon: YOUTUBE_ICON });
   if (links.whatsapp)
     items.push({
       key: "whatsapp",
       href: `https://wa.me/${links.whatsapp}`,
-      label: "واتساب",
+      label: L.whatsapp,
       icon: WHATSAPP_ICON,
     });
   if (links.website)
     items.push({
       key: "website",
       href: links.website,
-      label: "الموقع الإلكتروني",
+      label: L.website,
       icon: <Globe className="size-4.5" />,
     });
   if (items.length === 0) return null;

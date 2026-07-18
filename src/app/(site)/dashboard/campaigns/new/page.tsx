@@ -7,10 +7,14 @@ import { getSettingInt, getCampaignDayOptions } from "@/lib/settings";
 import { formatSAR, parseImages, timeAgo } from "@/lib/utils";
 import { CampaignForm } from "@/components/CampaignForm";
 import { EmptyState } from "@/components/EmptyState";
+import { getT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "حملة إعلانية جديدة" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t.dash.newCampaign.title };
+}
 
 export default async function NewCampaignPage({
   searchParams,
@@ -18,6 +22,8 @@ export default async function NewCampaignPage({
   searchParams: Promise<{ listing?: string }>;
 }) {
   const user = await requireUser();
+  const { lang, t } = await getT();
+  const d = t.dash.newCampaign;
   const { listing: listingId } = await searchParams;
 
   if (!listingId) {
@@ -34,18 +40,18 @@ export default async function NewCampaignPage({
     return (
       <div className="space-y-5">
         <div>
-          <h1 className="section-title">اختر إعلاناً للترويج</h1>
+          <h1 className="section-title">{d.pickTitle}</h1>
           <p className="text-sm text-neutral-500 mt-1">
-            حدّد الإعلان الذي تريد تمويله — سيظهر مثبّتاً في أول فئته بإطار «ممول»
+            {d.pickSub}
           </p>
         </div>
         {listings.length === 0 ? (
           <EmptyState
-            title="لا توجد إعلانات قابلة للترويج"
-            hint="كل إعلاناتك النشطة إما في حملة بالفعل أو لا توجد إعلانات نشطة"
+            title={d.emptyTitle}
+            hint={d.emptyHint}
             action={
               <Link href="/sell" className="btn-primary mt-2">
-                أضف إعلاناً جديداً
+                {d.addNew}
               </Link>
             }
           />
@@ -68,12 +74,12 @@ export default async function NewCampaignPage({
                     />
                     <span className="tag absolute top-2 right-2 bg-neutral-900/80 text-white backdrop-blur-sm">
                       {l.auction ? <Gavel className="size-3" /> : null}
-                      {l.auction ? "مزاد" : l.category.nameAr}
+                      {l.auction ? d.auction : lang === "en" ? l.category.nameEn : l.category.nameAr}
                     </span>
                     {l.isFeatured && (
                       <span className="tag absolute top-2 left-2 bg-neutral-900/80 text-primary-400 backdrop-blur-sm">
                         <Star className="size-3 fill-current" />
-                        مميز
+                        {d.featured}
                       </span>
                     )}
                   </div>
@@ -81,9 +87,9 @@ export default async function NewCampaignPage({
                     <p className="font-semibold text-sm line-clamp-1">{l.title}</p>
                     <div className="flex items-center justify-between text-xs text-neutral-400">
                       <span className="font-bold text-primary-600 text-sm">
-                        {l.price != null ? formatSAR(l.price) : "على السوم"}
+                        {l.price != null ? formatSAR(l.price) : d.negotiable}
                       </span>
-                      <span suppressHydrationWarning>{timeAgo(l.createdAt)}</span>
+                      <span suppressHydrationWarning>{timeAgo(l.createdAt, lang)}</span>
                     </div>
                     <div className="flex items-center justify-between border-t border-neutral-100 pt-2">
                       <span className="flex items-center gap-3 text-xs text-neutral-500">
@@ -98,7 +104,7 @@ export default async function NewCampaignPage({
                       </span>
                       <span className="act-btn bg-primary-50 text-primary-700 group-hover:bg-primary-500 group-hover:text-white transition-colors">
                         <Megaphone className="size-3.5" />
-                        روّج هذا الإعلان
+                        {d.promoteThis}
                       </span>
                     </div>
                   </div>
@@ -136,7 +142,7 @@ export default async function NewCampaignPage({
 
   return (
     <div className="space-y-5">
-      <h1 className="section-title">حملة إعلانية جديدة</h1>
+      <h1 className="section-title">{d.title}</h1>
       <CampaignForm
         listing={{ id: listing.id, title: listing.title, city: listing.city }}
         ratePerDay={rate}

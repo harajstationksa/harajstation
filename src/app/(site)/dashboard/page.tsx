@@ -17,17 +17,23 @@ import {
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { formatDate, formatSAR, timeAgo, trustLevel } from "@/lib/utils";
+import { getT } from "@/lib/i18n";
 import { Avatar } from "@/components/Avatar";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 import { claimDailyAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "لوحة التحكم" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t.dash.overview.title };
+}
 
 export default async function DashboardPage() {
   // run before fetching the user so an expired promo shows correctly right away
   const user = await requireUser();
+  const { lang, t } = await getT();
+  const d = t.dash.overview;
 
   // daily free points — claimable once per day, amount depends on the plan
   const startOfToday = new Date();
@@ -63,22 +69,23 @@ export default async function DashboardPage() {
     ]);
 
   const level = trustLevel(user.credibility);
+  const levelLabel = lang === "en" ? level.labelEn : level.label;
 
   const stats = [
-    { label: "إعلاناتي النشطة", value: activeListings, icon: ListChecks, color: "text-neutral-600 bg-neutral-100", href: "/dashboard/listings" },
-    { label: "مزاداتي النشطة", value: activeAuctions, icon: Gavel, color: "text-red-600 bg-red-50", href: "/dashboard/listings" },
-    { label: "مزادات شاركت فيها", value: participated.length, icon: TrendingUp, color: "text-blue-600 bg-blue-50", href: "/auctions" },
-    { label: "معاملات ناجحة", value: user.successfulTx, icon: ShieldCheck, color: "text-green-600 bg-green-50", href: "/dashboard/verifications" },
-    { label: "نقاطي", value: user.points, icon: Coins, color: "text-primary-600 bg-primary-50", href: "/dashboard/wallet" },
+    { label: d.statActive, value: activeListings, icon: ListChecks, color: "text-neutral-600 bg-neutral-100", href: "/dashboard/listings" },
+    { label: d.statAuctions, value: activeAuctions, icon: Gavel, color: "text-red-600 bg-red-50", href: "/dashboard/listings" },
+    { label: d.statParticipated, value: participated.length, icon: TrendingUp, color: "text-blue-600 bg-blue-50", href: "/auctions" },
+    { label: d.statDeals, value: user.successfulTx, icon: ShieldCheck, color: "text-green-600 bg-green-50", href: "/dashboard/verifications" },
+    { label: d.statPoints, value: user.points, icon: Coins, color: "text-primary-600 bg-primary-50", href: "/dashboard/wallet" },
   ];
 
   const quickActions = [
-    { label: "إعلاناتي", icon: ListChecks, href: "/dashboard/listings" },
-    { label: "حملاتي الإعلانية", icon: Megaphone, href: "/dashboard/campaigns" },
-    { label: "الرسائل", icon: MessageSquare, href: "/dashboard/messages" },
-    { label: "المفضلة", icon: Heart, href: "/dashboard/favorites" },
-    { label: "محفظة النقاط", icon: Wallet, href: "/dashboard/wallet" },
-    { label: "الإعدادات", icon: Settings, href: "/dashboard/settings" },
+    { label: t.dash.nav.listings, icon: ListChecks, href: "/dashboard/listings" },
+    { label: t.dash.nav.campaigns, icon: Megaphone, href: "/dashboard/campaigns" },
+    { label: t.dash.nav.messages, icon: MessageSquare, href: "/dashboard/messages" },
+    { label: t.dash.nav.favorites, icon: Heart, href: "/dashboard/favorites" },
+    { label: t.dash.nav.wallet, icon: Wallet, href: "/dashboard/wallet" },
+    { label: t.dash.nav.settings, icon: Settings, href: "/dashboard/settings" },
   ];
 
   return (
@@ -94,23 +101,23 @@ export default async function DashboardPage() {
             className="size-16 sm:size-20 text-2xl border-2 border-white/20"
           />
           <div className="min-w-0">
-            <p className="text-neutral-400 text-sm">أهلاً بعودتك 👋</p>
+            <p className="text-neutral-400 text-sm">{d.welcome}</p>
             <h1 className="font-display font-extrabold text-2xl sm:text-3xl truncate">{user.name}</h1>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <span className="tag bg-white/10 text-white">
                 <Star className="size-3 fill-current" style={{ color: level.color }} />
-                {level.label} · {user.credibility}/100
+                {levelLabel} · {user.credibility}/100
               </span>
               <span className="tag bg-primary-500 text-white">
                 <Coins className="size-3" />
-                {user.points.toLocaleString("en-US")} نقطة
+                {user.points.toLocaleString("en-US")} {d.pointsUnit}
               </span>
               {user.isPro && (
                 <span className="tag bg-white/10 text-primary-400 font-bold">
                   PRO
                   {user.proUntil && (
                     <span className="font-normal text-neutral-300">
-                      حتى {formatDate(user.proUntil)}
+                      {d.proUntil} {formatDate(user.proUntil, lang)}
                     </span>
                   )}
                 </span>
@@ -121,11 +128,11 @@ export default async function DashboardPage() {
         <div className="flex items-center gap-2.5 shrink-0">
           <Link href="/sell" className="btn-primary">
             <Plus className="size-4" />
-            أضف إعلاناً
+            {d.addListing}
           </Link>
           <Link href="/dashboard/campaigns/new" className="btn bg-white/10 text-white hover:bg-white/20">
             <Megaphone className="size-4" />
-            روّج إعلانك
+            {d.promote}
           </Link>
         </div>
       </div>
@@ -137,11 +144,9 @@ export default async function DashboardPage() {
             <Coins className="size-5" />
           </span>
           <div>
-            <p className="font-bold text-sm text-amber-900">نقاطك اليومية المجانية</p>
+            <p className="font-bold text-sm text-amber-900">{d.dailyTitle}</p>
             <p className="text-xs text-amber-700">
-              {canClaimDaily
-                ? `اجمع ${dailyPoints} نقطة اليوم — تُستخدم للتمييز والحملات`
-                : "جمعت نقاط اليوم — عُد غداً للمزيد"}
+              {canClaimDaily ? d.dailyClaimHint(dailyPoints) : d.dailyDone}
             </p>
           </div>
         </div>
@@ -149,11 +154,11 @@ export default async function DashboardPage() {
           <form action={claimDailyAction}>
             <ConfirmSubmit className="btn-primary shrink-0">
               <Gift className="size-4" />
-              اجمع {dailyPoints}
+              {d.dailyClaim(dailyPoints)}
             </ConfirmSubmit>
           </form>
         ) : (
-          <span className="badge bg-amber-100 text-amber-700 shrink-0">تم الجمع اليوم</span>
+          <span className="badge bg-amber-100 text-amber-700 shrink-0">{d.dailyClaimed}</span>
         )}
       </div>
 
@@ -203,13 +208,13 @@ export default async function DashboardPage() {
           <ShieldCheck className="size-6 text-amber-600 shrink-0" />
           <div className="flex-1">
             <p className="font-bold text-amber-900">
-              لديك {pendingTx.length} معاملة بانتظار التأكيد
+              {d.pendingTitle(pendingTx.length)}
             </p>
             <p className="text-sm text-amber-800 mt-0.5">
-              أكد التسليم/الاستلام خلال المهلة للحفاظ على نقاط مصداقيتك
+              {d.pendingHint}
             </p>
           </div>
-          <span className="btn-primary max-sm:hidden">التحققات</span>
+          <span className="btn-primary max-sm:hidden">{d.pendingBtn}</span>
         </Link>
       )}
 
@@ -218,7 +223,7 @@ export default async function DashboardPage() {
         <div className="flex items-center justify-between">
           <h2 className="font-bold flex items-center gap-2">
             <Star className="size-5 text-amber-500 fill-current" />
-            نقاط المصداقية
+            {d.credTitle}
           </h2>
           <span className="font-display font-extrabold text-2xl" style={{ color: level.color }}>
             {user.credibility}/100
@@ -231,9 +236,8 @@ export default async function DashboardPage() {
           />
         </div>
         <p className="text-sm text-neutral-500">
-          مستواك: <span className="font-bold" style={{ color: level.color }}>{level.label}</span>
-          {" — "}تزيد النقاط بالمعاملات المؤكدة من الطرفين (+5) وتنقص بتجاهل
-          التأكيد (-3) أو النزاعات الخاسرة (-15).
+          {d.credLevel} <span className="font-bold" style={{ color: level.color }}>{levelLabel}</span>
+          {" — "}{d.credExplain}
         </p>
 
         {credLogs.length > 0 && (
@@ -246,7 +250,7 @@ export default async function DashboardPage() {
                     {log.delta > 0 ? `+${log.delta}` : log.delta}
                   </span>
                   <span className="text-xs text-neutral-400" suppressHydrationWarning>
-                    {timeAgo(log.createdAt)}
+                    {timeAgo(log.createdAt, lang)}
                   </span>
                 </span>
               </li>
@@ -259,7 +263,7 @@ export default async function DashboardPage() {
       {pendingTx.length > 0 && (
         <div className="card overflow-hidden">
           <div className="px-4 py-3 border-b border-neutral-100 font-bold text-sm">
-            معاملات قيد التحقق
+            {d.pendingListTitle}
           </div>
           <ul className="divide-y divide-neutral-50">
             {pendingTx.map((t) => (
@@ -267,7 +271,7 @@ export default async function DashboardPage() {
                 <div className="min-w-0">
                   <p className="font-semibold line-clamp-1">{t.listing.title}</p>
                   <p className="text-xs text-neutral-500">
-                    {t.sellerId === user.id ? "أنت البائع" : "أنت المشتري"} · {formatSAR(t.amount)}
+                    {t.sellerId === user.id ? d.youSeller : d.youBuyer} · {formatSAR(t.amount)}
                   </p>
                 </div>
                 <span
@@ -277,7 +281,7 @@ export default async function DashboardPage() {
                       : "bg-amber-50 text-amber-700"
                   }`}
                 >
-                  {t.status === "DISPUTED" ? "متنازع عليها" : "بانتظار التأكيد"}
+                  {t.status === "DISPUTED" ? d.disputed : d.awaitingConfirm}
                 </span>
               </li>
             ))}

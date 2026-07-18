@@ -17,28 +17,30 @@ import {
   Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/components/LangProvider";
 
 const items = [
-  { href: "/dashboard", label: "نظرة عامة", icon: LayoutDashboard },
-  { href: "/dashboard/listings", label: "إعلاناتي ومزاداتي", icon: ListChecks },
-  { href: "/dashboard/campaigns", label: "الحملات الإعلانية", icon: Megaphone },
-  { href: "/dashboard/wallet", label: "محفظة النقاط", icon: Wallet },
-  { href: "/dashboard/referrals", label: "دعوة الأصدقاء", icon: UserPlus },
-  { href: "/dashboard/messages", label: "الرسائل", icon: MessageSquare },
-  { href: "/dashboard/verifications", label: "التحققات", icon: ShieldCheck },
-  { href: "/dashboard/favorites", label: "المفضلة", icon: Heart },
-  { href: "/dashboard/searches", label: "تنبيهات البحث", icon: BellRing },
-  { href: "/dashboard/notifications", label: "الإشعارات", icon: Bell },
-  { href: "/dashboard/store", label: "متاجري", icon: Store },
-  { href: "/dashboard/settings", label: "الإعدادات", icon: Settings },
-];
+  { href: "/dashboard", key: "overview", icon: LayoutDashboard },
+  { href: "/dashboard/listings", key: "listings", icon: ListChecks },
+  { href: "/dashboard/campaigns", key: "campaigns", icon: Megaphone },
+  { href: "/dashboard/wallet", key: "wallet", icon: Wallet },
+  { href: "/dashboard/referrals", key: "referrals", icon: UserPlus },
+  { href: "/dashboard/messages", key: "messages", icon: MessageSquare },
+  { href: "/dashboard/verifications", key: "verifications", icon: ShieldCheck },
+  { href: "/dashboard/favorites", key: "favorites", icon: Heart },
+  { href: "/dashboard/searches", key: "searches", icon: BellRing },
+  { href: "/dashboard/notifications", key: "notifications", icon: Bell },
+  { href: "/dashboard/store", key: "stores", icon: Store },
+  { href: "/dashboard/settings", key: "settings", icon: Settings },
+] as const;
 
 export function DashboardNav() {
   const pathname = usePathname();
+  const { t } = useLang();
 
   return (
     <nav className="card p-2 flex lg:flex-col gap-1 overflow-x-auto no-scrollbar">
-      {items.map(({ href, label, icon: Icon }) => {
+      {items.map(({ href, key, icon: Icon }) => {
         const active =
           href === "/dashboard" ? pathname === href : pathname.startsWith(href);
         return (
@@ -53,7 +55,7 @@ export function DashboardNav() {
             )}
           >
             <Icon className="size-4.5 shrink-0" />
-            {label}
+            {t.dash.nav[key]}
           </Link>
         );
       })}
