@@ -24,7 +24,7 @@ export async function GET() {
     }),
     db.listing.findMany({
       where: { status: "ACTIVE", OR: [{ isFeatured: true }, { isPromoted: true }] },
-      orderBy: { createdAt: "desc" },
+      orderBy: { bumpedAt: "desc" },
       take: 10,
       include: listingCardInclude,
     }),
@@ -36,7 +36,7 @@ export async function GET() {
     }),
     db.listing.findMany({
       where: { status: "ACTIVE" },
-      orderBy: { createdAt: "desc" },
+      orderBy: { bumpedAt: "desc" },
       take: 20,
       include: listingCardInclude,
     }),

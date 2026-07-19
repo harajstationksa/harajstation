@@ -4,6 +4,10 @@ import { db } from "./db";
 const DEFAULTS: Record<string, string> = {
   POINTS_PER_VISITOR: "3",
   FEATURE_POINT_COST: "100",
+  // «تجديد» (bump): lifts a listing back to the top of the feed — free once
+  // every BUMP_FREE_HOURS, costs points when renewed sooner
+  BUMP_POINT_COST: "15",
+  BUMP_FREE_HOURS: "48",
   // day-based campaigns: cost per day + quick-pick day suggestions (users may
   // also type any custom duration) — both editable from /admin/points at any time
   CAMPAIGN_POINTS_PER_DAY: "50",

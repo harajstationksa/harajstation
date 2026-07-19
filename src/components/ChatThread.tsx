@@ -45,9 +45,16 @@ function Ticks({ msg, labels }: { msg: Msg; labels: { read: string; delivered: s
   return <Check className="size-3.5 opacity-70" aria-label={labels.sent} />;
 }
 
-export function ChatThread({ conversationId }: { conversationId: string }) {
+export function ChatThread({
+  conversationId,
+  role = "buyer",
+}: {
+  conversationId: string;
+  role?: "buyer" | "seller";
+}) {
   const { t } = useLang();
   const d = t.dash.chat;
+  const quickReplies = role === "seller" ? d.quickSeller : d.quickBuyer;
   const [messages, setMessages] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [image, setImage] = useState<File | null>(null);
@@ -265,6 +272,23 @@ export function ChatThread({ conversationId }: { conversationId: string }) {
           >
             <X className="size-3.5" />
           </button>
+        </div>
+      )}
+
+      {/* quick replies: one tap fills the box — sellers answer in seconds,
+          buyers break the ice without composing anything */}
+      {!text && (
+        <div className="px-3 pb-1.5 flex gap-1.5 overflow-x-auto no-scrollbar">
+          {quickReplies.map((q) => (
+            <button
+              key={q}
+              type="button"
+              onClick={() => setText(q)}
+              className="shrink-0 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-600 hover:border-primary-300 hover:text-primary-700 transition-colors cursor-pointer"
+            >
+              {q}
+            </button>
+          ))}
         </div>
       )}
 

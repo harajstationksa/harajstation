@@ -67,6 +67,34 @@ export async function GET(
 
 const postSchema = z.object({ body: z.string().max(2000) });
 
+/** Add (delay until first seller reply, in minutes) to the seller's stats. */
+async function recordSellerFirstReply(
+  conversationId: string,
+  sellerId: string,
+  sentMessageId: string
+) {
+  const sellerMsgCount = await db.message.count({
+    where: { conversationId, senderId: sellerId },
+  });
+  if (sellerMsgCount !== 1) return; // not their first reply here
+
+  const firstFromBuyer = await db.message.findFirst({
+    where: { conversationId, senderId: { not: sellerId }, id: { not: sentMessageId } },
+    orderBy: { createdAt: "asc" },
+    select: { createdAt: true },
+  });
+  if (!firstFromBuyer) return; // seller wrote first — nothing was awaited
+
+  const mins = Math.min(
+    1440,
+    Math.max(0, Math.round((Date.now() - firstFromBuyer.createdAt.getTime()) / 60_000))
+  );
+  await db.user.update({
+    where: { id: sellerId },
+    data: { responseMinsSum: { increment: mins }, responseCount: { increment: 1 } },
+  });
+}
+
 export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> }
@@ -141,6 +169,13 @@ export async function POST(
       imageUrl,
     },
   });
+
+  // seller responsiveness: on the seller's FIRST message in this conversation,
+  // record how long the buyer waited — this feeds the «يرد بسرعة» badge.
+  // Capped at 24h so one ignored thread doesn't poison the average forever.
+  if (session.sub === conv.sellerId) {
+    recordSellerFirstReply(id, conv.sellerId, message.id).catch(() => {});
+  }
 
   // notify the counterpart (throttled: skip if an unread chat notification exists)
   const recipientId = conv.buyerId === session.sub ? conv.sellerId : conv.buyerId;

@@ -15,36 +15,48 @@ export function buildListingWhere(sp: SP): Prisma.ListingWhereInput {
   // smart search: each term expands to its synonym group ("ايفون" ⇄ "iphone"),
   // every group must match somewhere in the normalized index or title
   const groups = q ? expandQuery(q) : [];
+
+  // several filters below need their own OR — collecting them in one AND list
+  // keeps them from clobbering each other on the same object key
+  const and: Prisma.ListingWhereInput[] = [];
+  if (groups.length > 0) {
+    and.push(
+      ...groups.map((group) => ({
+        OR: group.flatMap((t) => [
+          { searchText: { contains: t } },
+          // titles are raw user text — "IPhone 15" must match "iphone"
+          { title: { contains: t, mode: "insensitive" as const } },
+        ]),
+      }))
+    );
+  }
+  // An auction has no `price` — its money lives on the auction row. Comparing
+  // a NULL column against a range excludes the row, so a plain price filter
+  // used to make every auction vanish from the results. Match either side.
+  if (min || max) {
+    and.push({
+      OR: [
+        { price: { gte: min, lte: max } },
+        { auction: { startPrice: { gte: min, lte: max } } },
+      ],
+    });
+  }
+  // «بائع موثّق»: identity-verified seller or a verified store
+  if (str(sp.verified)) {
+    and.push({
+      OR: [{ seller: { idVerified: true } }, { store: { isVerified: true } }],
+    });
+  }
+
   return {
     status: "ACTIVE",
-    ...(groups.length > 0
-      ? {
-          AND: groups.map((group) => ({
-            OR: group.flatMap((t) => [
-              { searchText: { contains: t } },
-              // titles are raw user text — "IPhone 15" must match "iphone"
-              { title: { contains: t, mode: "insensitive" as const } },
-            ]),
-          })),
-        }
-      : q
-        ? { searchText: { contains: normalizeArabic(q) } }
-        : {}),
+    ...(groups.length === 0 && q
+      ? { searchText: { contains: normalizeArabic(q) } }
+      : {}),
     ...(str(sp.city) ? { city: str(sp.city) } : {}),
     ...(str(sp.condition) ? { condition: str(sp.condition) } : {}),
     ...(str(sp.type) ? { type: str(sp.type) } : {}),
     ...(str(sp.featured) ? { isFeatured: true } : {}),
-    // An auction has no `price` — its money lives on the auction row. Comparing
-    // a NULL column against a range excludes the row, so a plain price filter
-    // used to make every auction vanish from the results. Match either side.
-    ...(min || max
-      ? {
-          OR: [
-            { price: { gte: min, lte: max } },
-            { auction: { startPrice: { gte: min, lte: max } } },
-          ],
-        }
-      : {}),
     ...(category
       ? {
           category: {
@@ -52,6 +64,7 @@ export function buildListingWhere(sp: SP): Prisma.ListingWhereInput {
           },
         }
       : {}),
+    ...(and.length > 0 ? { AND: and } : {}),
   };
 }
 
@@ -68,7 +81,9 @@ export function listingOrderBy(
     case "views":
       return { views: "desc" };
     default:
-      return { createdAt: "desc" };
+      // bumpedAt = createdAt until the seller renews («تجديد») the listing —
+      // renewing is what lifts it back to the top of «الأحدث»
+      return { bumpedAt: "desc" };
   }
 }
 

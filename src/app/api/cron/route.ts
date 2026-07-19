@@ -3,6 +3,7 @@ import { finalizeExpiredAuctions } from "@/lib/auction";
 import { finalizeExpiredCampaigns } from "@/lib/campaigns";
 import { expirePendingTransactions } from "@/lib/credibility";
 import { expireProMemberships } from "@/lib/limits";
+import { nudgePriceDrops } from "@/lib/nudges";
 import { safeEqual } from "@/lib/crypto";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +39,7 @@ export async function GET(req: Request) {
     ["campaigns", finalizeExpiredCampaigns],
     ["transactions", expirePendingTransactions],
     ["proMemberships", expireProMemberships],
+    ["priceNudges", nudgePriceDrops],
   ];
   for (const [name, job] of jobs) {
     try {

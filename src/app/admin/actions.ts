@@ -424,6 +424,14 @@ export async function saveSettingsAction(formData: FormData) {
   if (Number.isInteger(featureCost) && featureCost >= 0) {
     await setSetting("FEATURE_POINT_COST", String(featureCost));
   }
+  const bumpCost = Number(formData.get("BUMP_POINT_COST"));
+  if (Number.isInteger(bumpCost) && bumpCost >= 0) {
+    await setSetting("BUMP_POINT_COST", String(bumpCost));
+  }
+  const bumpFreeHours = Number(formData.get("BUMP_FREE_HOURS"));
+  if (Number.isInteger(bumpFreeHours) && bumpFreeHours >= 1 && bumpFreeHours <= 720) {
+    await setSetting("BUMP_FREE_HOURS", String(bumpFreeHours));
+  }
   // sanitize the campaign day list: positive integers, deduped, sorted
   const days = [
     ...new Set(

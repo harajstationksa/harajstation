@@ -70,6 +70,7 @@ export default async function SellPage() {
         stores={stores.map((s) => ({ id: s.id, name: s.name }))}
         canListing={activeListings < maxListings}
         canAuction={activeAuctions < maxAuctions}
+        isPro={user.isPro}
       />
     </div>
   );

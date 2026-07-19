@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MapPin, Star } from "lucide-react";
+import { BadgeCheck, MapPin, Star } from "lucide-react";
 import type { CardListing } from "@/lib/types";
 import { getT } from "@/lib/i18n";
 import { formatSAR, parseImages, timeAgo } from "@/lib/utils";
@@ -34,8 +34,14 @@ export async function ListingCard({ listing }: { listing: CardListing }) {
         <p className="text-primary-600 font-bold font-display text-xl leading-tight">
           {listing.price != null ? formatSAR(listing.price) : t.card.negotiable}
         </p>
-        <h3 className="font-semibold text-[15px] text-neutral-800 line-clamp-1 leading-snug">
-          {listing.title}
+        <h3 className="font-semibold text-[15px] text-neutral-800 line-clamp-1 leading-snug flex items-center gap-1">
+          {listing.seller.idVerified && (
+            <BadgeCheck
+              className="size-4 text-green-600 shrink-0"
+              aria-label={t.card.verifiedSeller}
+            />
+          )}
+          <span className="truncate">{listing.title}</span>
         </h3>
         <div className="flex items-center justify-between text-xs text-neutral-400 pt-1">
           <span className="inline-flex items-center gap-1 min-w-0">

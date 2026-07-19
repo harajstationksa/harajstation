@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { User } from "@prisma/client";
-import { BadgeCheck, MessageCircle, Phone, ShieldAlert } from "lucide-react";
+import { BadgeCheck, MessageCircle, Phone, ShieldAlert, Zap } from "lucide-react";
 import { getT } from "@/lib/i18n";
 import { formatDate } from "@/lib/utils";
 import { Avatar } from "./Avatar";
@@ -12,14 +12,22 @@ export async function SellerCard({
   phone,
   whatsapp,
   contactNote,
+  waText,
 }: {
   seller: User;
   showContact: boolean;
   phone?: string | null;
   whatsapp?: string | null;
   contactNote?: string;
+  // prefilled WhatsApp message («بخصوص إعلانك…») so the seller knows instantly
+  // which listing the buyer means
+  waText?: string;
 }) {
   const { lang, t } = await getT();
+  // «يرد بسرعة»: avg first-reply under an hour, over enough chats to mean it
+  const fastReplier =
+    seller.responseCount >= 3 &&
+    seller.responseMinsSum / seller.responseCount <= 60;
   return (
     <div className="card p-4 space-y-3">
       <p className="font-bold text-sm text-neutral-500">{t.seller.info}</p>
@@ -45,6 +53,12 @@ export async function SellerCard({
             {lang === "en" ? "Verified" : "موثّق"}
           </span>
         )}
+        {fastReplier && (
+          <span className="badge bg-sky-50 text-sky-700" title={t.seller.fastReplyTip}>
+            <Zap className="size-3.5" />
+            {t.seller.fastReply}
+          </span>
+        )}
         <CredibilityBadge score={seller.credibility} />
         <span className="badge bg-neutral-100 text-neutral-600">
           <BadgeCheck className="size-3.5" />
@@ -56,7 +70,9 @@ export async function SellerCard({
         <div className="grid grid-cols-2 gap-2 pt-1">
           {whatsapp && (
             <a
-              href={`https://wa.me/${whatsapp.replace("+", "")}`}
+              href={`https://wa.me/${whatsapp.replace("+", "")}${
+                waText ? `?text=${encodeURIComponent(waText)}` : ""
+              }`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn bg-green-600 text-white hover:bg-green-700"

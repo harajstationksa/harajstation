@@ -91,6 +91,12 @@ model User {
   referralEarned  ReferralEarning[] @relation("ReferralEarner")
   referralSourced ReferralEarning[] @relation("ReferralSource")
   promoRedemptions PromoRedemption[]
+
+  // seller responsiveness: sum/count of first-reply delays (minutes, capped)
+  // across conversations — avg under an hour earns the «يرد بسرعة» badge
+  responseMinsSum Int @default(0)
+  responseCount   Int @default(0)
+  offersMade      Offer[] @relation("OfferBuyer")
 }
 
 // One row per referral commission: referrer earned `points` because the user
@@ -308,6 +314,11 @@ model Listing {
   phone        String?
   whatsapp     String?
   showPhone    Boolean   @default(true)
+  // feed position: listings order by bumpedAt (= createdAt until the seller
+  // uses «تجديد» — free every N hours, then points — to jump back to the top)
+  bumpedAt     DateTime  @default(now())
+  // set once when the price-drop nudge fires so the seller is never re-nagged
+  priceNudgeAt DateTime?
   // PICKUP | SHIPPING | DELIVERY (only for physical goods)
   deliveryMethod String  @default("PICKUP")
   // category-specific fields as JSON (brand/year/rooms/area/...)
@@ -331,10 +342,34 @@ model Listing {
   comments     Comment[]
   campaigns    Campaign[]
   viewLogs     ListingView[]
+  offers       Offer[]
 
   @@index([status, type, createdAt])
+  @@index([status, bumpedAt])
   @@index([categoryId, status])
   @@index([city])
+}
+
+// Structured price offer (سوم): the buyer bids a price on a fixed-price
+// listing; the seller accepts, rejects, or counters — negotiation leaves the
+// chat and becomes comparable rows the seller can act on. One OPEN offer
+// (PENDING/COUNTERED) per buyer per listing, enforced in app code.
+model Offer {
+  id            String    @id @default(cuid())
+  listingId     String
+  listing       Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  buyerId       String
+  buyer         User      @relation("OfferBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  amount        Int
+  // PENDING | COUNTERED | ACCEPTED | REJECTED | WITHDRAWN
+  status        String    @default("PENDING")
+  counterAmount Int? // seller's counter price (set when status = COUNTERED)
+  note          String? // optional buyer note («كاش اليوم»)
+  createdAt     DateTime  @default(now())
+  decidedAt     DateTime?
+
+  @@index([listingId, status])
+  @@index([buyerId, createdAt])
 }
 
 // One view per unique visitor (IP-derived key) — prevents reload inflation

@@ -62,7 +62,10 @@ export default async function ConversationPage({
         />
       </div>
 
-      <ChatThread conversationId={conv.id} />
+      <ChatThread
+        conversationId={conv.id}
+        role={conv.sellerId === user.id ? "seller" : "buyer"}
+      />
     </div>
   );
 }

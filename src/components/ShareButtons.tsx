@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useLang } from "@/components/LangProvider";
-import { Check, Link2, MessageCircle, QrCode, Share2 } from "lucide-react";
+import { Check, ImageDown, Link2, Loader2, MessageCircle, QrCode, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -14,14 +14,40 @@ export function ShareButtons({
   url,
   title,
   qrDataUrl,
+  cardUrl,
 }: {
   url: string;
   title: string;
   qrDataUrl: string;
+  // endpoint rendering the listing as a square share image (WhatsApp status)
+  cardUrl?: string;
 }) {
   const { t } = useLang();
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
+  const [cardBusy, setCardBusy] = useState(false);
+
+  /** Share the generated card as a FILE (status/groups) — download fallback. */
+  async function shareCard() {
+    if (!cardUrl || cardBusy) return;
+    setCardBusy(true);
+    try {
+      const blob = await (await fetch(cardUrl)).blob();
+      const file = new File([blob], "haraj-station.png", { type: "image/png" });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title, text: `${title}\n${url}` });
+      } else {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "haraj-station.png";
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }
+    } catch {
+      /* user dismissed or generation failed */
+    }
+    setCardBusy(false);
+  }
 
   async function copy() {
     try {
@@ -91,6 +117,24 @@ export function ShareButtons({
           <QrCode className="size-4 shrink-0" />
           {t.pub.shQr}
         </button>
+        {cardUrl && (
+          <button
+            type="button"
+            onClick={shareCard}
+            disabled={cardBusy}
+            className={cn(
+              itemCls,
+              "border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100"
+            )}
+          >
+            {cardBusy ? (
+              <Loader2 className="size-4 shrink-0 animate-spin" />
+            ) : (
+              <ImageDown className="size-4 shrink-0" />
+            )}
+            {t.pub.shCard}
+          </button>
+        )}
         {/* system share sheet — mobile only (desktop rarely supports it) */}
         <button
           type="button"

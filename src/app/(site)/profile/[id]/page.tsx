@@ -49,7 +49,7 @@ export default async function ProfilePage({
       listings: {
         where: { status: "ACTIVE" },
         include: cardInclude,
-        orderBy: { createdAt: "desc" },
+        orderBy: { bumpedAt: "desc" },
       },
       stores: { orderBy: { createdAt: "asc" } },
       reviewsGotten: {

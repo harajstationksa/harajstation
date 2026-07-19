@@ -27,7 +27,7 @@ export async function GET(
   const [listings, following] = await Promise.all([
     db.listing.findMany({
       where: { storeId: store.id, status: "ACTIVE" },
-      orderBy: { createdAt: "desc" },
+      orderBy: { bumpedAt: "desc" },
       take: 60,
       include: listingCardInclude,
     }),

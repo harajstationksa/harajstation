@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  ArrowUpToLine,
   BadgeCheck,
   Eye,
   Gavel,
@@ -21,9 +22,9 @@ import { cn, formatSAR, parseImages, timeAgo } from "@/lib/utils";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 import { EmptyState } from "@/components/EmptyState";
 import {
+  bumpListingAction,
   deleteListingAction,
   featureWithPointsAction,
-  markSoldAction,
   relistAction,
 } from "../actions";
 
@@ -70,7 +71,13 @@ export default async function MyListingsPage({
   const sp = await searchParams;
   const status = sp.status ?? "";
   const type = sp.type ?? "";
-  const featureCost = await getSettingInt("FEATURE_POINT_COST", 100);
+  const [featureCost, bumpCost, bumpFreeHours] = await Promise.all([
+    getSettingInt("FEATURE_POINT_COST", 100),
+    getSettingInt("BUMP_POINT_COST", 15),
+    getSettingInt("BUMP_FREE_HOURS", 48),
+  ]);
+  // one clock read for the whole render (server component)
+  const now = Date.now();
 
   const [listings, all] = await Promise.all([
     db.listing.findMany({
@@ -222,6 +229,10 @@ export default async function MyListingsPage({
             const canPromote = l.status === "ACTIVE" && !l.isPromoted;
             const canSell = l.status === "ACTIVE" && !liveAuction;
             const canRelist = l.status === "SOLD" || l.status === "EXPIRED";
+            const bumpIsFree =
+              now - l.bumpedAt.getTime() >= bumpFreeHours * 3_600_000;
+            const canBump =
+              l.status === "ACTIVE" && (bumpIsFree || user.points >= bumpCost);
 
             return (
               <div key={l.id} className="p-3 hover:bg-neutral-50/60 transition-colors">
@@ -270,6 +281,23 @@ export default async function MyListingsPage({
                       {d.edit}
                     </Link>
                   )}
+                  {canBump && (
+                    <form action={bumpListingAction} title={d.bumpHint(bumpFreeHours)}>
+                      <input type="hidden" name="listingId" value={l.id} />
+                      <ConfirmSubmit
+                        confirm={d.bumpConfirm}
+                        className={cn(
+                          "act-btn",
+                          bumpIsFree
+                            ? "bg-green-50 text-green-700 hover:bg-green-100"
+                            : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+                        )}
+                      >
+                        <ArrowUpToLine className="size-3.5" />
+                        {bumpIsFree ? d.bumpFree : d.bumpFor(bumpCost)}
+                      </ConfirmSubmit>
+                    </form>
+                  )}
                   {canPromote && (
                     <Link href={`/dashboard/campaigns/new?listing=${l.id}`} className="act-btn bg-primary-50 text-primary-700 hover:bg-primary-100">
                       <Megaphone className="size-3.5" />
@@ -286,16 +314,13 @@ export default async function MyListingsPage({
                     </form>
                   )}
                   {canSell && (
-                    <form action={markSoldAction}>
-                      <input type="hidden" name="listingId" value={l.id} />
-                      <ConfirmSubmit
-                        confirm={d.soldConfirm}
-                        className="act-btn bg-blue-50 text-blue-700 hover:bg-blue-100"
-                      >
-                        <BadgeCheck className="size-3.5" />
-                        {d.soldBtn}
-                      </ConfirmSubmit>
-                    </form>
+                    <Link
+                      href={`/dashboard/listings/${l.id}/sold`}
+                      className="act-btn bg-blue-50 text-blue-700 hover:bg-blue-100"
+                    >
+                      <BadgeCheck className="size-3.5" />
+                      {d.soldBtn}
+                    </Link>
                   )}
                   {canRelist && (
                     <form action={relistAction}>

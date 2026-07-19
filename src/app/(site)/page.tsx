@@ -232,7 +232,7 @@ async function Promoted() {
     db.listing.findMany({
       where: { status: "ACTIVE", isPromoted: true },
       include: cardInclude,
-      orderBy: { createdAt: "desc" },
+      orderBy: { bumpedAt: "desc" },
       take: 8,
     })
   );
@@ -262,7 +262,7 @@ async function Featured() {
     db.listing.findMany({
       where: { status: "ACTIVE", isFeatured: true },
       include: cardInclude,
-      orderBy: { createdAt: "desc" },
+      orderBy: { bumpedAt: "desc" },
       take: 8,
     })
   );
@@ -285,7 +285,7 @@ async function Latest() {
     db.listing.findMany({
       where: { status: "ACTIVE", type: { not: "AUCTION" } },
       include: cardInclude,
-      orderBy: { createdAt: "desc" },
+      orderBy: { bumpedAt: "desc" },
       take: 12,
     })
   );
@@ -337,7 +337,7 @@ async function CategorySections() {
           db.listing.findMany({
             where: { status: "ACTIVE", isPromoted: false, categoryId: { in: catIds } },
             include: cardInclude,
-            orderBy: { createdAt: "desc" },
+            orderBy: { bumpedAt: "desc" },
             take: 8,
           }),
         ]);

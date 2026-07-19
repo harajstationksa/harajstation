@@ -48,6 +48,16 @@ export default async function AdminPointsPage() {
             <label className="block text-sm font-medium mb-1.5">تكلفة تمييز الإعلان (نقاط / 7 أيام)</label>
             <input name="FEATURE_POINT_COST" className="input" dir="ltr" defaultValue={settings.FEATURE_POINT_COST} inputMode="numeric" />
           </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">تكلفة تجديد الإعلان (نقاط)</label>
+            <input name="BUMP_POINT_COST" className="input" dir="ltr" defaultValue={settings.BUMP_POINT_COST} inputMode="numeric" />
+            <p className="text-xs text-neutral-400 mt-1">تجديد الإعلان يرفعه أول القائمة قبل موعد التجديد المجاني</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">فترة التجديد المجاني (ساعات)</label>
+            <input name="BUMP_FREE_HOURS" className="input" dir="ltr" defaultValue={settings.BUMP_FREE_HOURS} inputMode="numeric" />
+            <p className="text-xs text-neutral-400 mt-1">كل بائع يجدد مجاناً مرة كل هذه المدة</p>
+          </div>
         </div>
         <button className="btn-primary">حفظ الإعدادات</button>
         <p className="text-xs text-neutral-400">

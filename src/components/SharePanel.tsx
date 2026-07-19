@@ -8,7 +8,15 @@ import { ShareButtons } from "./ShareButtons";
  * request headers and pre-renders the QR code as a data URL — the client
  * component only handles clicks.
  */
-export async function SharePanel({ path, title }: { path: string; title: string }) {
+export async function SharePanel({
+  path,
+  title,
+  cardUrl,
+}: {
+  path: string;
+  title: string;
+  cardUrl?: string;
+}) {
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
@@ -26,7 +34,7 @@ export async function SharePanel({ path, title }: { path: string; title: string 
         <Share2 className="size-4.5 text-primary-500" />
         شارك الإعلان
       </p>
-      <ShareButtons url={url} title={title} qrDataUrl={qrDataUrl} />
+      <ShareButtons url={url} title={title} qrDataUrl={qrDataUrl} cardUrl={cardUrl} />
     </div>
   );
 }

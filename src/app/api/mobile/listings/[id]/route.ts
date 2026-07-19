@@ -68,7 +68,7 @@ export async function GET(
         id: { not: listing.id },
         categoryId: listing.categoryId,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { bumpedAt: "desc" },
       take: 8,
       include: listingCardInclude,
     }),

@@ -62,7 +62,7 @@ export default async function PublicStorePage({
       listings: {
         where: { status: "ACTIVE" },
         include: cardInclude,
-        orderBy: [{ isPromoted: "desc" }, { isFeatured: "desc" }, { createdAt: "desc" }],
+        orderBy: [{ isPromoted: "desc" }, { isFeatured: "desc" }, { bumpedAt: "desc" }],
       },
     },
   });

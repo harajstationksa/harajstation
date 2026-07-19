@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Bell,
   BellRing,
+  HandCoins,
   Heart,
   LayoutDashboard,
   ListChecks,
@@ -22,6 +23,7 @@ import { useLang } from "@/components/LangProvider";
 const items = [
   { href: "/dashboard", key: "overview", icon: LayoutDashboard },
   { href: "/dashboard/listings", key: "listings", icon: ListChecks },
+  { href: "/dashboard/offers", key: "offers", icon: HandCoins },
   { href: "/dashboard/campaigns", key: "campaigns", icon: Megaphone },
   { href: "/dashboard/wallet", key: "wallet", icon: Wallet },
   { href: "/dashboard/referrals", key: "referrals", icon: UserPlus },

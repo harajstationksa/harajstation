@@ -16,6 +16,7 @@ import { Comments } from "@/components/Comments";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { Gallery } from "@/components/Gallery";
 import { ListingCard } from "@/components/ListingCard";
+import { OfferPanel } from "@/components/OfferPanel";
 import { ReportButton } from "@/components/ReportButton";
 import { SaveSearchButton } from "@/components/SaveSearchButton";
 import { SectionHeader } from "@/components/SectionHeader";
@@ -84,10 +85,21 @@ export default async function ListingPage({
   // dedup by visitor — reloads from the same IP don't inflate the count
   recordListingView(id).catch(() => {});
 
-  const [fav, similar] = await Promise.all([
+  const [fav, myOffer, similar] = await Promise.all([
     session
       ? db.favorite.findUnique({
           where: { userId_listingId: { userId: session.sub, listingId: id } },
+        })
+      : null,
+    // the visitor's open سوم offer on this listing (if any) — drives OfferPanel
+    session && session.sub !== listing.sellerId
+      ? db.offer.findFirst({
+          where: {
+            listingId: id,
+            buyerId: session.sub,
+            status: { in: ["PENDING", "COUNTERED"] },
+          },
+          select: { id: true, amount: true, status: true, counterAmount: true },
         })
       : null,
     db.listing.findMany({
@@ -98,7 +110,7 @@ export default async function ListingPage({
       },
       include: cardInclude,
       take: 4,
-      orderBy: { createdAt: "desc" },
+      orderBy: { bumpedAt: "desc" },
     }),
   ]);
 
@@ -242,6 +254,15 @@ export default async function ListingPage({
               <ReportButton targetType="LISTING" targetId={listing.id} />
             </div>
 
+            {/* سوم: structured price offers — visible to everyone but the owner */}
+            {listing.status === "ACTIVE" && session?.sub !== listing.sellerId && (
+              <OfferPanel
+                listingId={listing.id}
+                loggedIn={!!session}
+                myOffer={myOffer}
+              />
+            )}
+
             {/* saved-search alert scoped to this listing's category + city */}
             <SaveSearchButton category={cat.slug} city={listing.city} />
           </div>
@@ -252,9 +273,14 @@ export default async function ListingPage({
             phone={listing.phone}
             whatsapp={listing.whatsapp}
             contactNote={t.pub.listingContactNote}
+            waText={t.seller.waPrefill(listing.title, listing.ref ?? "")}
           />
 
-          <SharePanel path={`/listings/${listing.id}`} title={listing.title} />
+          <SharePanel
+            path={`/listings/${listing.id}`}
+            title={listing.title}
+            cardUrl={`/api/listings/${listing.id}/share-card`}
+          />
 
           <div className="card p-4 text-xs text-neutral-600 leading-relaxed space-y-1.5">
             <p className="font-bold text-neutral-800">{t.detail.safetyTitle}</p>

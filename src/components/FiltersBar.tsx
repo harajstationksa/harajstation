@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { SlidersHorizontal, X } from "lucide-react";
+import { BadgeCheck, SlidersHorizontal, X } from "lucide-react";
 import { CITIES } from "@/lib/constants";
 import { configForMain, typesForMain, type ListingType } from "@/lib/category-fields";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,7 @@ export function FiltersBar({
   const [min, setMin] = useState(sp.get("min") ?? "");
   const [max, setMax] = useState(sp.get("max") ?? "");
   const [sort, setSort] = useState(sp.get("sort") ?? "newest");
+  const [verified, setVerified] = useState(sp.get("verified") === "1");
 
   const label: Record<ListingType, string> = {
     STANDARD: f.standard,
@@ -79,6 +80,7 @@ export function FiltersBar({
       type: activeType,
       min,
       max,
+      verified: verified ? "1" : "",
       sort: sort === "newest" ? "" : sort,
     });
   }
@@ -90,12 +92,20 @@ export function FiltersBar({
     setMin("");
     setMax("");
     setSort("newest");
+    setVerified(false);
     // clears the filters, not the search — the "active" badge never counted q,
     // so wiping it here would clear something the button never claimed to
-    push({ city: "", condition: "", type: "", min: "", max: "", sort: "" });
+    push({ city: "", condition: "", type: "", min: "", max: "", verified: "", sort: "" });
   }
 
-  const active = [city, showCondition ? condition : "", activeType, min, max].filter(Boolean).length;
+  const active = [
+    city,
+    showCondition ? condition : "",
+    activeType,
+    min,
+    max,
+    verified ? "1" : "",
+  ].filter(Boolean).length;
 
   return (
     <div className="card p-3">
@@ -163,6 +173,17 @@ export function FiltersBar({
             value={max}
             onChange={(e) => setMax(e.target.value.replace(/[^\d]/g, ""))}
           />
+
+          <label className="input flex items-center gap-2 cursor-pointer select-none text-sm">
+            <input
+              type="checkbox"
+              checked={verified}
+              onChange={(e) => setVerified(e.target.checked)}
+              className="size-4 accent-primary-500"
+            />
+            <BadgeCheck className="size-4 text-green-600 shrink-0" />
+            <span className="truncate">{f.verifiedOnly}</span>
+          </label>
 
           <select className="input" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="sort">
             <option value="newest">{f.sortNew}</option>
