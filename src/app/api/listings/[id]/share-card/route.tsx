@@ -11,6 +11,74 @@ import { rateLimitGuard } from "@/lib/rate-limit";
 export const dynamic = "force-dynamic";
 
 /**
+ * The OG renderer shapes Arabic letters correctly but lays *words* out
+ * left-to-right, which reverses the reading order of every multi-word line.
+ * Same issue solved in opengraph-image.tsx: hand-reverse — render each word
+ * as its own span inside a row-reverse flex row, so the first logical word
+ * lands rightmost. Latin tokens (prices, SM-refs) keep their internal LTR.
+ *
+ * `flexWrap: "wrap"` is deliberately NOT used here: combined with
+ * row-reverse, the renderer packs overflow words into line 2 but then
+ * mirrors word order only on line 1 — line 2 comes out backwards. Lines
+ * must be pre-split in JS (see wrapRtl below) and each rendered as its own
+ * single, non-wrapping RtlRow — that combination is verified correct.
+ */
+function RtlRow({
+  text,
+  gap = 10,
+  style,
+}: {
+  text: string;
+  gap?: number;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "row-reverse",
+        flexWrap: "nowrap",
+        justifyContent: "flex-start",
+        gap,
+        ...style,
+      }}
+    >
+      {text.split(/\s+/).map((w, i) => (
+        <span key={i}>{w}</span>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Break `text` into up to `maxLines` lines of roughly `charsPerLine`
+ * characters, splitting only on word boundaries. The overall string is
+ * first hard-capped to `charsPerLine * maxLines` (with an ellipsis) so the
+ * greedy per-line packing below can never itself need to truncate.
+ */
+function wrapRtl(text: string, charsPerLine: number, maxLines: number): string[] {
+  const capped =
+    text.length > charsPerLine * maxLines
+      ? `${text.slice(0, charsPerLine * maxLines)}…`
+      : text;
+
+  const words = capped.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word;
+    if (line && next.length > charsPerLine) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+/**
  * Ready-to-forward share card (1080×1080) for WhatsApp status & groups —
  * where most Saudi resale actually happens. Product photo, price, city and a
  * QR code that brings the group straight to the listing.
@@ -79,6 +147,8 @@ export async function GET(
 
   const priceText =
     listing.price != null ? formatSAR(listing.price) : "على السوم";
+  // pre-split into lines ourselves — see wrapRtl's doc comment for why
+  const titleLines = wrapRtl(listing.title, 34, 2);
 
   return new ImageResponse(
     (
@@ -143,40 +213,29 @@ export async function GET(
               minWidth: 0,
             }}
           >
+            <RtlRow
+              text={priceText}
+              gap={14}
+              style={{ fontSize: 64, color: "#f97316" }}
+            />
             <div
               style={{
-                fontSize: 64,
-                color: "#f97316",
                 display: "flex",
-              }}
-            >
-              {priceText}
-            </div>
-            <div
-              style={{
-                fontSize: 38,
-                color: "#fff",
+                flexDirection: "column",
+                alignItems: "flex-end",
                 marginTop: 6,
-                display: "flex",
                 maxWidth: 760,
               }}
             >
-              {listing.title.length > 48
-                ? `${listing.title.slice(0, 48)}…`
-                : listing.title}
+              {titleLines.map((line, i) => (
+                <RtlRow key={i} text={line} style={{ fontSize: 38, color: "#fff" }} />
+              ))}
             </div>
-            {/* one text run — the bidi algorithm orders mixed Arabic/Latin
-                correctly inside a single node (separate spans get laid LTR) */}
-            <div
-              style={{
-                fontSize: 26,
-                color: "#c9beb8",
-                marginTop: 10,
-                display: "flex",
-              }}
-            >
-              {`${listing.city} · حراج ستيشن${listing.ref ? ` · ${listing.ref}` : ""}`}
-            </div>
+            <RtlRow
+              text={`${listing.city} · حراج ستيشن${listing.ref ? ` · ${listing.ref}` : ""}`}
+              gap={8}
+              style={{ fontSize: 26, color: "#c9beb8", marginTop: 10 }}
+            />
           </div>
 
           {/* eslint-disable-next-line @next/next/no-img-element */}
