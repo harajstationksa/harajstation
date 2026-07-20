@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { ImageResponse } from "next/og";
 import QRCode from "qrcode";
@@ -110,9 +111,15 @@ export async function GET(
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  const reqUrl = new URL(req.url);
-  const origin = `${reqUrl.protocol}//${reqUrl.host}`;
-  const listingUrl = `${origin}/listings/${id}`;
+  // Behind nginx the app binds 127.0.0.1:3000, so req.url's host is the
+  // internal address — the QR would point at localhost. Resolve the public
+  // origin from the proxy's forwarded headers, same as SharePanel does.
+  const h = await headers();
+  const host =
+    h.get("x-forwarded-host") ?? h.get("host") ?? new URL(req.url).host;
+  const proto =
+    h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const listingUrl = `${proto}://${host}/listings/${id}`;
 
   // ── product photo → JPEG data URL ──
   let photo: string | null = null;
