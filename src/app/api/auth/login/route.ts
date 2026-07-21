@@ -1,25 +1,23 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { compareSync } from "bcryptjs";
-import { randomBytes, randomInt } from "node:crypto";
 import { db } from "@/lib/db";
 import {
   SESSION_COOKIE,
   sessionCookieOptions,
   signSessionToken,
 } from "@/lib/auth";
+import { STAFF_ROLES } from "@/lib/constants";
 import { normalizeSaudiPhone } from "@/lib/utils";
-import { isRateLimited, rateLimitGuard } from "@/lib/rate-limit";
-import { emailConfigured, sendLoginCodeEmail } from "@/lib/email";
+import { rateLimitGuard } from "@/lib/rate-limit";
+import { emailConfigured } from "@/lib/email";
+import { maskEmail, startOtpChallenge } from "@/lib/login-otp";
 import {
   FAIL_WINDOW_MS,
   LOCK_AFTER,
   LOCK_MINUTES,
-  OTP_RESEND_COOLDOWN_MS,
-  OTP_TTL_MS,
   ghostFailure,
   ghostLock,
-  hashOtp,
   lockNowError,
   lockedError,
   teaseFor,
@@ -29,52 +27,6 @@ const schema = z.object({
   identifier: z.string().min(3), // phone or email
   password: z.string().min(1),
 });
-
-/** m***@gmail.com — enough to recognise the inbox, useless to a shoulder-surfer */
-function maskEmail(email: string): string {
-  const [local, domain] = email.split("@");
-  return `${local.slice(0, 1)}***@${domain}`;
-}
-
-/**
- * Start (or reuse) an email-2FA challenge for a password-verified user.
- * Guards the mail quota: 60s cooldown reuses the pending code without a new
- * mail, and issuance is capped per account on top of the per-inbox mail cap.
- */
-async function startOtpChallenge(user: { id: string; email: string }) {
-  const now = Date.now();
-  const pending = await db.loginOtp.findFirst({
-    where: { userId: user.id, consumedAt: null, expiresAt: { gt: new Date(now) } },
-    orderBy: { createdAt: "desc" },
-  });
-  // a code was mailed moments ago — point the browser at it, send nothing
-  if (pending && now - pending.lastSentAt.getTime() < OTP_RESEND_COOLDOWN_MS) {
-    return { ok: true as const, challenge: pending.challenge };
-  }
-  if (await isRateLimited(`otp-send:${user.id}`, 6, 60 * 60_000)) {
-    return {
-      ok: false as const,
-      error: "طلبت رموزاً كثيرة خلال ساعة — هدّئ عليك شوي وحاول بعدين 😉",
-    };
-  }
-  // one active challenge per account
-  await db.loginOtp.deleteMany({ where: { userId: user.id } });
-  const challenge = randomBytes(32).toString("hex");
-  const code = String(randomInt(100000, 1000000));
-  await db.loginOtp.create({
-    data: {
-      userId: user.id,
-      challenge,
-      codeHash: hashOtp(code, challenge),
-      expiresAt: new Date(now + OTP_TTL_MS),
-    },
-  });
-  const sent = await sendLoginCodeEmail(user.email, code);
-  if (!sent) {
-    return { ok: false as const, error: "تعذّر إرسال رمز التحقق — حاول بعد قليل" };
-  }
-  return { ok: true as const, challenge };
-}
 
 export async function POST(req: Request) {
   const limited = await rateLimitGuard(req, "login", 8, 60_000);
@@ -148,6 +100,14 @@ export async function POST(req: Request) {
   if (user.isBanned) {
     return NextResponse.json(
       { error: "هذا الحساب محظور. تواصل مع الدعم." },
+      { status: 403 }
+    );
+  }
+  // staff accounts exist only on the admin portal — the public site refuses
+  // them outright so a leaked staff password alone opens nothing here
+  if (STAFF_ROLES.includes(user.role)) {
+    return NextResponse.json(
+      { error: "حسابات فريق العمل تسجل الدخول من بوابة الإدارة فقط" },
       { status: 403 }
     );
   }

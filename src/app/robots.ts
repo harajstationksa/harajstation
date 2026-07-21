@@ -23,6 +23,7 @@ import { SITE } from "@/lib/seo";
 /** Nothing here is public, or it is public but useless in a search result. */
 const PRIVATE = [
   "/admin",
+  "/admin-login",
   "/dashboard",
   "/api/",
   "/login",

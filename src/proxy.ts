@@ -18,9 +18,50 @@ const WINDOW = 60_000;
 /** Machine callers with their own secret — never throttle them. */
 const BYPASS = ["/api/payments/webhook", "/api/cron"];
 
+/**
+ * When ADMIN_HOST is set (production: haraj-ad.harajstation.com) the admin
+ * portal exists ONLY on that host and the main site loses it entirely:
+ *   admin host → only /admin*, /admin-login and /api/admin-auth* (plus assets)
+ *   main host  → those same paths 404 as if they never existed
+ * Unset (local dev) → no host split, everything reachable as before.
+ */
+const ADMIN_HOST = process.env.ADMIN_HOST;
+const ADMIN_PATHS = ["/admin", "/admin-login", "/api/admin-auth"];
+
+function isAdminPath(pathname: string) {
+  return ADMIN_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`)
+  );
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isRead = req.method === "GET" || req.method === "HEAD";
+
+  if (ADMIN_HOST) {
+    const host = (req.headers.get("host") ?? "").split(":")[0];
+    if (host === ADMIN_HOST) {
+      if (pathname === "/") {
+        return NextResponse.redirect(new URL("/admin", req.url));
+      }
+      if (pathname === "/robots.txt") {
+        return new NextResponse("User-agent: *\nDisallow: /\n", {
+          headers: { "Content-Type": "text/plain" },
+        });
+      }
+      const allowed =
+        isAdminPath(pathname) ||
+        pathname.startsWith("/_next") ||
+        pathname === "/favicon.ico" ||
+        pathname === "/logo.png";
+      if (!allowed) {
+        return new NextResponse("Not found", { status: 404 });
+      }
+    } else if (isAdminPath(pathname)) {
+      // the admin portal does not exist on the public site
+      return new NextResponse("Not found", { status: 404 });
+    }
+  }
 
   if (isRead && !pathname.startsWith("/api/")) return NextResponse.next();
   if (BYPASS.some((p) => pathname.startsWith(p))) return NextResponse.next();

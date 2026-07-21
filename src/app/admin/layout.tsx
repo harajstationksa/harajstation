@@ -2,7 +2,9 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { requireStaff } from "@/lib/auth";
 import { ROLE_LABELS, STAFF_ROLES } from "@/lib/constants";
+import { SITE } from "@/lib/seo";
 import { Avatar } from "@/components/Avatar";
+import { AdminLogout } from "@/components/AdminLogout";
 import { AdminNav } from "@/components/AdminNav";
 import { AdminSearch } from "@/components/AdminSearch";
 
@@ -38,13 +40,15 @@ export default async function AdminLayout({
               {ROLE_LABELS[staff.role] ?? staff.role}
             </p>
           </div>
-          <Link
-            href="/"
+          <a
+            href={SITE}
+            target="_blank"
             title="عرض الموقع"
             className="size-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors shrink-0"
           >
             <ExternalLink className="size-4" />
-          </Link>
+          </a>
+          <AdminLogout className="size-8 rounded-lg bg-white/10 hover:bg-red-500/30 text-red-300 flex items-center justify-center transition-colors shrink-0 cursor-pointer" />
         </div>
       </aside>
 
@@ -54,15 +58,17 @@ export default async function AdminLayout({
           <div className="flex items-center gap-3 px-4 sm:px-6 h-14">
             <AdminSearch />
             <div className="ms-auto flex items-center gap-3 shrink-0">
-              <Link
-                href="/"
+              <a
+                href={SITE}
+                target="_blank"
                 className="text-sm text-neutral-500 hover:text-neutral-900 transition-colors flex items-center gap-1.5"
               >
                 <ExternalLink className="size-4" />
                 <span className="max-sm:hidden">عرض الموقع</span>
-              </Link>
-              <span className="lg:hidden">
+              </a>
+              <span className="lg:hidden flex items-center gap-2">
                 <Avatar name={staff.name} color={staff.avatarColor} src={staff.avatarUrl} className="size-8 text-sm" />
+                <AdminLogout className="size-8 rounded-lg bg-neutral-100 hover:bg-red-50 text-red-500 flex items-center justify-center transition-colors cursor-pointer" />
               </span>
             </div>
           </div>

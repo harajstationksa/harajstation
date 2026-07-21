@@ -358,12 +358,18 @@ export async function deletePointPackageAction(formData: FormData) {
 export async function createStaffAction(formData: FormData) {
   const staff = await requireStaff(["ADMIN"]);
   const { hashSync } = await import("bcryptjs");
+  const { randomBytes } = await import("node:crypto");
+  const { sendEmail } = await import("@/lib/email");
   const name = String(formData.get("name") || "").trim();
   const email = String(formData.get("email") || "").trim().toLowerCase();
-  const password = String(formData.get("password") || "");
   const role = String(formData.get("role") || "SUPPORT");
-  if (name.length < 2 || !email.includes("@") || password.length < 8) return;
+  if (name.length < 2 || !email.includes("@")) return;
   if (!["ADMIN", "MODERATOR", "SUPPORT", "ACCOUNTANT"].includes(role)) return;
+
+  const portalUrl = process.env.ADMIN_HOST
+    ? `https://${process.env.ADMIN_HOST}`
+    : "/admin-login";
+
   const exists = await db.user.findUnique({ where: { email } });
   if (exists) {
     // promote an existing account instead of failing silently
@@ -372,20 +378,68 @@ export async function createStaffAction(formData: FormData) {
       await audit(staff.id, "PROMOTE_STAFF", `${exists.name} → ${role}`);
     }
   } else {
+    // no password is ever chosen by the admin on someone's behalf: the account
+    // starts passwordless (unguessable random hash), the invitee signs in with
+    // an email code and sets their own password from inside the portal
     await db.user.create({
       data: {
         name,
         email,
         city: "الرياض",
-        passwordHash: hashSync(password, 12),
+        passwordHash: hashSync(randomBytes(32).toString("hex"), 12),
+        passwordEnabled: false,
+        emailVerifiedAt: new Date(),
         role,
         credibility: 100,
         avatarColor: "#404040",
       },
     });
     await audit(staff.id, "CREATE_STAFF", `${name} (${email}) — ${role}`);
+    await sendEmail({
+      to: email,
+      subject: "انضممت لفريق عمل حراج ستيشن",
+      html:
+        `<div dir="rtl" style="font-family:Tahoma,Arial,sans-serif;line-height:1.8">` +
+        `<h2>أهلاً ${name} 👋</h2>` +
+        `<p>تمت إضافتك لفريق عمل حراج ستيشن.</p>` +
+        `<p>ادخل على بوابة الإدارة بهذا البريد وسيصلك رمز دخول لمرة واحدة — ` +
+        `ولا تحتاج كلمة مرور، وتقدر تفعّل واحدة من إعدادات حسابك بعد الدخول:</p>` +
+        `<p><a href="${portalUrl}">${portalUrl}</a></p>` +
+        `</div>`,
+    });
   }
   revalidatePath("/admin/staff");
+}
+
+// ── My account (any staff member, self-service) ──
+
+export async function updateMyAccountAction(formData: FormData) {
+  const me = await requireStaff(["ADMIN", "MODERATOR", "SUPPORT", "ACCOUNTANT"]);
+  const name = String(formData.get("name") || "").trim();
+  const email = String(formData.get("email") || "").trim().toLowerCase();
+  if (name.length < 2 || !email.includes("@")) return;
+  const taken = await db.user.findFirst({
+    where: { email, id: { not: me.id } },
+    select: { id: true },
+  });
+  if (taken) return;
+  await db.user.update({ where: { id: me.id }, data: { name, email } });
+  await audit(me.id, "UPDATE_MY_ACCOUNT", `${name} (${email})`);
+  revalidatePath("/admin/account");
+}
+
+export async function setMyPasswordAction(formData: FormData) {
+  const me = await requireStaff(["ADMIN", "MODERATOR", "SUPPORT", "ACCOUNTANT"]);
+  const { hashSync } = await import("bcryptjs");
+  const password = String(formData.get("password") || "");
+  const confirm = String(formData.get("confirm") || "");
+  if (password.length < 10 || password !== confirm) return;
+  await db.user.update({
+    where: { id: me.id },
+    data: { passwordHash: hashSync(password, 12), passwordEnabled: true },
+  });
+  await audit(me.id, "SET_MY_PASSWORD", "password enabled");
+  revalidatePath("/admin/account");
 }
 
 export async function updateStaffRoleAction(formData: FormData) {

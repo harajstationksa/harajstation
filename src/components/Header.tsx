@@ -4,7 +4,6 @@ import { Plus } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getNavCategories } from "@/lib/categories";
-import { STAFF_ROLES } from "@/lib/constants";
 import { getLang, STR } from "@/lib/i18n";
 import { LanguageToggle } from "./LanguageToggle";
 import { NotificationBell } from "./NotificationBell";
@@ -149,7 +148,6 @@ async function Account() {
         color={user.avatarColor}
         avatarUrl={user.avatarUrl}
         isPro={user.isPro}
-        isStaff={STAFF_ROLES.includes(user.role)}
         points={user.points}
       />
     </>

@@ -129,10 +129,6 @@ export default async function AdminStaffPage() {
             <input name="email" className="input" dir="ltr" type="email" required />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">كلمة المرور</label>
-            <input name="password" className="input" dir="ltr" type="password" required minLength={8} />
-          </div>
-          <div>
             <label className="block text-sm font-medium mb-1.5">الدور</label>
             <select name="role" className="input" defaultValue="SUPPORT">
               {STAFF_ROLES.map((r) => (
@@ -142,7 +138,9 @@ export default async function AdminStaffPage() {
           </div>
         </div>
         <p className="text-xs text-neutral-400">
-          لو كان البريد لحساب مستخدم موجود، سيُرقّى للدور المحدد بدل إنشاء حساب جديد.
+          بدون كلمة مرور: يصل الموظف دعوة على بريده ويدخل البوابة برمز لمرة واحدة،
+          ويقدر يفعّل كلمة مرور من إعدادات حسابه. لو كان البريد لحساب مستخدم موجود،
+          سيُرقّى للدور المحدد بدل إنشاء حساب جديد.
         </p>
         <button className="btn-primary">إضافة الموظف</button>
       </form>

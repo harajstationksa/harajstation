@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import {
-  SESSION_COOKIE,
-  sessionCookieOptions,
-  signSessionToken,
-} from "@/lib/auth";
+import { ADMIN_COOKIE, adminCookieOptions, signAdminToken } from "@/lib/auth";
+import { STAFF_ROLES } from "@/lib/constants";
 import { rateLimitGuard } from "@/lib/rate-limit";
 import { OTP_MAX_ATTEMPTS, hashOtp } from "@/lib/login-guard";
 import { safeEqual } from "@/lib/crypto";
@@ -15,9 +12,9 @@ const schema = z.object({
   code: z.string().regex(/^\d{6}$/, "الرمز 6 أرقام"),
 });
 
-/** Second login step: exchange challenge + emailed code for a session. */
+/** Admin login, step 2: exchange challenge + emailed code for a PORTAL session. */
 export async function POST(req: Request) {
-  const limited = await rateLimitGuard(req, "login-otp", 15, 10 * 60_000);
+  const limited = await rateLimitGuard(req, "admin-login-otp", 15, 10 * 60_000);
   if (limited) return limited;
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
@@ -34,7 +31,9 @@ export async function POST(req: Request) {
     !otp ||
     otp.consumedAt ||
     otp.expiresAt < new Date() ||
-    otp.attempts >= OTP_MAX_ATTEMPTS
+    otp.attempts >= OTP_MAX_ATTEMPTS ||
+    // a site-login challenge can never open the admin portal
+    !STAFF_ROLES.includes(otp.user.role)
   ) {
     return NextResponse.json(
       { error: "انتهت صلاحية الرمز — ارجع وسجّل دخولك من جديد", restart: true },
@@ -59,30 +58,23 @@ export async function POST(req: Request) {
   }
 
   if (otp.user.isBanned) {
-    return NextResponse.json(
-      { error: "هذا الحساب محظور. تواصل مع الدعم." },
-      { status: 403 }
-    );
-  }
-  // staff sessions are issued only by the admin portal (see /api/admin-auth)
-  if (["ADMIN", "MODERATOR", "SUPPORT", "ACCOUNTANT"].includes(otp.user.role)) {
-    return NextResponse.json(
-      { error: "حسابات فريق العمل تسجل الدخول من بوابة الإدارة فقط" },
-      { status: 403 }
-    );
+    return NextResponse.json({ error: "هذا الحساب موقوف" }, { status: 403 });
   }
 
   await db.loginOtp.update({
     where: { id: otp.id },
     data: { consumedAt: new Date() },
   });
+  await db.auditLog.create({
+    data: { actorId: otp.user.id, action: "ADMIN_LOGIN", detail: otp.user.email },
+  });
 
-  const token = await signSessionToken({
+  const token = await signAdminToken({
     sub: otp.user.id,
     role: otp.user.role,
     name: otp.user.name,
   });
   const res = NextResponse.json({ ok: true });
-  res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions);
+  res.cookies.set(ADMIN_COOKIE, token, adminCookieOptions);
   return res;
 }

@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Store,
   UserCheck,
+  UserCog,
   Users,
   Wallet,
 } from "lucide-react";
@@ -58,6 +59,12 @@ const groups: {
       { href: "/admin/plans", label: "الباقات والأسعار", icon: Wallet, roles: ["ADMIN"] },
       { href: "/admin/points", label: "النقاط والأسعار", icon: Coins, roles: ["ADMIN"] },
       { href: "/admin/staff", label: "إدارة الموظفين", icon: ShieldCheck, roles: ["ADMIN"] },
+    ],
+  },
+  {
+    label: "الحساب",
+    items: [
+      { href: "/admin/account", label: "حسابي", icon: UserCog, roles: ["ADMIN", "MODERATOR", "SUPPORT", "ACCOUNTANT"] },
     ],
   },
 ];

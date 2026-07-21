@@ -14,7 +14,6 @@ import {
   MessageSquare,
   Settings,
   ShieldCheck,
-  Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "./Avatar";
@@ -25,14 +24,12 @@ export function UserMenu({
   color,
   avatarUrl,
   isPro,
-  isStaff,
   points = 0,
 }: {
   name: string;
   color: string;
   avatarUrl?: string | null;
   isPro: boolean;
-  isStaff: boolean;
   points?: number;
 }) {
   const [open, setOpen] = useState(false);
@@ -125,16 +122,6 @@ export function UserMenu({
             </div>
 
             <div className="border-t border-neutral-100 max-sm:border-white/60 mt-1.5 pt-1.5 space-y-0.5">
-              {isStaff && (
-                <Link
-                  href="/admin"
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-neutral-900 hover:bg-neutral-100/70 transition-colors"
-                >
-                  <Wrench className="size-4.5 text-neutral-400" />
-                  {t.menu.admin}
-                </Link>
-              )}
               <button
                 onClick={logout}
                 className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
