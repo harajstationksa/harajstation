@@ -7,7 +7,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "gen:images": "node scripts/gen-images.mjs",
     "r2:cleanup": "node scripts/r2-cleanup.mjs",
