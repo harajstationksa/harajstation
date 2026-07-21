@@ -7,7 +7,11 @@ import { applyProxyBids } from "@/lib/proxy-bid";
 import { formatSAR } from "@/lib/utils";
 import { rateLimitGuard } from "@/lib/rate-limit";
 
-const schema = z.object({ maxAmount: z.number().int().positive() });
+const schema = z.object({
+  maxAmount: z.number().int().positive(),
+  // auto-bids placed by this ceiling inherit the flag (see Bid.anonymous)
+  anonymous: z.boolean().optional().default(false),
+});
 
 /** Set (or raise) the caller's proxy-bid ceiling on this auction. */
 export async function POST(
@@ -30,7 +34,7 @@ export async function POST(
   if (!parsed.success) {
     return NextResponse.json({ error: "مبلغ غير صالح" }, { status: 400 });
   }
-  const maxAmount = parsed.data.maxAmount;
+  const { maxAmount, anonymous } = parsed.data;
 
   try {
     const result = await db.$transaction(async (tx) => {
@@ -71,8 +75,8 @@ export async function POST(
 
       await tx.proxyBid.upsert({
         where: { auctionId_bidderId: { auctionId: id, bidderId: user.id } },
-        create: { auctionId: id, bidderId: user.id, maxAmount },
-        update: { maxAmount },
+        create: { auctionId: id, bidderId: user.id, maxAmount, anonymous },
+        update: { maxAmount, anonymous },
       });
 
       const prevTopBidderId = top?.bidderId ?? null;

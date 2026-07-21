@@ -4,9 +4,11 @@ import { CONFIRM_WINDOW_HOURS } from "./constants";
 import { formatSAR } from "./utils";
 
 /**
- * Lazy finalization — locks expired LIVE auctions, determines winners and
- * opens the 48h mutual-confirmation window. Called from auction read paths
- * so no cron is needed in dev; in production this becomes a background job.
+ * Locks expired LIVE auctions, determines winners and opens the 48h
+ * mutual-confirmation window. Only invoked via GET /api/cron — the server
+ * must hit that endpoint every minute (deploy/cron.d-harajstation installed
+ * as /etc/cron.d/harajstation) or ended auctions are never finalized and no
+ * winner notifications go out.
  */
 export async function finalizeExpiredAuctions() {
   const expired = await db.auction.findMany({

@@ -1,14 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   Bot,
   CheckCircle2,
   Crown,
+  EyeOff,
   Gavel,
   Loader2,
+  MessageCircle,
+  User,
   X,
   Zap,
 } from "lucide-react";
@@ -20,6 +24,8 @@ type BidRow = {
   id: string;
   amount: number;
   name: string;
+  // set only for the seller when the bidder chose to bid openly
+  profileId: string | null;
   at: string;
   mine: boolean;
 };
@@ -27,6 +33,7 @@ type BidRow = {
 export type AuctionState = {
   status: string;
   endsAt: string;
+  listingId: string;
   currentBid: number;
   minNext: number;
   minIncrement: number;
@@ -35,7 +42,13 @@ export type AuctionState = {
   isTopBidder: boolean;
   isSeller: boolean;
   myProxyMax: number | null;
+  // my previous anonymity choice in this auction (null = never bid)
+  myAnonymous: boolean | null;
   winnerMasked: string | null;
+  winnerAnonymous: boolean;
+  winnerName: string | null;
+  winnerProfileId: string | null;
+  winnerChatId: string | null;
   bids: BidRow[];
 };
 
@@ -57,9 +70,12 @@ export function BidPanel({
   const [submitting, setSubmitting] = useState(false);
   const [proxyMax, setProxyMax] = useState("");
   const [proxyBusy, setProxyBusy] = useState(false);
+  const [anon, setAnon] = useState(initial.myAnonymous ?? false);
+  const [chatBusy, setChatBusy] = useState(false);
   const amountTouched = useRef(false);
   const { lang, t } = useLang();
   const b = t.bid;
+  const router = useRouter();
 
   const refresh = useCallback(async () => {
     try {
@@ -85,7 +101,7 @@ export function BidPanel({
     const res = await fetch(`/api/auctions/${auctionId}/bids`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: value }),
+      body: JSON.stringify({ amount: value, anonymous: anon }),
     });
     const data = await res.json().catch(() => ({}));
     setSubmitting(false);
@@ -108,7 +124,7 @@ export function BidPanel({
     const res = await fetch(`/api/auctions/${auctionId}/proxy`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ maxAmount: v }),
+      body: JSON.stringify({ maxAmount: v, anonymous: anon }),
     });
     const data = await res.json().catch(() => ({}));
     setProxyBusy(false);
@@ -128,6 +144,28 @@ export function BidPanel({
     await fetch(`/api/auctions/${auctionId}/proxy`, { method: "DELETE" });
     setProxyBusy(false);
     refresh();
+  }
+
+  // seller → winner conversation, to arrange payment and handover
+  async function openWinnerChat() {
+    if (!state.winnerChatId) return;
+    setChatBusy(true);
+    setError("");
+    const res = await fetch("/api/conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        listingId: state.listingId,
+        buyerId: state.winnerChatId,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setChatBusy(false);
+    if (!res.ok) {
+      setError(data.error ?? b.chatFailed);
+      return;
+    }
+    router.push(`/dashboard/messages/${data.id}`);
   }
 
   const live = state.status === "LIVE" && new Date(state.endsAt) > new Date();
@@ -172,11 +210,41 @@ export function BidPanel({
 
         {/* winner banner */}
         {!live && state.winnerMasked && (
-          <div className="rounded-lg bg-primary-50 border border-primary-200 p-3 text-center">
-            <Crown className="size-5 text-primary-600 inline-block ml-1" />
-            <span className="text-sm font-semibold text-primary-800">
-              {b.winner}: {state.winnerMasked} — {formatSAR(state.currentBid)}
-            </span>
+          <div className="rounded-lg bg-primary-50 border border-primary-200 p-3 text-center space-y-2">
+            <div>
+              <Crown className="size-5 text-primary-600 inline-block ml-1" />
+              <span className="text-sm font-semibold text-primary-800">
+                {b.winner}:{" "}
+                {state.winnerProfileId && state.winnerName ? (
+                  <Link
+                    href={`/profile/${state.winnerProfileId}`}
+                    className="underline hover:text-primary-600"
+                  >
+                    {state.winnerName}
+                  </Link>
+                ) : state.isSeller && state.winnerAnonymous ? (
+                  b.anonymous
+                ) : (
+                  state.winnerMasked
+                )}{" "}
+                — {formatSAR(state.currentBid)}
+              </span>
+            </div>
+            {state.winnerChatId && (
+              <button
+                type="button"
+                onClick={openWinnerChat}
+                disabled={chatBusy}
+                className="btn-secondary w-full !min-h-9 text-xs"
+              >
+                {chatBusy ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <MessageCircle className="size-3.5" />
+                )}
+                {b.chatWinner}
+              </button>
+            )}
           </div>
         )}
 
@@ -204,6 +272,42 @@ export function BidPanel({
                 placeBid(v);
               }}
             >
+              {/* identity choice — applies to manual and proxy bids alike */}
+              <div className="rounded-lg border border-neutral-200 bg-neutral-50/60 p-3 space-y-2">
+                <p className="text-xs font-bold text-neutral-700">{b.anonQ}</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAnon(false)}
+                    className={cn(
+                      "flex-1 rounded-lg border py-1.5 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer",
+                      !anon
+                        ? "border-primary-400 bg-primary-50 text-primary-700"
+                        : "border-neutral-200 text-neutral-500 hover:border-neutral-300"
+                    )}
+                  >
+                    <User className="size-3.5" />
+                    {b.anonNamed}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAnon(true)}
+                    className={cn(
+                      "flex-1 rounded-lg border py-1.5 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer",
+                      anon
+                        ? "border-primary-400 bg-primary-50 text-primary-700"
+                        : "border-neutral-200 text-neutral-500 hover:border-neutral-300"
+                    )}
+                  >
+                    <EyeOff className="size-3.5" />
+                    {b.anonAnon}
+                  </button>
+                </div>
+                <p className="text-[11px] text-neutral-500 leading-relaxed">
+                  {anon ? b.anonAnonHint : b.anonNamedHint}
+                </p>
+              </div>
+
               <div className="flex gap-2">
                 <input
                   dir="ltr"
@@ -354,7 +458,16 @@ export function BidPanel({
               >
                 <span className="flex items-center gap-2 font-medium text-neutral-700">
                   {i === 0 && <Crown className="size-4 text-primary-500" />}
-                  {bid.name}
+                  {bid.profileId ? (
+                    <Link
+                      href={`/profile/${bid.profileId}`}
+                      className="hover:text-primary-600 hover:underline"
+                    >
+                      {bid.name}
+                    </Link>
+                  ) : (
+                    bid.name
+                  )}
                   {bid.mine && (
                     <span className="badge bg-primary-100 text-primary-700">{b.you}</span>
                   )}

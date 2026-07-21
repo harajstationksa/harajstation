@@ -242,6 +242,16 @@ const ar = {
     proxyDoneTop: "تم! النظام يزايد عنك وأنت الأعلى حالياً",
     proxyDoneOutbid: "حدك الأعلى أقل من مزايد آخر — ارفع حدك أو زايد يدوياً",
     proxyCancelConfirm: "إلغاء المزايدة بالوكالة؟ سومك الحالي يظل ملزماً.",
+    anonQ: "تبي البائع يعرف من أنت؟",
+    anonNamed: "أسوم باسمي",
+    anonAnon: "أسوم مجهول",
+    anonNamedHint:
+      "اسمك يبان للبائع بس — باقي الزوار والمزايدين ما يشوفون إلا معرفك المقنّع",
+    anonAnonHint:
+      "ولا أحد يعرف من أنت، حتى البائع — تطلع للكل بمعرفك المقنّع (حراج_..)",
+    anonymous: "مجهول",
+    chatWinner: "راسل الفائز",
+    chatFailed: "ما قدرنا نفتح المحادثة، حاول مرة ثانية",
   },
   comments: {
     title: "الاستفسارات والتعليقات",
@@ -1343,6 +1353,16 @@ const en: typeof ar = {
     proxyDoneTop: "Done! The system bids for you and you're currently on top",
     proxyDoneOutbid: "Your maximum is below another bidder's — raise it or bid manually",
     proxyCancelConfirm: "Cancel proxy bidding? Your current bid remains binding.",
+    anonQ: "Should the seller know who you are?",
+    anonNamed: "Bid with my name",
+    anonAnon: "Bid anonymously",
+    anonNamedHint:
+      "Only the seller sees your name — visitors and other bidders only ever see your masked ID",
+    anonAnonHint:
+      "No one knows who you are, not even the seller — everyone sees your masked ID (Haraj_..)",
+    anonymous: "Anonymous",
+    chatWinner: "Message the winner",
+    chatFailed: "Couldn't open the conversation, try again",
   },
   comments: {
     title: "Questions & Comments",

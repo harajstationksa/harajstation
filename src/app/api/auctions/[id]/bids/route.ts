@@ -13,7 +13,11 @@ import { applyProxyBids } from "@/lib/proxy-bid";
 import { formatSAR, maskedBidderName } from "@/lib/utils";
 import { rateLimitGuard } from "@/lib/rate-limit";
 
-const schema = z.object({ amount: z.number().int().positive() });
+const schema = z.object({
+  amount: z.number().int().positive(),
+  // true = masked even for the seller; false = name visible to the seller only
+  anonymous: z.boolean().optional().default(false),
+});
 
 class BidError extends Error {
   constructor(
@@ -45,7 +49,7 @@ export async function POST(
   if (!parsed.success) {
     return NextResponse.json({ error: "مبلغ غير صالح" }, { status: 400 });
   }
-  const amount = parsed.data.amount;
+  const { amount, anonymous } = parsed.data;
 
   try {
     // Serializable: two bids landing in the same instant would otherwise both
@@ -90,6 +94,7 @@ export async function POST(
           bidderId: user.id,
           amount: isBuyNow ? auction.buyNowPrice! : amount,
           maskedName: maskedBidderName(user.id, id),
+          anonymous,
         },
       });
 

@@ -70,6 +70,7 @@ export async function applyProxyBids(
         bidderId: best.bidderId,
         amount,
         maskedName: maskedBidderName(best.bidderId, auctionId),
+        anonymous: best.anonymous,
       },
     });
     autoBids++;

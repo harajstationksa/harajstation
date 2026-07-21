@@ -80,6 +80,9 @@ model User {
   lockUntil      DateTime?
   twoFactorEmail Boolean   @default(false)
   loginOtps      LoginOtp[]
+  // staff accounts start passwordless (email-code login only) until the
+  // member sets a password from the admin portal; irrelevant for role USER
+  passwordEnabled Boolean  @default(true)
 
   // referral program: every user carries a shareable code; referredById links
   // the invitee to their referrer forever — the referrer earns a percentage
@@ -227,6 +230,8 @@ model ProxyBid {
   bidderId  String
   bidder    User     @relation(fields: [bidderId], references: [id], onDelete: Cascade)
   maxAmount Int
+  // auto-bids placed by this proxy inherit the flag (see Bid.anonymous)
+  anonymous Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -633,6 +638,9 @@ model Bid {
   bidder     User     @relation(fields: [bidderId], references: [id])
   amount     Int
   maskedName String // e.g. "صامل_482" — bidder privacy
+  // bidder's choice at bid time: true = masked even for the seller;
+  // false = real name visible to the seller only (public always sees maskedName)
+  anonymous  Boolean  @default(false)
   createdAt  DateTime @default(now())
 
   @@index([auctionId, amount])
