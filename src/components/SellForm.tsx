@@ -303,6 +303,11 @@ export function SellForm({
             className={`input ${fieldErrors.categoryId ? "border-red-400 ring-2 ring-red-500/15" : ""}`}
             required
             value={categoryId}
+            // commit on `input`, not just `change`: the form-level onInput above
+            // re-renders on every input event, and that re-render re-applies the
+            // controlled value to this select BETWEEN the browser's input and
+            // change events — wiping the user's pick before change ever fires.
+            onInput={(e) => setCategoryId(e.currentTarget.value)}
             onChange={(e) => setCategoryId(e.target.value)}
           >
             <option value="" disabled>{d.pickCat}</option>
