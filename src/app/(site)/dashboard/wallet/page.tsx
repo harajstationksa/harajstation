@@ -1,6 +1,7 @@
-import { Coins, Plus, Wallet } from "lucide-react";
+import { Coins, PauseCircle, Plus, Wallet } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { getTopupConfig } from "@/lib/settings";
 import { timeAgo } from "@/lib/utils";
 import { RechargePackages } from "./RechargePackages";
 import { getT } from "@/lib/i18n";
@@ -22,13 +23,14 @@ export default async function WalletPage({
   const d = t.dash.wallet;
   const { promoError } = await searchParams;
 
-  const [packages, ledger] = await Promise.all([
+  const [packages, ledger, topup] = await Promise.all([
     db.pointPackage.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
     db.pointTransaction.findMany({
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
       take: 15,
     }),
+    getTopupConfig(),
   ]);
 
   return (
@@ -58,21 +60,30 @@ export default async function WalletPage({
           <Plus className="size-5 text-primary-500" />
           {d.recharge}
         </h2>
-        <RechargePackages
-          packages={packages.map((p) => ({
-            id: p.id,
-            points: p.points,
-            bonus: p.bonus,
-            price: p.price,
-          }))}
-          promoError={promoError}
-        />
-        <p className="text-xs text-neutral-400 mt-2">
-          {d.payNote}
-        </p>
-        <p className="text-xs text-neutral-400 mt-1">
-          {d.pricesNote}
-        </p>
+        {!topup.enabled ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-5 flex items-start gap-3">
+            <PauseCircle className="size-6 text-amber-500 shrink-0" />
+            <p className="text-sm text-amber-900 leading-relaxed font-medium">{topup.message}</p>
+          </div>
+        ) : (
+          <>
+            <RechargePackages
+              packages={packages.map((p) => ({
+                id: p.id,
+                points: p.points,
+                bonus: p.bonus,
+                price: p.price,
+              }))}
+              promoError={promoError}
+            />
+            <p className="text-xs text-neutral-400 mt-2">
+              {d.payNote}
+            </p>
+            <p className="text-xs text-neutral-400 mt-1">
+              {d.pricesNote}
+            </p>
+          </>
+        )}
       </div>
 
       {/* ledger */}

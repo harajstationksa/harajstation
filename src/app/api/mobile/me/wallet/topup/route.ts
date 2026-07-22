@@ -12,6 +12,7 @@ import {
 import { validatePromo, recordPromoRedemption } from "@/lib/promo";
 import { awardReferralBonus } from "@/lib/referral";
 import { isRateLimited } from "@/lib/rate-limit";
+import { getTopupConfig } from "@/lib/settings";
 
 const schema = z.object({
   packageId: z.string().min(1),
@@ -27,6 +28,12 @@ const schema = z.object({
 export async function POST(req: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "غير مسجل" }, { status: 401 });
+
+  // admin pause switch — same gate as the web wallet
+  const topup = await getTopupConfig();
+  if (!topup.enabled) {
+    return NextResponse.json({ error: topup.message }, { status: 403 });
+  }
 
   if (await isRateLimited(`buy-points:${user.id}`, 8, 10 * 60_000)) {
     return NextResponse.json(

@@ -9,6 +9,7 @@ import { createInvoice, paymentsConfigured, totalWithVat, VAT_RATE } from "@/lib
 import { validatePromo, recordPromoRedemption } from "@/lib/promo";
 import { awardReferralBonus } from "@/lib/referral";
 import { isRateLimited } from "@/lib/rate-limit";
+import { getTopupConfig } from "@/lib/settings";
 
 /**
  * Buy a point package. With Moyasar keys configured this creates an invoice
@@ -18,6 +19,9 @@ import { isRateLimited } from "@/lib/rate-limit";
  */
 export async function buyPointsAction(formData: FormData) {
   const user = await requireUser();
+  // admin pause switch — the wallet page hides the forms, this stops direct posts
+  const topup = await getTopupConfig();
+  if (!topup.enabled) redirect("/dashboard/wallet");
   // every attempt creates a Payment row + Moyasar invoice — cap per account
   if (await isRateLimited(`buy-points:${user.id}`, 8, 10 * 60_000)) {
     redirect(

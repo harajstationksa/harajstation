@@ -59,6 +59,33 @@ export default async function AdminPointsPage() {
             <p className="text-xs text-neutral-400 mt-1">كل بائع يجدد مجاناً مرة كل هذه المدة</p>
           </div>
         </div>
+        {/* pause switch: hides the package grid and blocks the purchase APIs */}
+        <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 space-y-3">
+          <label className="flex items-center gap-2.5 font-semibold text-sm cursor-pointer">
+            <input
+              type="checkbox"
+              name="TOPUP_ENABLED"
+              defaultChecked={settings.TOPUP_ENABLED !== "0"}
+              className="size-4 accent-primary-500"
+            />
+            شحن النقاط متاح للمستخدمين
+          </label>
+          <div>
+            <label className="block text-sm font-medium mb-1.5">
+              الرسالة الظاهرة عند إيقاف الشحن
+            </label>
+            <input
+              name="TOPUP_DISABLED_MESSAGE"
+              className="input"
+              defaultValue={settings.TOPUP_DISABLED_MESSAGE}
+              placeholder="شحن النقاط غير متاح حالياً — سيتم تفعيله قريباً."
+              maxLength={300}
+            />
+            <p className="text-xs text-neutral-400 mt-1">
+              عند إلغاء التفعيل تختفي باقات الشحن من محفظة المستخدم وتظهر هذه الرسالة مكانها — اتركها فارغة لاستخدام النص الافتراضي.
+            </p>
+          </div>
+        </div>
         <button className="btn-primary">حفظ الإعدادات</button>
         <p className="text-xs text-neutral-400">
           أي تغيير هنا يسري فوراً على الحملات الجديدة — الحملات الجارية لا تتأثر.

@@ -498,12 +498,20 @@ export async function saveSettingsAction(formData: FormData) {
   if (days.length > 0) {
     await setSetting("CAMPAIGN_DAY_OPTIONS", days.join(","));
   }
+  // pause switch for point purchases (unchecked checkbox posts nothing = off)
+  const topupEnabled = formData.get("TOPUP_ENABLED") ? "1" : "0";
+  await setSetting("TOPUP_ENABLED", topupEnabled);
+  await setSetting(
+    "TOPUP_DISABLED_MESSAGE",
+    String(formData.get("TOPUP_DISABLED_MESSAGE") ?? "").trim().slice(0, 300)
+  );
   await audit(
     staff.id,
     "UPDATE_SETTINGS",
-    `perDay=${perDay} feature=${featureCost} days=${days.join(",")}`
+    `perDay=${perDay} feature=${featureCost} days=${days.join(",")} topup=${topupEnabled}`
   );
   revalidatePath("/admin/points");
+  revalidatePath("/dashboard/wallet");
 }
 
 /** Footer social links (Instagram / Facebook / Snapchat) — empty disables the link. */

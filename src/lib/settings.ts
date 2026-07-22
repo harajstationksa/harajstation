@@ -27,6 +27,10 @@ const DEFAULTS: Record<string, string> = {
   // homepage stats strip (active ads / live auctions / trusted users) —
   // admin can hide it from /admin/banners
   HOME_STATS_VISIBLE: "1",
+  // point top-ups — admin can pause purchases from /admin/points; users then
+  // see TOPUP_DISABLED_MESSAGE instead of the package grid ("" = default text)
+  TOPUP_ENABLED: "1",
+  TOPUP_DISABLED_MESSAGE: "",
   // «تواصل معنا» page — admin-editable from /admin/banners
   CONTACT_EMAIL: "support@harajstation.com",
   CONTACT_PHONE: "920000000",
@@ -42,6 +46,23 @@ export async function getCampaignDayOptions(): Promise<number[]> {
     .map((s) => parseInt(s, 10))
     .filter((n) => Number.isInteger(n) && n >= 1 && n <= 365);
   return days.length > 0 ? [...new Set(days)].sort((a, b) => a - b) : [3, 5, 7, 15, 30];
+}
+
+/**
+ * Point top-ups: purchases can be paused from /admin/points (e.g. before the
+ * payment gateway goes live). Every purchase surface (wallet page, wallet
+ * server action, mobile API) must consult this so a paused shop can't be
+ * bypassed by posting the form directly.
+ */
+export async function getTopupConfig(): Promise<{ enabled: boolean; message: string }> {
+  const [enabled, message] = await Promise.all([
+    getSetting("TOPUP_ENABLED"),
+    getSetting("TOPUP_DISABLED_MESSAGE"),
+  ]);
+  return {
+    enabled: enabled !== "0",
+    message: message.trim() || "شحن النقاط غير متاح حالياً — سيتم تفعيله قريباً.",
+  };
 }
 
 /** Launch promo: free PRO for every new signup while the admin switch is on. */
