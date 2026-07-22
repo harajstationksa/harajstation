@@ -65,6 +65,7 @@ model User {
   followers     Follow[]         @relation("Followers")
   pushSubs      PushSubscription[]
   proxyBids     ProxyBid[]
+  auctionBlocks AuctionBlock[]
   // manual ID verification (admin-reviewed) → «موثّق» badge
   idVerified    Boolean   @default(false)
   identityReq   IdentityVerification?
@@ -626,8 +627,22 @@ model Auction {
   winningBid    Int?
   bids          Bid[]
   proxies       ProxyBid[]
+  blocks        AuctionBlock[]
 
   @@index([status, endsAt])
+}
+
+// Seller-imposed exclusion from one auction: a blocked user can no longer bid
+// (manually or by proxy) and their existing bids are removed on block.
+model AuctionBlock {
+  id        String   @id @default(cuid())
+  auctionId String
+  auction   Auction  @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([auctionId, userId])
 }
 
 model Bid {
@@ -697,8 +712,9 @@ model Evidence {
 
 model Conversation {
   id        String    @id @default(cuid())
-  listingId String
-  listing   Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  // NULL = direct chat started from a user's profile (not tied to a listing)
+  listingId String?
+  listing   Listing?  @relation(fields: [listingId], references: [id], onDelete: Cascade)
   buyerId   String
   buyer     User      @relation("ConvBuyer", fields: [buyerId], references: [id])
   sellerId  String

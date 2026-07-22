@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
+  Ban,
   Bot,
   CheckCircle2,
   Crown,
@@ -146,18 +147,15 @@ export function BidPanel({
     refresh();
   }
 
-  // seller → winner conversation, to arrange payment and handover
-  async function openWinnerChat() {
-    if (!state.winnerChatId) return;
+  // seller → bidder conversation (winner handover, or any open bidder)
+  async function openChat(buyerId: string | null) {
+    if (!buyerId) return;
     setChatBusy(true);
     setError("");
     const res = await fetch("/api/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        listingId: state.listingId,
-        buyerId: state.winnerChatId,
-      }),
+      body: JSON.stringify({ listingId: state.listingId, buyerId }),
     });
     const data = await res.json().catch(() => ({}));
     setChatBusy(false);
@@ -166,6 +164,26 @@ export function BidPanel({
       return;
     }
     router.push(`/dashboard/messages/${data.id}`);
+  }
+
+  // seller kicks a bidder out of the auction (works for anonymous bidders too —
+  // the server resolves the identity from the bid row without revealing it)
+  async function blockBidder(bidId: string) {
+    if (!confirm(b.blockConfirm)) return;
+    setError("");
+    setFlash("");
+    const res = await fetch(`/api/auctions/${auctionId}/block`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bidId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data.error ?? b.failed);
+      return;
+    }
+    setFlash(b.blockedOk);
+    refresh();
   }
 
   const live = state.status === "LIVE" && new Date(state.endsAt) > new Date();
@@ -233,7 +251,7 @@ export function BidPanel({
             {state.winnerChatId && (
               <button
                 type="button"
-                onClick={openWinnerChat}
+                onClick={() => openChat(state.winnerChatId)}
                 disabled={chatBusy}
                 className="btn-secondary w-full !min-h-9 text-xs"
               >
@@ -470,6 +488,34 @@ export function BidPanel({
                   )}
                   {bid.mine && (
                     <span className="badge bg-primary-100 text-primary-700">{b.you}</span>
+                  )}
+                  {/* seller moderation: message an open bidder / kick any bidder */}
+                  {state.isSeller && (
+                    <span className="flex items-center gap-0.5">
+                      {bid.profileId && (
+                        <button
+                          type="button"
+                          onClick={() => openChat(bid.profileId)}
+                          disabled={chatBusy}
+                          title={b.chatBidder}
+                          aria-label={b.chatBidder}
+                          className="p-1 rounded-md text-neutral-400 hover:text-primary-600 hover:bg-primary-50 transition-colors cursor-pointer"
+                        >
+                          <MessageCircle className="size-3.5" />
+                        </button>
+                      )}
+                      {live && (
+                        <button
+                          type="button"
+                          onClick={() => blockBidder(bid.id)}
+                          title={b.blockBidder}
+                          aria-label={b.blockBidder}
+                          className="p-1 rounded-md text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                        >
+                          <Ban className="size-3.5" />
+                        </button>
+                      )}
+                    </span>
                   )}
                 </span>
                 <span className="tabular-nums font-bold text-neutral-900">

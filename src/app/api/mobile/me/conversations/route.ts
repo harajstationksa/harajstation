@@ -30,12 +30,16 @@ export async function GET() {
       const last = c.messages[0];
       return {
         id: c.id,
-        listing: {
-          id: c.listing.id,
-          title: c.listing.title,
-          image: parseJson<string[]>(c.listing.images, [])[0] ?? null,
-          status: c.listing.status,
-        },
+        // direct profile chats carry a placeholder so older app builds that
+        // expect a listing object keep parsing the inbox
+        listing: c.listing
+          ? {
+              id: c.listing.id,
+              title: c.listing.title,
+              image: parseJson<string[]>(c.listing.images, [])[0] ?? null,
+              status: c.listing.status,
+            }
+          : { id: "", title: "محادثة مباشرة", image: null, status: "ACTIVE" },
         other,
         lastMessage: last
           ? {

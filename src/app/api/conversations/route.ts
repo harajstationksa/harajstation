@@ -5,12 +5,14 @@ import { getSession } from "@/lib/auth";
 import { rateLimitGuard } from "@/lib/rate-limit";
 
 const schema = z.object({
-  listingId: z.string().min(1),
+  listingId: z.string().min(1).optional(),
   // when the listing's seller starts the chat (e.g. with an auction winner)
   buyerId: z.string().optional(),
+  // direct chat with a user (started from their profile — no listing involved)
+  userId: z.string().optional(),
 });
 
-/** Find-or-create a conversation about a listing; returns its id. */
+/** Find-or-create a conversation about a listing (or direct); returns its id. */
 export async function POST(req: Request) {
   const limited = await rateLimitGuard(req, "conv-create", 15, 10 * 60_000);
   if (limited) return limited;
@@ -20,8 +22,37 @@ export async function POST(req: Request) {
   }
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) {
+  if (!parsed.success || (!parsed.data.listingId && !parsed.data.userId)) {
     return NextResponse.json({ error: "طلب غير صالح" }, { status: 400 });
+  }
+
+  // ── direct profile chat ──
+  if (!parsed.data.listingId) {
+    const targetId = parsed.data.userId!;
+    if (targetId === session.sub) {
+      return NextResponse.json({ error: "طلب غير صالح" }, { status: 400 });
+    }
+    const target = await db.user.findUnique({ where: { id: targetId } });
+    if (!target || target.isBanned) {
+      return NextResponse.json({ error: "المستخدم غير موجود" }, { status: 404 });
+    }
+
+    // one direct thread per pair, whichever side opened it first
+    const existing = await db.conversation.findFirst({
+      where: {
+        listingId: null,
+        OR: [
+          { buyerId: session.sub, sellerId: targetId },
+          { buyerId: targetId, sellerId: session.sub },
+        ],
+      },
+    });
+    if (existing) return NextResponse.json({ id: existing.id });
+
+    const conv = await db.conversation.create({
+      data: { buyerId: session.sub, sellerId: targetId },
+    });
+    return NextResponse.json({ id: conv.id });
   }
 
   const listing = await db.listing.findUnique({

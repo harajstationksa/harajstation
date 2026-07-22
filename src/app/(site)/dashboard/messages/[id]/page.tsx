@@ -27,9 +27,12 @@ export default async function ConversationPage({
   if (!conv || (conv.buyerId !== user.id && conv.sellerId !== user.id)) notFound();
 
   const other = conv.buyerId === user.id ? conv.seller : conv.buyer;
-  const listingHref = conv.listing.auction
-    ? `/auctions/${conv.listing.auction.id}`
-    : `/listings/${conv.listing.id}`;
+  // direct profile chats have no listing attached
+  const listingHref = conv.listing
+    ? conv.listing.auction
+      ? `/auctions/${conv.listing.auction.id}`
+      : `/listings/${conv.listing.id}`
+    : null;
 
   return (
     <div className="space-y-4">
@@ -50,16 +53,20 @@ export default async function ConversationPage({
             </Link>
             <ReportButton targetType="USER" targetId={other.id} compact />
           </p>
-          <Link href={listingHref} className="text-xs text-primary-600 hover:underline line-clamp-1">
-            {t.dash.thread.about} {conv.listing.title}
-          </Link>
+          {conv.listing && listingHref && (
+            <Link href={listingHref} className="text-xs text-primary-600 hover:underline line-clamp-1">
+              {t.dash.thread.about} {conv.listing.title}
+            </Link>
+          )}
         </div>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={parseImages(conv.listing.images)[0]}
-          alt=""
-          className="size-11 rounded-lg object-cover border border-neutral-100 shrink-0"
-        />
+        {conv.listing && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={parseImages(conv.listing.images)[0]}
+            alt=""
+            className="size-11 rounded-lg object-cover border border-neutral-100 shrink-0"
+          />
+        )}
       </div>
 
       <ChatThread

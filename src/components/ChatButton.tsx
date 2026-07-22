@@ -9,11 +9,15 @@ import { useLang } from "./LangProvider";
 export function ChatButton({
   listingId,
   buyerId,
+  userId,
   label,
   className,
 }: {
-  listingId: string;
+  // chat about a listing…
+  listingId?: string;
   buyerId?: string;
+  // …or a direct chat with a user (from their profile)
+  userId?: string;
   label?: string;
   className?: string;
 }) {
@@ -27,7 +31,7 @@ export function ChatButton({
     const res = await fetch("/api/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ listingId, buyerId }),
+      body: JSON.stringify({ listingId, buyerId, userId }),
     });
     setLoading(false);
     if (res.status === 401) {

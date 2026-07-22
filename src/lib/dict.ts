@@ -252,6 +252,11 @@ const ar = {
     anonymous: "مجهول",
     chatWinner: "راسل الفائز",
     chatFailed: "ما قدرنا نفتح المحادثة، حاول مرة ثانية",
+    chatBidder: "مراسلة المزايد",
+    blockBidder: "حظر من المزاد",
+    blockConfirm:
+      "تحظر هذا المزايد من مزادك؟ تنحذف كل مزايداته من هذا المزاد وما يقدر يزايد فيه مرة ثانية.",
+    blockedOk: "تم حظر المزايد وحذف مزايداته من هذا المزاد",
   },
   comments: {
     title: "الاستفسارات والتعليقات",
@@ -354,6 +359,7 @@ const ar = {
     noReviews: "لا توجد تقييمات بعد",
     credScore: "نقاط المصداقية",
     listingsOf: (name: string) => `إعلانات ${name}`,
+    chat: "مراسلة",
   },
   pub: {
     otpTitle: "رمز التحقق",
@@ -700,6 +706,7 @@ const ar = {
       emptyHint: "راسل أي بائع من صفحة إعلانه وستظهر المحادثة هنا",
       photo: "📷 صورة",
       newConv: "محادثة جديدة",
+      direct: "محادثة مباشرة",
     },
     storePage: {
       title: "متاجري",
@@ -1363,6 +1370,11 @@ const en: typeof ar = {
     anonymous: "Anonymous",
     chatWinner: "Message the winner",
     chatFailed: "Couldn't open the conversation, try again",
+    chatBidder: "Message bidder",
+    blockBidder: "Block from auction",
+    blockConfirm:
+      "Block this bidder from your auction? All their bids in this auction will be removed and they won't be able to bid again.",
+    blockedOk: "Bidder blocked and their bids removed from this auction",
   },
   comments: {
     title: "Questions & Comments",
@@ -1465,6 +1477,7 @@ const en: typeof ar = {
     noReviews: "No reviews yet",
     credScore: "Credibility Score",
     listingsOf: (name: string) => `Listings by ${name}`,
+    chat: "Message",
   },
   pub: {
     otpTitle: "Verification Code",
@@ -1811,6 +1824,7 @@ const en: typeof ar = {
       emptyHint: "Message any seller from their listing page and the chat appears here",
       photo: "📷 Photo",
       newConv: "New conversation",
+      direct: "Direct chat",
     },
     storePage: {
       title: "My Stores",

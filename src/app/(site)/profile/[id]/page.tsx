@@ -10,6 +10,7 @@ import { getT } from "@/lib/i18n";
 import { formatDate, trustLevel } from "@/lib/utils";
 import { AuctionCard } from "@/components/AuctionCard";
 import { Avatar } from "@/components/Avatar";
+import { ChatButton } from "@/components/ChatButton";
 import { EmptyState } from "@/components/EmptyState";
 import { FollowButton } from "@/components/FollowButton";
 import { ListingCard } from "@/components/ListingCard";
@@ -126,12 +127,13 @@ export default async function ProfilePage({
             </div>
           )}
           {(!viewer || viewer.id !== user.id) && (
-            <div className="flex justify-center sm:justify-start pt-1">
+            <div className="flex items-center gap-2 justify-center sm:justify-start pt-1 flex-wrap">
               <FollowButton
                 sellerId={user.id}
                 initialFollowing={!!myFollow}
                 followerCount={followerCount}
               />
+              <ChatButton userId={user.id} label={p.chat} />
             </div>
           )}
         </div>

@@ -57,6 +57,12 @@ export async function POST(
       if (auction.listing.sellerId === user.id) {
         throw new ProxyError(403, "لا يمكنك المزايدة على مزادك الخاص");
       }
+      const blocked = await tx.auctionBlock.findUnique({
+        where: { auctionId_userId: { auctionId: id, userId: user.id } },
+      });
+      if (blocked) {
+        throw new ProxyError(403, "حظرك صاحب المزاد من المزايدة في هذا المزاد");
+      }
 
       const top = auction.bids[0] ?? null;
       const minNext = top ? top.amount + auction.minIncrement : auction.startPrice;

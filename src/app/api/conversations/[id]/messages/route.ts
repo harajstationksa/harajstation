@@ -188,7 +188,9 @@ export async function POST(
       recipientId,
       "MESSAGE",
       "رسالة جديدة",
-      `رسالة من ${session.name} حول "${conv.listing.title}"`,
+      conv.listing
+        ? `رسالة من ${session.name} حول "${conv.listing.title}"`
+        : `رسالة من ${session.name}`,
       link
     );
   }

@@ -89,16 +89,18 @@ export default async function MessagesPage() {
                       : d.newConv}
                   </p>
                   <p className="text-[11px] text-primary-600 line-clamp-1 mt-0.5">
-                    {c.listing.title}
+                    {c.listing ? c.listing.title : d.direct}
                   </p>
                 </div>
                 <div className="flex flex-col items-center gap-1 shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={parseImages(c.listing.images)[0]}
-                    alt=""
-                    className="size-10 rounded-lg object-cover border border-neutral-100"
-                  />
+                  {c.listing && (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={parseImages(c.listing.images)[0]}
+                      alt=""
+                      className="size-10 rounded-lg object-cover border border-neutral-100"
+                    />
+                  )}
                   {unread > 0 && (
                     <span className="badge bg-primary-500 text-white">{unread}</span>
                   )}
