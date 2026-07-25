@@ -191,6 +191,9 @@ export default async function VerificationsPage() {
                 listingId: t.listingId,
                 evidenceSubmitted:
                   t.dispute?.evidences.some((ev) => ev.userId === user.id) ?? false,
+                extStatus: t.extStatus as ConfirmTx["extStatus"],
+                extDays: t.extDays,
+                extNote: t.extNote,
               };
               return <ConfirmCard key={t.id} tx={tx} />;
             })}

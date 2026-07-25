@@ -662,7 +662,7 @@ async function main() {
   await db.notification.createMany({
     data: [
       { userId: demo.id, type: "WON", title: "مبروك! فزت بالمزاد", body: "فزت بمزاد \"كاميرا سوني A7 III\" بمبلغ 5,200 ر.س. تواصل مع البائع لترتيب الاستلام.", link: "/dashboard/verifications", createdAt: hoursAgo(8) },
-      { userId: demo.id, type: "SOLD", title: "تهانينا! تم بيع مزادك", body: "تم بيع \"لابتوب ASUS ROG Strix\" بمبلغ 4,300 ر.س. أكد التسليم خلال 48 ساعة.", link: "/dashboard/verifications", createdAt: hoursAgo(4) },
+      { userId: demo.id, type: "SOLD", title: "تهانينا! تم بيع مزادك", body: "تم بيع \"لابتوب ASUS ROG Strix\" بمبلغ 4,300 ر.س. أكد التسليم خلال 10 أيام.", link: "/dashboard/verifications", createdAt: hoursAgo(4) },
       { userId: demo.id, type: "OUTBID", title: "تم تجاوز مزايدتك", body: "زايد شخص آخر على \"تويوتا لاندكروزر GXR 2021\". المزايدة الحالية 214,000 ر.س.", link: "/auctions", createdAt: hoursAgo(1), readAt: null },
       { userId: demo.id, type: "SYSTEM", title: "أهلاً بك في حراج ستيشن", body: "اكتمل تفعيل حسابك. ابدأ بتصفح المزادات الحية أو أضف إعلانك الأول.", createdAt: hoursAgo(24 * 300), readAt: hoursAgo(24 * 299) },
     ],

@@ -2,6 +2,8 @@
 // Arabic-first; English covers the full public browsing surface.
 // User-generated content (listing titles/descriptions) stays as written.
 
+import { CONFIRM_WINDOW_DAYS } from "./constants";
+
 export type Lang = "ar" | "en";
 
 const ar = {
@@ -198,7 +200,7 @@ const ar = {
     back: "رجوع لإعلاناتي",
     pickBuyer: "اختر المشتري",
     whyPick:
-      "اختيار المشتري يفتح تأكيداً متبادلاً بينكما خلال 48 ساعة، يرفع مصداقيتكما ويتيح التقييم — التقييمات الحقيقية تبيع إعلانك القادم أسرع.",
+      `اختيار المشتري يفتح تأكيداً متبادلاً بينكما خلال ${CONFIRM_WINDOW_DAYS} أيام، يرفع مصداقيتكما ويتيح التقييم — التقييمات الحقيقية تبيع إعلانك القادم أسرع.`,
     viaChat: "راسلك",
     offered: "عرض",
     acceptedOffer: "اتفقتما على",
@@ -441,7 +443,7 @@ const ar = {
     sub: "حراج ستيشن لا تتوسط مالياً بين البائع والمشتري — لذلك بنينا نظاماً يجعل الثقة قابلة للقياس، ويحاسب الطرفين بعد كل معاملة.",
     howTitle: "كيف يعمل التحقق المتبادل؟",
     s1a: "عند انتهاء مزاد بفائز (أو إتمام بيع)، تُفتح نافذة تأكيد لمدة ",
-    s1b: "48 ساعة",
+    s1b: `${CONFIRM_WINDOW_DAYS} أيام`,
     s1c: ".",
     s2: "يُسأل البائع: «هل سلّمت المنتج؟» ويُسأل المشتري: «هل استلمت المنتج؟»",
     s3a: "إجابتان بـ«نعم» → معاملة مؤكدة و",
@@ -684,7 +686,7 @@ const ar = {
       sumCred: "المصداقية",
       howTitle: "كيف يعمل نظام التحقق؟",
       how1t: "تتم الصفقة",
-      how1s: "بيع مباشر أو فوز بمزاد — تُفتح نافذة تحقق لمدة 48 ساعة",
+      how1s: `بيع مباشر أو فوز بمزاد — تُفتح نافذة تحقق لمدة ${CONFIRM_WINDOW_DAYS} أيام`,
       how2t: "يؤكد الطرفان",
       how2s: "كلٌّ من البائع والمشتري يؤكد إتمام التسليم والاستلام",
       how3t: "ترتفع مصداقيتكما",
@@ -816,6 +818,27 @@ const ar = {
       evidenceOk: "تم استلام إفادتك — يمكنك إضافة المزيد",
       evidencePh: "اشرح ما حدث بالتفصيل...",
       evidenceBtn: "إرسال الإفادة لفريق الدعم",
+      extAsk: "طلب تمديد المهلة",
+      extHint: "تحتاج وقتاً أطول؟ اطلب تمديداً واحداً — يصل البائع ليوافق أو يرفض.",
+      extDays: "مدة التمديد",
+      extDaysOpt: (n: number) => `${n} أيام`,
+      extNotePh: "سبب الطلب (اختياري) — مثلاً: الشحن يستغرق أسبوعاً",
+      extSend: "إرسال الطلب للبائع",
+      extCancel: "إلغاء",
+      extPendingBuyer: (n: number) =>
+        `طلبت تمديد المهلة ${n} أيام — بانتظار موافقة البائع.`,
+      extPendingSeller: (n: number) =>
+        `طلب المشتري تمديد مهلة التأكيد ${n} أيام إضافية.`,
+      extNoteLabel: "سبب المشتري:",
+      extApprove: "موافقة",
+      extReject: "رفض",
+      extApproveQ: (n: number) => `الموافقة على تمديد المهلة ${n} أيام؟`,
+      extRejectQ: "رفض طلب تمديد المهلة؟",
+      extApprovedBuyer: (n: number) => `وافق البائع على تمديد المهلة ${n} أيام.`,
+      extApprovedSeller: (n: number) => `وافقت على تمديد المهلة ${n} أيام.`,
+      extRejectedBuyer: "رفض البائع طلب التمديد — المهلة الحالية سارية.",
+      extRejectedSeller: "رفضت طلب التمديد.",
+      extAutoNote: "إن لم يرد البائع قبل انتهاء المهلة، يُمنح التمديد تلقائياً.",
     },
     thread: {
       all: "كل الرسائل",
@@ -1316,7 +1339,7 @@ const en: typeof ar = {
     back: "Back to my listings",
     pickBuyer: "Pick the buyer",
     whyPick:
-      "Picking the buyer opens a 48h mutual confirmation, boosts both credibility scores and unlocks reviews — real reviews sell your next listing faster.",
+      `Picking the buyer opens a ${CONFIRM_WINDOW_DAYS}-day mutual confirmation, boosts both credibility scores and unlocks reviews — real reviews sell your next listing faster.`,
     viaChat: "Messaged you",
     offered: "Offered",
     acceptedOffer: "Agreed on",
@@ -1559,7 +1582,7 @@ const en: typeof ar = {
     sub: "Haraj Station doesn't handle money between buyer and seller — so we built a system that makes trust measurable and holds both sides accountable after every deal.",
     howTitle: "How does mutual verification work?",
     s1a: "When an auction ends with a winner (or a sale completes), a confirmation window opens for ",
-    s1b: "48 hours",
+    s1b: `${CONFIRM_WINDOW_DAYS} days`,
     s1c: ".",
     s2: "The seller is asked: “Did you deliver?” and the buyer: “Did you receive?”",
     s3a: "Two “yes” answers → a confirmed deal and ",
@@ -1802,7 +1825,7 @@ const en: typeof ar = {
       sumCred: "Credibility",
       howTitle: "How does verification work?",
       how1t: "The deal happens",
-      how1s: "A direct sale or auction win opens a 48-hour verification window",
+      how1s: `A direct sale or auction win opens a ${CONFIRM_WINDOW_DAYS}-day verification window`,
       how2t: "Both sides confirm",
       how2s: "Seller and buyer each confirm delivery and receipt",
       how3t: "Credibility rises",
@@ -1930,6 +1953,27 @@ const en: typeof ar = {
       evidenceOk: "Your statement was received — you can add more",
       evidencePh: "Explain what happened in detail...",
       evidenceBtn: "Send statement to support",
+      extAsk: "Request more time",
+      extHint: "Need longer? Ask for one extension — the seller approves or declines it.",
+      extDays: "Extra days",
+      extDaysOpt: (n: number) => `${n} days`,
+      extNotePh: "Reason (optional) — e.g. shipping takes a week",
+      extSend: "Send request to seller",
+      extCancel: "Cancel",
+      extPendingBuyer: (n: number) =>
+        `You asked for ${n} extra days — waiting for the seller's approval.`,
+      extPendingSeller: (n: number) =>
+        `The buyer asked for ${n} extra days on the confirmation deadline.`,
+      extNoteLabel: "Buyer's reason:",
+      extApprove: "Approve",
+      extReject: "Decline",
+      extApproveQ: (n: number) => `Approve ${n} extra days?`,
+      extRejectQ: "Decline the extension request?",
+      extApprovedBuyer: (n: number) => `The seller granted ${n} extra days.`,
+      extApprovedSeller: (n: number) => `You granted ${n} extra days.`,
+      extRejectedBuyer: "The seller declined the extension — the current deadline stands.",
+      extRejectedSeller: "You declined the extension request.",
+      extAutoNote: "If the seller doesn't answer before the deadline, the extension is granted automatically.",
     },
     thread: {
       all: "All messages",

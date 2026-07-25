@@ -38,6 +38,9 @@ export async function GET() {
         myAnswer: isSeller ? t.sellerAnswer : t.buyerAnswer,
         otherAnswer: isSeller ? t.buyerAnswer : t.sellerAnswer,
         deadline: t.deadline.toISOString(),
+        extension: t.extStatus
+          ? { status: t.extStatus, days: t.extDays, note: t.extNote }
+          : null,
         createdAt: t.createdAt.toISOString(),
         listing: {
           id: t.listing.id,

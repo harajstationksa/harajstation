@@ -661,7 +661,8 @@ model Bid {
   @@index([auctionId, amount])
 }
 
-// Mutual verification window after a sale/auction (48h)
+// Mutual verification window after a sale/auction (CONFIRM_WINDOW_DAYS, +1
+// buyer-requested extension the seller approves)
 model Transaction {
   id           String   @id @default(cuid())
   listingId    String
@@ -679,6 +680,13 @@ model Transaction {
   // PENDING | CONFIRMED | CANCELLED | DISPUTED | EXPIRED
   status       String   @default("PENDING")
   deadline     DateTime
+  // Buyer-requested deadline extension — at most one per transaction, decided
+  // by the seller. null = never asked.
+  // PENDING | APPROVED | REJECTED
+  extStatus    String?
+  extDays      Int?
+  extNote      String?
+  extAskedAt   DateTime?
   createdAt    DateTime @default(now())
   dispute      Dispute?
 

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   AlertTriangle,
+  CalendarClock,
   Check,
   Hourglass,
   Loader2,
@@ -13,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { useLang } from "@/components/LangProvider";
+import { EXTENSION_DAY_OPTIONS } from "@/lib/constants";
 import { formatSAR } from "@/lib/utils";
 import { ChatButton } from "./ChatButton";
 import { Countdown } from "./Countdown";
@@ -29,15 +31,24 @@ export type ConfirmTx = {
   counterpart: { id: string; name: string; phone: string | null };
   listingId: string;
   evidenceSubmitted: boolean;
+  /** null = the buyer never asked for more time */
+  extStatus: "PENDING" | "APPROVED" | "REJECTED" | null;
+  extDays: number | null;
+  extNote: string | null;
 };
 
 export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
   const { t } = useLang();
   const d = t.dash.confirmCard;
   const router = useRouter();
-  const [loading, setLoading] = useState<"YES" | "NO" | "EVIDENCE" | null>(null);
+  const [loading, setLoading] = useState<
+    "YES" | "NO" | "EVIDENCE" | "EXT" | null
+  >(null);
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
+  const [extOpen, setExtOpen] = useState(false);
+  const [extDays, setExtDays] = useState(EXTENSION_DAY_OPTIONS[0]);
+  const [extNote, setExtNote] = useState("");
 
   async function answer(value: "YES" | "NO") {
     const q = tx.role === "SELLER" ? d.confirmDeliver : d.confirmReceive;
@@ -77,8 +88,35 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
     router.refresh();
   }
 
+  /** buyer asks for more time, or seller answers that ask */
+  async function extension(
+    body: { days: number; note?: string } | { decision: "APPROVE" | "REJECT" }
+  ) {
+    setLoading("EXT");
+    setError("");
+    const res = await fetch(`/api/transactions/${tx.id}/extension`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setLoading(null);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error ?? d.err);
+      return;
+    }
+    setExtOpen(false);
+    setExtNote("");
+    router.refresh();
+  }
+
   const question =
     tx.role === "SELLER" ? d.qSeller(tx.counterpart.name) : d.qBuyer(tx.counterpart.name);
+  const isBuyer = tx.role === "BUYER";
+  // one extension per transaction, and only while the buyer still owes an answer
+  const canAskExtension =
+    isBuyer && tx.status === "PENDING" && !tx.myAnswer && !tx.extStatus;
+  const extDaysValue = tx.extDays ?? 0;
 
   return (
     <div className="card p-5 space-y-4">
@@ -176,6 +214,133 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
         <p className="text-sm text-neutral-600 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
           {d.answered(tx.myAnswer === "YES" ? d.yes : d.no)}
         </p>
+      )}
+
+      {/* ── deadline extension: buyer asks, seller decides ── */}
+      {tx.status === "PENDING" && (
+        <>
+          {canAskExtension && !extOpen && (
+            <button
+              onClick={() => setExtOpen(true)}
+              className="act-btn bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+            >
+              <CalendarClock className="size-3.5" />
+              {d.extAsk}
+            </button>
+          )}
+
+          {canAskExtension && extOpen && (
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-2.5">
+              <p className="text-xs text-neutral-500">{d.extHint}</p>
+              <label className="block text-sm font-semibold">{d.extDays}</label>
+              <select
+                className="input"
+                value={extDays}
+                onChange={(e) => setExtDays(Number(e.target.value))}
+              >
+                {EXTENSION_DAY_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {d.extDaysOpt(n)}
+                  </option>
+                ))}
+              </select>
+              <textarea
+                className="input min-h-20 py-2"
+                placeholder={d.extNotePh}
+                value={extNote}
+                onChange={(e) => setExtNote(e.target.value)}
+                maxLength={300}
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() =>
+                    extension({ days: extDays, note: extNote.trim() || undefined })
+                  }
+                  disabled={loading !== null}
+                  className="btn-primary"
+                >
+                  {loading === "EXT" ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <CalendarClock className="size-4" />
+                  )}
+                  {d.extSend}
+                </button>
+                <button
+                  onClick={() => setExtOpen(false)}
+                  disabled={loading !== null}
+                  className="btn-secondary"
+                >
+                  {d.extCancel}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {tx.extStatus === "PENDING" && isBuyer && (
+            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+              {d.extPendingBuyer(extDaysValue)}
+            </p>
+          )}
+
+          {tx.extStatus === "PENDING" && !isBuyer && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2.5">
+              <p className="text-sm font-semibold text-amber-900 flex items-center gap-1.5">
+                <CalendarClock className="size-4" />
+                {d.extPendingSeller(extDaysValue)}
+              </p>
+              {tx.extNote && (
+                <p className="text-sm text-neutral-600">
+                  <span className="text-neutral-500">{d.extNoteLabel}</span>{" "}
+                  {tx.extNote}
+                </p>
+              )}
+              <p className="text-xs text-neutral-500">{d.extAutoNote}</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    if (!confirm(d.extApproveQ(extDaysValue))) return;
+                    extension({ decision: "APPROVE" });
+                  }}
+                  disabled={loading !== null}
+                  className="btn bg-green-600 text-white hover:bg-green-700"
+                >
+                  {loading === "EXT" ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Check className="size-4" />
+                  )}
+                  {d.extApprove}
+                </button>
+                <button
+                  onClick={() => {
+                    if (!confirm(d.extRejectQ)) return;
+                    extension({ decision: "REJECT" });
+                  }}
+                  disabled={loading !== null}
+                  className="btn-danger"
+                >
+                  <X className="size-4" />
+                  {d.extReject}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {tx.extStatus === "APPROVED" && (
+            <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
+              {isBuyer
+                ? d.extApprovedBuyer(extDaysValue)
+                : d.extApprovedSeller(extDaysValue)}
+            </p>
+          )}
+
+          {tx.extStatus === "REJECTED" && (
+            <p className="text-sm text-neutral-600 bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-2">
+              {isBuyer ? d.extRejectedBuyer : d.extRejectedSeller}
+            </p>
+          )}
+        </>
       )}
 
       {tx.status === "DISPUTED" && (

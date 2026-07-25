@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { CONFIRM_WINDOW_HOURS } from "@/lib/constants";
+import { CONFIRM_WINDOW_DAYS, CONFIRM_WINDOW_HOURS } from "@/lib/constants";
 import { notify, notifyMany } from "@/lib/notify";
 import { adjustPoints } from "@/lib/points";
 import { getSettingInt } from "@/lib/settings";
@@ -71,7 +71,7 @@ export async function bumpListingAction(formData: FormData) {
 
 /**
  * Mark sold WITH a chosen buyer: mirrors the auction flow — a STANDARD
- * transaction opens the 48h mutual-confirmation window, which feeds
+ * transaction opens the mutual-confirmation window, which feeds
  * credibility, the successful-deals counter and mutual reviews. Selling
  * outside the platform (no buyer picked) just closes the listing.
  */
@@ -126,7 +126,7 @@ export async function markSoldWithBuyerAction(formData: FormData) {
           buyerId,
           "CONFIRM",
           "أكّد إتمام الصفقة",
-          `البائع أكّد بيع "${listing.title}" لك بمبلغ ${formatSAR(amount)} — أكّد الاستلام خلال ${CONFIRM_WINDOW_HOURS} ساعة ليُحتسب التقييم للطرفين.`,
+          `البائع أكّد بيع "${listing.title}" لك بمبلغ ${formatSAR(amount)} — أكّد الاستلام خلال ${CONFIRM_WINDOW_DAYS} أيام ليُحتسب التقييم للطرفين.`,
           "/dashboard/verifications"
         );
         txCreated = true;

@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { notify } from "@/lib/notify";
 import {
+  CONFIRM_WINDOW_DAYS,
   CONFIRM_WINDOW_HOURS,
   SNIPE_EXTENSION_MS,
   SNIPE_WINDOW_MS,
@@ -201,7 +202,7 @@ export async function POST(
         result.listing.sellerId,
         "SOLD",
         "تم الشراء الفوري لمزادك",
-        `اشترى أحد المستخدمين "${result.listing.title}" بسعر الشراء الفوري ${formatSAR(result.finalAmount)}. أكد التسليم خلال 48 ساعة.`,
+        `اشترى أحد المستخدمين "${result.listing.title}" بسعر الشراء الفوري ${formatSAR(result.finalAmount)}. أكد التسليم خلال ${CONFIRM_WINDOW_DAYS} أيام.`,
         "/dashboard/verifications"
       );
       await notify(

@@ -93,8 +93,11 @@ export async function evaluateTransaction(txId: string) {
 }
 
 /**
- * Lazy timeout handling — pending transactions past their 48h deadline.
+ * Lazy timeout handling — pending transactions past their confirmation
+ * deadline.
  *   silence/silence → EXPIRED (-5 both) · answer/silence → non-responder -3
+ * A buyer extension request the seller never answered is granted here: the
+ * buyer asked in time, so the seller's silence must not cost the buyer points.
  */
 export async function expirePendingTransactions() {
   const overdue = await db.transaction.findMany({
@@ -103,6 +106,27 @@ export async function expirePendingTransactions() {
   });
 
   for (const t of overdue) {
+    if (t.extStatus === "PENDING") {
+      const days = t.extDays ?? 0;
+      await db.transaction.update({
+        where: { id: t.id },
+        data: {
+          extStatus: "APPROVED",
+          deadline: new Date(t.deadline.getTime() + days * 86_400_000),
+        },
+      });
+      for (const uid of [t.sellerId, t.buyerId]) {
+        await notify(
+          uid,
+          "CONFIRM",
+          "تم تمديد مهلة التحقق تلقائياً",
+          `انتهت مهلة تأكيد "${t.listing.title}" ولم يبتّ البائع في طلب التمديد، فمُنح المشتري ${days} أيام إضافية.`,
+          "/dashboard/verifications"
+        );
+      }
+      continue;
+    }
+
     const sellerSilent = !t.sellerAnswer;
     const buyerSilent = !t.buyerAnswer;
 
@@ -131,7 +155,7 @@ export async function expirePendingTransactions() {
       silentId,
       "CONFIRM",
       "انتهت مهلة التأكيد",
-      `لم ترد على طلب تأكيد معاملة "${t.listing.title}" خلال 48 ساعة، فخُصمت 3 نقاط من مصداقيتك.`,
+      `لم ترد على طلب تأكيد معاملة "${t.listing.title}" خلال المهلة المحددة، فخُصمت 3 نقاط من مصداقيتك.`,
       "/dashboard/verifications"
     );
   }

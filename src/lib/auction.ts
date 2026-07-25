@@ -4,7 +4,7 @@ import { CONFIRM_WINDOW_HOURS } from "./constants";
 import { formatSAR } from "./utils";
 
 /**
- * Locks expired LIVE auctions, determines winners and opens the 48h
+ * Locks expired LIVE auctions, determines winners and opens the
  * mutual-confirmation window. Only invoked via GET /api/cron — the server
  * must hit that endpoint every minute (deploy/cron.d-harajstation installed
  * as /etc/cron.d/harajstation) or ended auctions are never finalized and no

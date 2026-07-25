@@ -76,7 +76,15 @@ export const CRED = {
   DISPUTE_WINNER: 5,
 } as const;
 
-export const CONFIRM_WINDOW_HOURS = 48;
+// Mutual-confirmation window opened by a sale / auction win. Two days proved
+// too tight — shipping between cities, inspection and travel routinely ate it,
+// and a silent party loses credibility points — so the base window is 10 days
+// and the buyer may ask the seller for ONE extension on top of it.
+export const CONFIRM_WINDOW_DAYS = 10;
+export const CONFIRM_WINDOW_HOURS = CONFIRM_WINDOW_DAYS * 24;
+// day choices offered to the buyer when requesting more time
+export const EXTENSION_DAY_OPTIONS = [3, 5, 7, 10];
+export const EXTENSION_MAX_DAYS = 10;
 export const SNIPE_WINDOW_MS = 2 * 60 * 1000; // last 2 minutes
 export const SNIPE_EXTENSION_MS = 2 * 60 * 1000; // extend by 2 minutes
 
