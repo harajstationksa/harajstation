@@ -87,12 +87,18 @@ export async function POST(
       if (!["SOLD", "EXPIRED"].includes(listing.status)) {
         return NextResponse.json({ error: "الإعلان غير قابل لإعادة النشر" }, { status: 400 });
       }
+      // auctions aren't relistable — the seller starts a new auction instead
+      if (listing.type === "AUCTION") {
+        return NextResponse.json(
+          { error: "المزادات لا يمكن إعادة نشرها — أنشئ مزاداً جديداً" },
+          { status: 400 }
+        );
+      }
       const limits = await getPlanLimits(user.isPro);
       const activeCount = await db.listing.count({
         where: { sellerId: user.id, status: "ACTIVE", type: listing.type },
       });
-      const max = listing.type === "AUCTION" ? limits.maxAuctions : limits.maxListings;
-      if (activeCount >= max) {
+      if (activeCount >= limits.maxListings) {
         return NextResponse.json({ error: "وصلت الحد الأقصى للإعلانات النشطة" }, { status: 403 });
       }
       await db.listing.update({

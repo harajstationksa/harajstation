@@ -228,7 +228,10 @@ export default async function MyListingsPage({
             const canEdit = l.status === "ACTIVE" && !liveAuction;
             const canPromote = l.status === "ACTIVE" && !l.isPromoted;
             const canSell = l.status === "ACTIVE" && !liveAuction;
-            const canRelist = l.status === "SOLD" || l.status === "EXPIRED";
+            // auctions are never relisted — the seller starts a fresh auction
+            // instead, so the old bid history/end time can't be reused
+            const canRelist =
+              !isAuction && (l.status === "SOLD" || l.status === "EXPIRED");
             const bumpIsFree =
               now - l.bumpedAt.getTime() >= bumpFreeHours * 3_600_000;
             const canBump =

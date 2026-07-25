@@ -37,7 +37,7 @@ export async function finalizeExpiredAuctions() {
         auction.listing.sellerId,
         "SYSTEM",
         "انتهى المزاد دون مزايدات",
-        `انتهى مزاد "${auction.listing.title}" دون أي مزايدة. يمكنك إعادة نشره في أي وقت.`,
+        `انتهى مزاد "${auction.listing.title}" دون أي مزايدة. يمكنك إنشاء مزاد جديد في أي وقت.`,
         `/auctions/${auction.id}`
       );
       continue;

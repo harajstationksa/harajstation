@@ -177,13 +177,15 @@ export async function relistAction(formData: FormData) {
   const listing = await db.listing.findUnique({ where: { id } });
   if (!listing || listing.sellerId !== user.id) return;
   if (!["SOLD", "EXPIRED"].includes(listing.status)) return;
+  // auctions can't be relisted: the attached auction row still carries the old
+  // bids and end time — the seller creates a new auction instead
+  if (listing.type === "AUCTION") return;
 
   const limits = await getPlanLimits(user.isPro);
   const activeCount = await db.listing.count({
     where: { sellerId: user.id, status: "ACTIVE", type: listing.type },
   });
-  const max = listing.type === "AUCTION" ? limits.maxAuctions : limits.maxListings;
-  if (activeCount >= max) return;
+  if (activeCount >= limits.maxListings) return;
 
   await db.listing.update({
     where: { id },
