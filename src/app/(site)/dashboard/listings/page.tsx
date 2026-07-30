@@ -15,6 +15,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { db } from "@/lib/db";
+import { displayListingStatus } from "@/lib/auction";
 import { getT } from "@/lib/i18n";
 import { requireUser } from "@/lib/auth";
 import { getSettingInt } from "@/lib/settings";
@@ -41,6 +42,9 @@ const STATUS_CLS: Record<string, string> = {
   SOLD: "bg-blue-50 text-blue-700",
   EXPIRED: "bg-neutral-100 text-neutral-500",
   REMOVED: "bg-red-50 text-red-600",
+  // display-only: hammer fell, finalizer hasn't run yet — same look as the
+  // «انتهى المزاد» badge on the public auction page
+  ENDED: "bg-neutral-700 text-white",
 };
 
 export default async function MyListingsPage({
@@ -218,24 +222,29 @@ export default async function MyListingsPage({
             const cover = parseImages(l.images)[0];
             const href = l.auction ? `/auctions/${l.auction.id}` : `/listings/${l.id}`;
             const isAuction = l.type === "AUCTION";
-            const liveAuction = isAuction && l.auction?.status === "LIVE";
+            const liveAuction =
+              isAuction && l.auction?.status === "LIVE" && l.auction.endsAt.getTime() > now;
+            // the auction row decides whether an auction listing is still
+            // running — its own `status` trails by up to a cron tick, and
+            // nothing here should offer to renew or sell a closed auction
+            const shownStatus = displayListingStatus(l, l.auction, now);
+            const isActive = shownStatus === "ACTIVE";
             // an announcement may carry no price at all — showing «0 ر.س» would
             // read as "free" rather than "negotiable"
             const price = isAuction
               ? (l.auction?.bids[0]?.amount ?? l.auction?.startPrice ?? 0)
               : l.price;
-            const canFeature = l.status === "ACTIVE" && !l.isFeatured && user.points >= featureCost;
-            const canEdit = l.status === "ACTIVE" && !liveAuction;
-            const canPromote = l.status === "ACTIVE" && !l.isPromoted;
-            const canSell = l.status === "ACTIVE" && !liveAuction;
+            const canFeature = isActive && !l.isFeatured && user.points >= featureCost;
+            const canEdit = isActive && !liveAuction;
+            const canPromote = isActive && !l.isPromoted;
+            const canSell = isActive && !liveAuction;
             // auctions are never relisted — the seller starts a fresh auction
             // instead, so the old bid history/end time can't be reused
             const canRelist =
               !isAuction && (l.status === "SOLD" || l.status === "EXPIRED");
             const bumpIsFree =
               now - l.bumpedAt.getTime() >= bumpFreeHours * 3_600_000;
-            const canBump =
-              l.status === "ACTIVE" && (bumpIsFree || user.points >= bumpCost);
+            const canBump = isActive && (bumpIsFree || user.points >= bumpCost);
 
             return (
               <div key={l.id} className="p-3 hover:bg-neutral-50/60 transition-colors">
@@ -253,8 +262,8 @@ export default async function MyListingsPage({
                           })()}
                           {(TYPE_BADGE[l.type] ?? TYPE_BADGE.STANDARD).label}
                         </span>
-                        <span className={`badge ${STATUS_CLS[l.status] ?? "bg-neutral-100"}`}>
-                          {t.dash.listingStatus[l.status] ?? l.status}
+                        <span className={`badge ${STATUS_CLS[shownStatus] ?? "bg-neutral-100"}`}>
+                          {t.dash.listingStatus[shownStatus] ?? shownStatus}
                         </span>
                         {l.isFeatured && <span className="badge bg-primary-500 text-white">{d.featured}</span>}
                         {l.isPromoted && <span className="badge bg-amber-500 text-white">{d.promoted}</span>}

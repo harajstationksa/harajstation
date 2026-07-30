@@ -593,6 +593,8 @@ const ar = {
       SOLD: "تم البيع",
       EXPIRED: "منتهي",
       REMOVED: "محذوف",
+      // display-only — an auction past its end time, outcome not settled yet
+      ENDED: "انتهى المزاد",
     } as Record<string, string>,
     overview: {
       title: "لوحة التحكم",
@@ -1732,6 +1734,7 @@ const en: typeof ar = {
       SOLD: "Sold",
       EXPIRED: "Expired",
       REMOVED: "Removed",
+      ENDED: "Auction ended",
     },
     overview: {
       title: "Dashboard",
