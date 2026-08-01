@@ -4,16 +4,23 @@ import type { NextConfig } from "next";
 // else is locked to same-origin. Tighten with nonces later if needed.
 // unsafe-eval is a dev-only need (webpack eval sourcemaps) — production
 // bundles never eval, so don't hand that power to injected markup there.
+// Google Analytics (gtag.js) hosts: the tag itself is served from
+// googletagmanager.com and beacons go to the analytics domains, so both need a
+// hole in the policy or the tag silently never loads.
+const GA_SCRIPT_SRC = "https://*.googletagmanager.com";
+const GA_CONNECT_SRC =
+  "https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com";
+
 const CSP = [
   "default-src 'self'",
   process.env.NODE_ENV === "development"
-    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-    : "script-src 'self' 'unsafe-inline'",
+    ? `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${GA_SCRIPT_SRC}`
+    : `script-src 'self' 'unsafe-inline' ${GA_SCRIPT_SRC}`,
   "style-src 'self' 'unsafe-inline'",
   // https: so images served from the R2 CDN domain load
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self'",
+  `connect-src 'self' ${GA_CONNECT_SRC}`,
   "frame-ancestors 'self'",
   "base-uri 'self'",
   "form-action 'self'",

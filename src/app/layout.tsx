@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cairo, IBM_Plex_Sans_Arabic } from "next/font/google";
 import { getLang } from "@/lib/i18n";
 import { BRAND, organizationLd, SITE, websiteLd } from "@/lib/seo";
+import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { JsonLd } from "@/components/JsonLd";
 import { LangProvider } from "@/components/LangProvider";
 import { NativeFormMessages } from "@/components/NativeFormMessages";
@@ -80,6 +81,7 @@ export default async function RootLayout({
           {children}
         </LangProvider>
         <PwaRegister />
+        <GoogleAnalytics />
       </body>
     </html>
   );
