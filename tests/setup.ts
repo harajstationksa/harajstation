@@ -5,11 +5,13 @@
  *
  * Guard: tests refuse to run against anything but a local database.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
-for (const line of readFileSync(".env", "utf8").split(/\r?\n/)) {
-  const m = line.match(/^([A-Z0-9_]+)="?([^"]*)"?\s*$/);
-  if (m && !(m[1] in process.env)) process.env[m[1]] = m[2];
+if (existsSync(".env")) {
+  for (const line of readFileSync(".env", "utf8").split(/\r?\n/)) {
+    const m = line.match(/^([A-Z0-9_]+)="?([^"]*)"?\s*$/);
+    if (m && !(m[1] in process.env)) process.env[m[1]] = m[2];
+  }
 }
 
 delete process.env.SMTP_HOST;
