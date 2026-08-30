@@ -27,7 +27,6 @@ echo "==> preparing immutable release $release"
 git archive HEAD | tar -x -C "$release"
 ln -s "$APP_DIR/.env" "$release/.env"
 mkdir -p "$APP_DIR/private-uploads"
-ln -s "$APP_DIR/private-uploads" "$release/private-uploads"
 cd "$release"
 
 echo "==> deps"
@@ -53,15 +52,19 @@ bash deploy/backup.sh
 echo "==> migrations"
 npx prisma migrate deploy
 
+echo "==> build"
+npm run build
+
+# Link private data only after Turbopack finishes. Following an out-of-project
+# symlink during its graph walk is rejected, while the runtime can safely use
+# the shared directory through authenticated routes.
+ln -s "$APP_DIR/private-uploads" "$release/private-uploads"
 echo "==> migrate legacy private chat data"
 npm run migrate:chat -- --apply
 
 chmod 700 "$APP_DIR/private-uploads"
 find "$APP_DIR/private-uploads" -type d -exec chmod 700 {} +
 find "$APP_DIR/private-uploads" -type f -exec chmod 600 {} +
-
-echo "==> build"
-npm run build
 
 echo "==> restart"
 if pm2 describe harajstation >/dev/null 2>&1; then
