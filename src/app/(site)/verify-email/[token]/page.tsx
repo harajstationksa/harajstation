@@ -2,6 +2,7 @@ import { getT } from "@/lib/i18n";
 import Link from "next/link";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { db } from "@/lib/db";
+import { hashOneTimeToken } from "@/lib/tokens";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export default async function VerifyEmailPage({
   const { token } = await params;
 
   const row = await db.emailVerificationToken.findUnique({
-    where: { token },
+    where: { token: hashOneTimeToken(token) },
     include: { user: true },
   });
 

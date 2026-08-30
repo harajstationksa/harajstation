@@ -24,10 +24,27 @@ npm ci
 echo "==> prisma client"
 npx prisma generate
 
+echo "==> production configuration"
+node --env-file=.env scripts/validate-production-env.cjs
+
+echo "==> data preflight"
+node --env-file=.env scripts/production-preflight.cjs
+
+echo "==> encrypted recovery point"
+bash deploy/backup.sh
+
 # Dev machines run their own local database since 2026-07-18 — production
 # schema changes arrive as checked-in migrations and are applied here.
 echo "==> migrations"
 npx prisma migrate deploy
+
+echo "==> migrate legacy private chat data"
+npm run migrate:chat -- --apply
+
+mkdir -p private-uploads
+chmod 700 private-uploads
+find private-uploads -type d -exec chmod 700 {} +
+find private-uploads -type f -exec chmod 600 {} +
 
 echo "==> build"
 npm run build
@@ -41,4 +58,14 @@ else
 fi
 
 pm2 status harajstation
+echo "==> health"
+healthy=0
+for attempt in 1 2 3 4 5 6; do
+  if curl --fail --silent --show-error http://127.0.0.1:3000/api/health >/dev/null; then
+    healthy=1
+    break
+  fi
+  sleep 2
+done
+[ "$healthy" = 1 ] || { echo "!! health check failed after reload" >&2; exit 1; }
 echo "==> done — https://harajstation.com"

@@ -26,7 +26,14 @@ const BYPASS = ["/api/payments/webhook", "/api/cron"];
  * Unset (local dev) → no host split, everything reachable as before.
  */
 const ADMIN_HOST = process.env.ADMIN_HOST;
-const ADMIN_PATHS = ["/admin", "/admin-login", "/api/admin-auth"];
+const ADMIN_PATHS = [
+  "/admin",
+  "/admin-login",
+  "/api/admin-auth",
+  "/api/admin",
+  "/api/identity/doc",
+  "/api/store/verify/doc",
+];
 
 function isAdminPath(pathname: string) {
   return ADMIN_PATHS.some(

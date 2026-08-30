@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -20,6 +21,7 @@ type Step = "email" | "password" | "code";
  * portal without access to the staff member's inbox.
  */
 export default function AdminLoginPage() {
+  const router = useRouter();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -75,7 +77,8 @@ export default function AdminLoginPage() {
       if (data.restart) restart();
       return;
     }
-    window.location.href = "/admin";
+    router.push("/admin");
+    router.refresh();
   }
 
   async function resend() {

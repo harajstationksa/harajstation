@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useLang } from "./LangProvider";
+import { safeBannerEmbedUrl } from "@/lib/banner-embed";
 
 type Banner = {
   id: string;
@@ -50,14 +51,24 @@ export function BannerCarousel({
         style={{ transform: `translateX(${shift}%)` }}
       >
         {banners.map((b) => {
-          // embed banner (AdSense / YouTube / TikTok ...)
-          if (b.embedHtml) {
+          const embedUrl = safeBannerEmbedUrl(b.embedHtml);
+          if (embedUrl) {
             return (
               <div
                 key={b.id}
                 className={cn("w-full shrink-0 bg-neutral-100 [&_iframe]:w-full [&_iframe]:h-full", aspect)}
-                dangerouslySetInnerHTML={{ __html: b.embedHtml }}
-              />
+              >
+                <iframe
+                  src={embedUrl}
+                  title={b.title}
+                  loading="lazy"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  sandbox="allow-scripts allow-same-origin allow-presentation"
+                  allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="border-0"
+                />
+              </div>
             );
           }
           const img = (

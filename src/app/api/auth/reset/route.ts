@@ -3,6 +3,7 @@ import { hashSync } from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { rateLimitGuard } from "@/lib/rate-limit";
+import { hashOneTimeToken } from "@/lib/tokens";
 
 const schema = z.object({
   token: z.string().min(32).max(128),
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
   }
 
   const reset = await db.passwordResetToken.findUnique({
-    where: { token: parsed.data.token },
+    where: { token: hashOneTimeToken(parsed.data.token) },
     include: { user: true },
   });
   if (!reset || reset.usedAt || reset.expiresAt < new Date() || reset.user.isBanned) {
@@ -36,7 +37,10 @@ export async function POST(req: Request) {
   await db.$transaction([
     db.user.update({
       where: { id: reset.userId },
-      data: { passwordHash: hashSync(parsed.data.password, 12) },
+      data: {
+        passwordHash: hashSync(parsed.data.password, 12),
+        sessionVersion: { increment: 1 },
+      },
     }),
     db.passwordResetToken.update({
       where: { id: reset.id },

@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { requireStaff } from "@/lib/auth";
 import { allSettings } from "@/lib/settings";
 import { BannerImageField } from "@/components/BannerImageField";
+import { safeBannerEmbedUrl } from "@/lib/banner-embed";
 import {
   createBannerAction,
   deleteBannerAction,
@@ -200,12 +201,18 @@ export default async function AdminBannersPage() {
 
       {/* list */}
       <div className="grid gap-4">
-        {banners.map((b) => (
+        {banners.map((b) => {
+          const embedUrl = safeBannerEmbedUrl(b.embedHtml);
+          return (
           <div key={b.id} className="card overflow-hidden">
-            {b.embedHtml ? (
-              <div
-                className="w-full aspect-4/1 bg-neutral-100 [&_iframe]:w-full [&_iframe]:h-full"
-                dangerouslySetInnerHTML={{ __html: b.embedHtml }}
+            {embedUrl ? (
+              <iframe
+                src={embedUrl}
+                title={b.title}
+                sandbox="allow-scripts allow-same-origin allow-presentation"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                referrerPolicy="strict-origin-when-cross-origin"
+                className="w-full aspect-4/1 border-0 bg-neutral-100"
               />
             ) : (
               /* eslint-disable-next-line @next/next/no-img-element */
@@ -239,7 +246,8 @@ export default async function AdminBannersPage() {
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

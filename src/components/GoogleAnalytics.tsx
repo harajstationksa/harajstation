@@ -1,7 +1,6 @@
 import Script from "next/script";
 
-/** Measurement ID of the harajstation.com GA4 property. */
-const GA_ID = "G-C3WN5PRQKT";
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
 
 /**
  * Google tag (gtag.js), loaded site-wide from the root layout.
@@ -12,7 +11,7 @@ const GA_ID = "G-C3WN5PRQKT";
  * `next.config.ts`; without that the script is blocked before it runs.
  */
 export function GoogleAnalytics() {
-  if (process.env.NODE_ENV !== "production") return null;
+  if (process.env.NODE_ENV !== "production" || !GA_ID) return null;
 
   return (
     <>

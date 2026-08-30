@@ -38,33 +38,3 @@ export async function validatePromo(rawCode: string, userId: string): Promise<Pr
   }
   return { ok: true, promo };
 }
-
-/**
- * Record a confirmed promo use. Guarded by paymentId uniqueness so the
- * webhook and the success callback can't double-record. Never throws.
- */
-export async function recordPromoRedemption(opts: {
-  promoId: string;
-  userId: string;
-  bonusPoints: number;
-  paymentId?: string;
-}): Promise<void> {
-  try {
-    await db.$transaction([
-      db.promoRedemption.create({
-        data: {
-          promoId: opts.promoId,
-          userId: opts.userId,
-          bonusPoints: opts.bonusPoints,
-          paymentId: opts.paymentId ?? null,
-        },
-      }),
-      db.promoCode.update({
-        where: { id: opts.promoId },
-        data: { usedCount: { increment: 1 } },
-      }),
-    ]);
-  } catch (e) {
-    console.error("promo redemption record failed:", e);
-  }
-}

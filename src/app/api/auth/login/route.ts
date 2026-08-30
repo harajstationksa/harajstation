@@ -111,6 +111,12 @@ export async function POST(req: Request) {
       { status: 403 }
     );
   }
+  if (!emailConfigured() && (!user.emailVerifiedAt || user.twoFactorEmail)) {
+    return NextResponse.json(
+      { error: "خدمة البريد غير متاحة ولا يمكن إكمال التحقق بأمان" },
+      { status: 503 }
+    );
+  }
   // No session until the address is confirmed. Only enforced when mail is
   // actually configured — otherwise nobody could ever verify, and the guard
   // would lock every account out instead of protecting them.

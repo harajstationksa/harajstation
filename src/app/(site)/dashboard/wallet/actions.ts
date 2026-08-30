@@ -1,20 +1,18 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { adjustPoints } from "@/lib/points";
 import { createInvoice, paymentsConfigured, totalWithVat, VAT_RATE } from "@/lib/payments";
-import { validatePromo, recordPromoRedemption } from "@/lib/promo";
-import { awardReferralBonus } from "@/lib/referral";
+import { validatePromo } from "@/lib/promo";
 import { isRateLimited } from "@/lib/rate-limit";
 import { getTopupConfig } from "@/lib/settings";
 
 /**
  * Buy a point package. With Moyasar keys configured this creates an invoice
  * and redirects to the hosted payment page (points are credited after the
- * payment is verified). Without keys (local dev) it credits instantly.
+ * payment is verified). Missing/disabled gateway configuration always fails
+ * closed; development credits use tests/seeds, never this production action.
  * An optional promo code adds percent% bonus points on top of the package.
  */
 export async function buyPointsAction(formData: FormData) {
@@ -47,21 +45,7 @@ export async function buyPointsAction(formData: FormData) {
 
   const totalPoints = pkg.points + pkg.bonus + promoBonus;
 
-  if (!paymentsConfigured()) {
-    // dev fallback — no gateway keys present
-    await adjustPoints(
-      user.id,
-      totalPoints,
-      `شراء ${pkg.points} نقطة (+${pkg.bonus} هدية${promoBonus ? ` +${promoBonus} كود خصم` : ""})`
-    );
-    if (promoId && promoBonus > 0) {
-      await recordPromoRedemption({ promoId, userId: user.id, bonusPoints: promoBonus });
-    }
-    await awardReferralBonus(user.id, pkg.points + pkg.bonus);
-    revalidatePath("/dashboard/wallet");
-    revalidatePath("/dashboard");
-    return;
-  }
+  if (!paymentsConfigured()) redirect("/dashboard/wallet?error=disabled");
 
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const amount = totalWithVat(pkg.price);
@@ -73,7 +57,7 @@ export async function buyPointsAction(formData: FormData) {
       amount,
       promoCodeId: promoId,
       promoBonus,
-      invoiceId: "pending", // replaced right after the invoice is created
+      invoiceId: null,
     },
   });
 
@@ -84,7 +68,7 @@ export async function buyPointsAction(formData: FormData) {
     backUrl: `${site}/dashboard/wallet`,
   });
   if (!invoice) {
-    await db.payment.delete({ where: { id: payment.id } });
+    await db.payment.update({ where: { id: payment.id }, data: { status: "FAILED" } });
     redirect("/dashboard/wallet?error=payment");
   }
 

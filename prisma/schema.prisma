@@ -23,6 +23,12 @@ model User {
   phone         String?   @unique
   phoneVerified Boolean   @default(false)
   passwordHash  String
+  // Incremented after password/email changes, bans and other security events.
+  // Every signed session carries this version and is rejected once stale.
+  sessionVersion Int      @default(0)
+  // Stable Google identity. Email is mutable and must never be the long-term
+  // provider key used to decide which account receives a session.
+  googleSub      String?   @unique
   city          String
   avatarColor   String    @default("#DB7759")
   avatarUrl     String?
@@ -111,7 +117,7 @@ model ReferralEarning {
   referrer   User     @relation("ReferralEarner", fields: [referrerId], references: [id], onDelete: Cascade)
   referredId String
   referred   User     @relation("ReferralSource", fields: [referredId], references: [id], onDelete: Cascade)
-  paymentId  String? // null for dev-mode (gateway-less) credits
+  paymentId  String? @unique
   points     Int
   createdAt  DateTime @default(now())
 
@@ -141,6 +147,10 @@ model PromoRedemption {
   userId      String
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   paymentId   String?   @unique // null for dev-mode credits
+  // Set to "promoId:userId" only for once-per-user promos. PostgreSQL permits
+  // multiple NULLs, so repeatable promos remain repeatable while the unique
+  // index closes concurrent once-per-user redemptions.
+  eligibilityKey String? @unique
   bonusPoints Int
   createdAt   DateTime  @default(now())
 
@@ -154,7 +164,7 @@ model EmailVerificationToken {
   id        String    @id @default(cuid())
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String    @unique
+  token     String    @unique // SHA-256 digest; the raw token is only emailed
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
@@ -274,7 +284,7 @@ model PasswordResetToken {
   id        String    @id @default(cuid())
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String    @unique
+  token     String    @unique // SHA-256 digest; the raw token is only emailed
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())
@@ -516,7 +526,7 @@ model Payment {
   amount      Int // total charged in halalas (incl. 15% VAT)
   // PENDING | PAID | FAILED
   status      String    @default("PENDING")
-  invoiceId   String    @unique // Moyasar invoice id
+  invoiceId   String?   @unique // null until Moyasar returns a real invoice id
   // promo code applied at checkout: promoBonus points are already included in
   // `points`; the redemption row is recorded when the payment confirms.
   promoCodeId String?
@@ -666,6 +676,8 @@ model Bid {
 model Transaction {
   id           String   @id @default(cuid())
   listingId    String
+  // Present for auction-created transactions and unique for cron idempotency.
+  auctionId    String?  @unique
   listing      Listing  @relation(fields: [listingId], references: [id])
   sellerId     String
   seller       User     @relation("SellerTx", fields: [sellerId], references: [id])

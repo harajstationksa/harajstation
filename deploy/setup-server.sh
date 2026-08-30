@@ -10,7 +10,7 @@ LOG_DIR=/var/log/harajstation
 
 echo "==> packages"
 apt-get update -qq
-apt-get install -y -qq curl git nginx ufw certbot python3-certbot-nginx
+apt-get install -y -qq age curl git nginx postgresql-client redis-server rclone ufw certbot python3-certbot-nginx
 
 echo "==> Node.js 22"
 if ! command -v node >/dev/null || [ "$(node -v | cut -d. -f1)" != "v22" ]; then
@@ -21,6 +21,10 @@ node -v
 
 echo "==> pm2"
 command -v pm2 >/dev/null || npm install -g pm2
+
+echo "==> redis"
+systemctl enable --now redis-server
+redis-cli ping | grep -q '^PONG$'
 
 echo "==> swap (next build is memory hungry)"
 if [ ! -f /swapfile ] && [ "$(free -m | awk '/^Mem:/{print $2}')" -lt 6000 ]; then
@@ -37,7 +41,9 @@ ufw allow 'Nginx Full'
 ufw --force enable
 
 echo "==> directories"
-mkdir -p "$APP_DIR" "$LOG_DIR"
+mkdir -p "$APP_DIR" "$LOG_DIR" /var/backups/harajstation /var/lib/haraj-backup
+chown -R haraj:haraj "$APP_DIR" "$LOG_DIR" /var/backups/harajstation /var/lib/haraj-backup
+chmod 700 /var/backups/harajstation /var/lib/haraj-backup
 
 echo
 echo "Done. Next:"

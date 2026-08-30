@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: samel_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/samel_test
+      DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/samel_test
+      AUTH_SECRET: ci-only-auth-secret-that-is-longer-than-32-characters
+      CRON_SECRET: ci-only-cron-secret-that-is-longer-than-32-characters
+      CHAT_SECRET: ci-only-chat-secret-that-is-longer-than-32-characters
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      PAYMENTS_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm test
+      - run: npm run build
+      - run: npm audit --omit=dev --audit-level=high

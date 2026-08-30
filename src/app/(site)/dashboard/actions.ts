@@ -6,11 +6,11 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { CONFIRM_WINDOW_DAYS, CONFIRM_WINDOW_HOURS } from "@/lib/constants";
 import { notify, notifyMany } from "@/lib/notify";
-import { adjustPoints } from "@/lib/points";
+import { adjustPoints, claimDailyPoints } from "@/lib/points";
 import { getSettingInt } from "@/lib/settings";
 import { getPlanLimits } from "@/lib/limits";
 import { isRateLimited } from "@/lib/rate-limit";
-import { deleteImages } from "@/lib/uploads";
+import { deleteImages, deletePrivateImage } from "@/lib/uploads";
 import { formatSAR, parseImages } from "@/lib/utils";
 
 export async function featureWithPointsAction(formData: FormData) {
@@ -214,10 +214,15 @@ export async function deleteListingAction(formData: FormData) {
   });
   const files = [
     ...parseImages(listing.images),
-    ...chatImages.map((m) => m.imageUrl!),
+    ...chatImages.map((m) => m.imageUrl!).filter((url) => !url.startsWith("private:")),
   ];
+  const privateFiles = chatImages
+    .map((m) => m.imageUrl!)
+    .filter((url) => url.startsWith("private:"))
+    .map((url) => url.slice("private:".length));
   await db.listing.delete({ where: { id } });
   deleteImages(files).catch(() => {}); // best-effort storage cleanup
+  Promise.all(privateFiles.map((path) => deletePrivateImage(path))).catch(() => {});
   revalidatePath("/dashboard/listings");
   revalidatePath("/");
 }
@@ -227,14 +232,11 @@ export async function claimDailyAction() {
   const user = await requireUser();
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
-  if (user.lastDailyAt && user.lastDailyAt >= startOfToday) return;
-
   const plan = await db.plan.findUnique({
     where: { key: user.isPro ? "PRO_MONTHLY" : "FREE" },
   });
   const amount = plan?.dailyPoints ?? 5;
 
-  await db.user.update({ where: { id: user.id }, data: { lastDailyAt: new Date() } });
-  await adjustPoints(user.id, amount, "نقاط يومية مجانية");
+  await claimDailyPoints(user.id, amount, startOfToday);
   revalidatePath("/dashboard");
 }

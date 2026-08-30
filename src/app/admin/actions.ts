@@ -6,6 +6,7 @@ import { requireStaff } from "@/lib/auth";
 import { applyCredibility, resolveDispute } from "@/lib/credibility";
 import { adjustPoints } from "@/lib/points";
 import { getSetting, setSetting } from "@/lib/settings";
+import { safeBannerEmbedUrl } from "@/lib/banner-embed";
 
 async function audit(actorId: string, action: string, detail: string) {
   await db.auditLog.create({ data: { actorId, action, detail } });
@@ -18,7 +19,7 @@ export async function toggleBanAction(formData: FormData) {
   if (!user || user.role === "ADMIN") return;
   await db.user.update({
     where: { id: userId },
-    data: { isBanned: !user.isBanned },
+    data: { isBanned: !user.isBanned, sessionVersion: { increment: 1 } },
   });
   await audit(
     staff.id,
@@ -89,9 +90,10 @@ export async function createBannerAction(formData: FormData) {
   const imageUrl = String(formData.get("imageUrl") || "").trim() || null;
   const mobileImageUrl = String(formData.get("mobileImageUrl") || "").trim() || null;
   const linkUrl = String(formData.get("linkUrl") || "").trim() || null;
-  const embedHtml = String(formData.get("embedHtml") || "").trim() || null;
+  const embedInput = String(formData.get("embedHtml") || "").trim();
+  const embedHtml = embedInput ? safeBannerEmbedUrl(embedInput) : null;
   const position = String(formData.get("position") || "HOME_TOP");
-  if (!title || (!imageUrl && !embedHtml)) return;
+  if (!title || (!imageUrl && !embedHtml) || (embedInput && !embedHtml)) return;
   await db.banner.create({
     data: { title, imageUrl, mobileImageUrl, linkUrl, embedHtml, position },
   });
@@ -374,7 +376,10 @@ export async function createStaffAction(formData: FormData) {
   if (exists) {
     // promote an existing account instead of failing silently
     if (exists.role === "USER") {
-      await db.user.update({ where: { id: exists.id }, data: { role } });
+      await db.user.update({
+        where: { id: exists.id },
+        data: { role, sessionVersion: { increment: 1 } },
+      });
       await audit(staff.id, "PROMOTE_STAFF", `${exists.name} → ${role}`);
     }
   } else {
@@ -423,7 +428,10 @@ export async function updateMyAccountAction(formData: FormData) {
     select: { id: true },
   });
   if (taken) return;
-  await db.user.update({ where: { id: me.id }, data: { name, email } });
+  await db.user.update({
+    where: { id: me.id },
+    data: { name, email, sessionVersion: { increment: 1 } },
+  });
   await audit(me.id, "UPDATE_MY_ACCOUNT", `${name} (${email})`);
   revalidatePath("/admin/account");
 }
@@ -436,7 +444,11 @@ export async function setMyPasswordAction(formData: FormData) {
   if (password.length < 10 || password !== confirm) return;
   await db.user.update({
     where: { id: me.id },
-    data: { passwordHash: hashSync(password, 12), passwordEnabled: true },
+    data: {
+      passwordHash: hashSync(password, 12),
+      passwordEnabled: true,
+      sessionVersion: { increment: 1 },
+    },
   });
   await audit(me.id, "SET_MY_PASSWORD", "password enabled");
   revalidatePath("/admin/account");
@@ -450,7 +462,10 @@ export async function updateStaffRoleAction(formData: FormData) {
   if (userId === staff.id) return; // can't change your own role
   const target = await db.user.findUnique({ where: { id: userId } });
   if (!target) return;
-  await db.user.update({ where: { id: userId }, data: { role } });
+  await db.user.update({
+    where: { id: userId },
+    data: { role, sessionVersion: { increment: 1 } },
+  });
   await audit(staff.id, "UPDATE_STAFF_ROLE", `${target.name} → ${role}`);
   revalidatePath("/admin/staff");
 }
@@ -461,7 +476,10 @@ export async function removeStaffAction(formData: FormData) {
   if (userId === staff.id) return; // can't remove yourself
   const target = await db.user.findUnique({ where: { id: userId } });
   if (!target || target.role === "USER") return;
-  await db.user.update({ where: { id: userId }, data: { role: "USER" } });
+  await db.user.update({
+    where: { id: userId },
+    data: { role: "USER", sessionVersion: { increment: 1 } },
+  });
   await audit(staff.id, "REMOVE_STAFF", `${target.name} (${target.email})`);
   revalidatePath("/admin/staff");
 }

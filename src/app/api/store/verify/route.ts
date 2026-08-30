@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { savePrivateImage } from "@/lib/uploads";
+import { deletePrivateImage, savePrivateImage } from "@/lib/uploads";
 import { rateLimitGuard } from "@/lib/rate-limit";
 
 /**
@@ -65,6 +65,9 @@ export async function POST(req: Request) {
       reviewedAt: null,
     },
   });
+  if (existing?.docPath && existing.docPath !== saved.path) {
+    await deletePrivateImage(existing.docPath);
+  }
 
   return NextResponse.json({ ok: true });
 }

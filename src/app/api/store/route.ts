@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getPlanLimits } from "@/lib/limits";
 import { findBannedWord } from "@/lib/moderation";
 import { rateLimitGuard } from "@/lib/rate-limit";
+import { deletePrivateImage } from "@/lib/uploads";
 import {
   SOCIAL_PLATFORMS,
   normalizeSocial,
@@ -123,10 +124,14 @@ export async function DELETE(req: Request) {
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return NextResponse.json({ error: "لا يوجد متجر" }, { status: 400 });
-  const store = await db.store.findUnique({ where: { id } });
+  const store = await db.store.findUnique({
+    where: { id },
+    include: { verification: { select: { docPath: true } } },
+  });
   if (!store || store.userId !== user.id) {
     return NextResponse.json({ error: "غير مصرح" }, { status: 403 });
   }
   await db.store.delete({ where: { id } });
+  await deletePrivateImage(store.verification?.docPath);
   return NextResponse.json({ ok: true });
 }

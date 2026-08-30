@@ -5,7 +5,7 @@ import { getSession } from "@/lib/auth";
 import { decryptText, encryptText } from "@/lib/crypto";
 import { findBannedWord } from "@/lib/moderation";
 import { notify } from "@/lib/notify";
-import { saveImages, MAX_FILE } from "@/lib/uploads";
+import { savePrivateImage, MAX_FILE } from "@/lib/uploads";
 import { rateLimitGuard } from "@/lib/rate-limit";
 
 async function getConvForUser(id: string, userId: string) {
@@ -56,7 +56,9 @@ export async function GET(
       id: m.id,
       // stored encrypted — decrypted only for the two conversation parties
       body: decryptText(m.body),
-      imageUrl: m.imageUrl,
+      imageUrl: m.imageUrl?.startsWith("private:")
+        ? `/api/conversations/${id}/messages/${m.id}/image`
+        : m.imageUrl,
       mine: m.senderId === session.sub,
       at: m.createdAt.toISOString(),
       deliveredAt: m.deliveredAt?.toISOString() ?? null,
@@ -144,7 +146,8 @@ export async function POST(
     }
   }
 
-  // image upload (chat attachments live under uploads/chat)
+  // Chat attachments are private and can only be read through the
+  // conversation-authorized image route.
   let imageUrl: string | null = null;
   if (imageFile) {
     if (imageFile.size > MAX_FILE) {
@@ -153,11 +156,11 @@ export async function POST(
         { status: 400 }
       );
     }
-    const saved = await saveImages([imageFile], "chat");
+    const saved = await savePrivateImage(imageFile, "chat");
     if (!saved.ok) {
       return NextResponse.json({ error: saved.error }, { status: 400 });
     }
-    imageUrl = saved.urls[0];
+    imageUrl = `private:${saved.path}`;
   }
 
   const message = await db.message.create({

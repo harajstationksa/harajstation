@@ -80,10 +80,7 @@ export default async function MyListingsPage({
     getSettingInt("BUMP_POINT_COST", 15),
     getSettingInt("BUMP_FREE_HOURS", 48),
   ]);
-  // one clock read for the whole render (server component)
-  const now = Date.now();
-
-  const [listings, all] = await Promise.all([
+  const [listings, all, clock] = await Promise.all([
     db.listing.findMany({
       where: {
         sellerId: user.id,
@@ -101,7 +98,11 @@ export default async function MyListingsPage({
       where: { sellerId: user.id },
       select: { status: true, type: true, views: true },
     }),
+    db.$queryRaw<[{ now: Date }]>`SELECT NOW() AS now`,
   ]);
+  // Database time keeps all workers consistent and avoids an impure clock read
+  // during React rendering.
+  const now = clock[0].now.getTime();
 
   const summary = [
     {

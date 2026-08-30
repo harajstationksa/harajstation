@@ -1,5 +1,5 @@
-import { mkdir, unlink, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { chmod, mkdir, unlink, writeFile } from "node:fs/promises";
+import { join, resolve, sep } from "node:path";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import {
@@ -165,7 +165,21 @@ export async function deleteImages(urls: string[]): Promise<void> {
 
 /** Absolute root of the private (never web-served) uploads area. */
 export function privateUploadsRoot() {
-  return join(process.cwd(), "private-uploads");
+  return resolve(process.cwd(), "private-uploads");
+}
+
+/** Resolve a DB-stored relative private path without prefix/traversal tricks. */
+export function privateUploadPath(relativePath: string): string | null {
+  const root = privateUploadsRoot();
+  const full = resolve(root, relativePath);
+  return full.startsWith(`${root}${sep}`) ? full : null;
+}
+
+export async function deletePrivateImage(relativePath: string | null | undefined) {
+  if (!relativePath) return;
+  const full = privateUploadPath(relativePath);
+  if (!full) return;
+  await unlink(full).catch(() => {});
 }
 
 /**
@@ -198,8 +212,9 @@ export async function savePrivateImage(
     return { ok: false, error: "تعذّرت معالجة الصورة — جرّب صورة أخرى" };
   }
   const dir = join(privateUploadsRoot(), subdir);
-  await mkdir(dir, { recursive: true });
+  await mkdir(dir, { recursive: true, mode: 0o700 });
+  await chmod(dir, 0o700).catch(() => {});
   const name = `${randomUUID()}.webp`;
-  await writeFile(join(dir, name), webp);
+  await writeFile(join(dir, name), webp, { mode: 0o600 });
   return { ok: true, path: `${subdir}/${name}` };
 }

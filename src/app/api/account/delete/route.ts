@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { compareSync } from "bcryptjs";
-import { rm } from "node:fs/promises";
-import { join } from "node:path";
 import { db } from "@/lib/db";
 import { getCurrentUser, SESSION_COOKIE } from "@/lib/auth";
-import { privateUploadsRoot } from "@/lib/uploads";
+import { deletePrivateImage } from "@/lib/uploads";
 import { rateLimitGuard } from "@/lib/rate-limit";
 
 const schema = z.object({ password: z.string().min(1) });
@@ -39,13 +37,13 @@ export async function POST(req: Request) {
     );
   }
 
-  // remove the private ID document, if any
-  const idReq = await db.identityVerification.findUnique({
-    where: { userId: user.id },
-  });
-  if (idReq) {
-    await rm(join(privateUploadsRoot(), idReq.docPath), { force: true }).catch(() => {});
-  }
+  const [idReq, storeDocs] = await Promise.all([
+    db.identityVerification.findUnique({ where: { userId: user.id } }),
+    db.storeVerification.findMany({
+      where: { store: { userId: user.id } },
+      select: { docPath: true },
+    }),
+  ]);
 
   await db.$transaction([
     // wipe personal data + make the account unusable
@@ -59,6 +57,10 @@ export async function POST(req: Request) {
         avatarUrl: null,
         passwordHash: `deleted:${crypto.randomUUID()}`,
         isBanned: true, // blocks any live session (getCurrentUser rejects banned)
+        sessionVersion: { increment: 1 },
+        googleSub: null,
+        emailVerifiedAt: null,
+        twoFactorEmail: false,
         isPro: false,
         idVerified: false,
         points: 0,
@@ -87,6 +89,11 @@ export async function POST(req: Request) {
     db.storeVerification.deleteMany({ where: { store: { userId: user.id } } }),
     db.identityVerification.deleteMany({ where: { userId: user.id } }),
     db.notification.deleteMany({ where: { userId: user.id } }),
+  ]);
+
+  await Promise.all([
+    deletePrivateImage(idReq?.docPath),
+    ...storeDocs.map((doc) => deletePrivateImage(doc.docPath)),
   ]);
 
   const res = NextResponse.json({ ok: true });

@@ -1,18 +1,16 @@
 import { NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
-import { join, normalize } from "node:path";
 import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
-import { STAFF_ROLES } from "@/lib/constants";
-import { privateUploadsRoot } from "@/lib/uploads";
+import { getAdminCurrentUser } from "@/lib/auth";
+import { privateUploadPath } from "@/lib/uploads";
 
 /** Serve an ID document to staff only — the file lives outside /public. */
 export async function GET(
   _req: Request,
   ctx: { params: Promise<{ id: string }> }
 ) {
-  const user = await getCurrentUser();
-  if (!user || !STAFF_ROLES.includes(user.role)) {
+  const user = await getAdminCurrentUser(["ADMIN", "MODERATOR", "SUPPORT"]);
+  if (!user) {
     return NextResponse.json({ error: "غير مصرح" }, { status: 403 });
   }
 
@@ -23,9 +21,8 @@ export async function GET(
   }
 
   // path is server-generated, but normalize defensively anyway
-  const root = privateUploadsRoot();
-  const full = normalize(join(root, request.docPath));
-  if (!full.startsWith(root)) {
+  const full = privateUploadPath(request.docPath);
+  if (!full) {
     return NextResponse.json({ error: "bad path" }, { status: 400 });
   }
 

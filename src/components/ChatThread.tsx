@@ -69,7 +69,12 @@ export function ChatThread({
   // off the total, so your own sends never ring
   const theirCountRef = useRef<number | null>(null);
 
-  useEffect(() => setMuted(isChatMuted()), []);
+  useEffect(() => {
+    // Read browser storage after hydration without causing a synchronous
+    // cascading render inside the effect.
+    const id = window.setTimeout(() => setMuted(isChatMuted()), 0);
+    return () => window.clearTimeout(id);
+  }, []);
 
   const refresh = useCallback(async () => {
     try {

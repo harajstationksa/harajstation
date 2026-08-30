@@ -24,10 +24,23 @@ export type SessionPayload = {
   sub: string; // user id
   role: string;
   name: string;
+  ver: number;
 };
 
-export async function signSessionToken(payload: SessionPayload) {
-  return new SignJWT(payload)
+type SessionInput = Omit<SessionPayload, "ver">;
+
+async function currentSessionVersion(userId: string): Promise<number> {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { sessionVersion: true, isBanned: true },
+  });
+  if (!user || user.isBanned) throw new Error("Cannot sign a session for this user");
+  return user.sessionVersion;
+}
+
+export async function signSessionToken(payload: SessionInput) {
+  const ver = await currentSessionVersion(payload.sub);
+  return new SignJWT({ ...payload, ver })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_DAYS}d`)
@@ -53,8 +66,9 @@ export const adminCookieOptions = {
   maxAge: ADMIN_SESSION_HOURS * 60 * 60,
 };
 
-export async function signAdminToken(payload: SessionPayload) {
-  return new SignJWT(payload)
+export async function signAdminToken(payload: SessionInput) {
+  const ver = await currentSessionVersion(payload.sub);
+  return new SignJWT({ ...payload, ver })
     .setProtectedHeader({ alg: "HS256" })
     .setAudience(ADMIN_AUDIENCE)
     .setIssuedAt()
@@ -70,11 +84,15 @@ export async function getAdminSession(): Promise<SessionPayload | null> {
     const { payload } = await jwtVerify(token, secret(), {
       audience: ADMIN_AUDIENCE,
     });
-    return {
-      sub: payload.sub as string,
-      role: payload.role as string,
-      name: payload.name as string,
-    };
+    const sub = payload.sub as string;
+    const ver = Number(payload.ver);
+    if (!sub || !Number.isSafeInteger(ver)) return null;
+    const user = await db.user.findUnique({
+      where: { id: sub },
+      select: { role: true, name: true, isBanned: true, sessionVersion: true },
+    });
+    if (!user || user.isBanned || user.sessionVersion !== ver) return null;
+    return { sub, role: user.role, name: user.name, ver };
   } catch {
     return null;
   }
@@ -98,11 +116,18 @@ export async function getSession(): Promise<SessionPayload | null> {
     const { payload } = await jwtVerify(token, secret());
     // an admin-portal token can never act as a site session
     if (payload.aud) return null;
-    return {
-      sub: payload.sub as string,
-      role: payload.role as string,
-      name: payload.name as string,
-    };
+    const sub = payload.sub as string;
+    const ver = Number(payload.ver);
+    if (!sub || !Number.isSafeInteger(ver)) return null;
+    // JWTs are intentionally not trusted as the current authorization state.
+    // Re-read the small security projection so bans, role changes and session
+    // revocation take effect immediately across every API using getSession().
+    const user = await db.user.findUnique({
+      where: { id: sub },
+      select: { role: true, name: true, isBanned: true, sessionVersion: true },
+    });
+    if (!user || user.isBanned || user.sessionVersion !== ver) return null;
+    return { sub, role: user.role, name: user.name, ver };
   } catch {
     return null;
   }
@@ -135,5 +160,16 @@ export async function requireStaff(roles: string[] = ["ADMIN"]) {
   if (!user || user.isBanned || !roles.includes(user.role)) {
     redirect("/admin-login");
   }
+  return user;
+}
+
+/** Admin API guard: accepts only the short-lived admin cookie with its OTP-backed audience. */
+export async function getAdminCurrentUser(
+  roles: string[] = ["ADMIN", "MODERATOR", "SUPPORT", "ACCOUNTANT"]
+) {
+  const session = await getAdminSession();
+  if (!session || !roles.includes(session.role)) return null;
+  const user = await db.user.findUnique({ where: { id: session.sub } });
+  if (!user || user.isBanned || !roles.includes(user.role)) return null;
   return user;
 }

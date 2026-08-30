@@ -16,7 +16,7 @@
 | مفتاح SSH على السيرفر | **مطلوب منك** | `ssh-keygen -t ed25519` ثم `ssh-copy-id root@IP` |
 | ملف `.env` للإنتاج | عندك محلياً | هيتنقل بـ `scp` مباشرة — **متنسخوش في أي شات** |
 | الدومين | متسجّل في Contabo | لسه محتاج DNS records (تحت) |
-| بريد على الدومين | **ناقص** | الكود بيستخدم `support@` و`help@` — لازم mailbox حقيقي |
+| بريد على الدومين | **إلزامي للمصادقة** | تحقق البريد وreset و2FA تفشل مغلقة عند تعطل SMTP |
 
 ---
 
@@ -71,7 +71,10 @@ cp deploy/cron.d-harajstation /etc/cron.d/harajstation
 | المفتاح | القيمة |
 |---|---|
 | `NEXT_PUBLIC_SITE_URL` | `https://harajstation.com` — **مهم**: القيم اللي بتبدأ بـ `NEXT_PUBLIC_` بتتحرق جوه الكود وقت الـ build، فلازم تكون مضبوطة **قبل** `npm run build`. لو سيبتها `localhost` هتلاقي روابط الإيميلات والدفع كلها غلط. |
-| `AUTH_SECRET` / `CRON_SECRET` | لو لسه بتستخدم قيم التطوير، ولّد جداد: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
+| `AUTH_SECRET` / `CRON_SECRET` / `CHAT_SECRET` | أسرار عشوائية مستقلة؛ لا تعِد استخدام AUTH لتشفير المحادثات |
+| `PAYMENTS_ENABLED` | `false` حتى اعتماد البوابة والـwebhook واختبارهما |
+| `REDIS_URL` | `redis://127.0.0.1:6379` في إعداد السيرفر الحالي |
+| `BACKUP_AGE_RECIPIENT` | مستلم age العام؛ احتفظ بالمفتاح الخاص خارج السيرفر |
 | باقي المفاتيح | زي ما هي (Supabase / R2 / Moyasar / Brevo / VAPID) |
 
 **Moyasar**: من لوحة التحكم بتاعتهم ضيف الويبهوك على
@@ -81,7 +84,7 @@ cp deploy/cron.d-harajstation /etc/cron.d/harajstation
 
 ## 5) حاجات مقصودة في الإعداد — متغيّرهاش من غير ما تاخد بالك
 
-1. **PM2 بنسخة واحدة (`instances: 1`)**. حماية السبام بتعدّ في ذاكرة العملية نفسها، فأي نسخة تانية = كل الحدود تتضاعف. لو احتجت cluster يوماً ما، لازم الأول تنقل العدّادات لـ Redis (`src/lib/rate-limit.ts` مكتوب فيها التعليق ده).
+1. **PM2 بعاملين (`instances: 2`)** وRedis إلزامي. `setup-server.sh` يثبته ويختبر `PONG`، والتطبيق يستخدم `REDIS_URL` لعدادات الحماية المشتركة.
 
 2. **Nginx بيمسح هيدر `CF-Connecting-IP` وبيكتب `X-Real-IP` بـ `$remote_addr`**. التطبيق بيثق في الهيدرز دي عشان يعرف IP الزائر؛ لو Nginx مرّر قيمة جاية من العميل، أي مهاجم كان هيبعت IP وهمي في كل طلب ويتخطى **كل** الحدود. (عشان كده كمان مش مستخدمين `$proxy_add_x_forwarded_for` — دي بتضيف على اللي العميل ادّعاه.)
    لو نقلت الـ DNS لـ Cloudflare بعدين، فيه ملاحظة في آخر `deploy/nginx/harajstation.conf` بالتعديل المطلوب — ولازم تقفل السيرفر بحيث مايقبلش غير IPs بتاعة Cloudflare، وإلا الهيدر يبقى مزوّر برضه.
@@ -90,6 +93,6 @@ cp deploy/cron.d-harajstation /etc/cron.d/harajstation
 
 ---
 
-## 6) نقطة مؤجلة
+## 6) النسخ والاسترجاع
 
-مجلد `prisma/migrations` فيه 3 migrations بس، وجداول الإحالة والبرومو كود اتعملت بـ `prisma db push` من غير migration. القاعدة الحالية سليمة تماماً (الجداول موجودة)، بس لو عملت قاعدة جديدة من الصفر يوماً ما هتلاقيها ناقصة الجداول دي. محتاجة migration تعويضية — مش مستعجلة، بس متنساهاش.
+`deploy/backup.sh` ينشئ يوميًا ملف age مشفرًا يحتوي PostgreSQL custom dump و`private-uploads` وmanifest للـcommit، ويحتفظ بـ30 يومًا. إذا ضُبط `BACKUP_REMOTE` ينسخه عبر rclone خارج السيرفر. اختبر الاسترجاع دوريًا على قاعدة منفصلة ولا تفك نسخة إنتاج فوق القاعدة الحية.

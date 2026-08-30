@@ -2,15 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { adjustPoints } from "@/lib/points";
 import {
   createInvoice,
   paymentsConfigured,
   totalWithVat,
   VAT_RATE,
 } from "@/lib/payments";
-import { validatePromo, recordPromoRedemption } from "@/lib/promo";
-import { awardReferralBonus } from "@/lib/referral";
+import { validatePromo } from "@/lib/promo";
 import { isRateLimited } from "@/lib/rate-limit";
 import { getTopupConfig } from "@/lib/settings";
 
@@ -21,9 +19,8 @@ const schema = z.object({
 
 /**
  * Buy a point package — JSON twin of the wallet server action. With Moyasar
- * configured it returns { paymentUrl } for the app to open in a webview
- * (success lands on /dashboard/wallet/confirm); without keys (dev) the points
- * are credited instantly and { credited: true } is returned.
+ * configured it returns { paymentUrl } for the app to open in a webview.
+ * Gateway absence is fail-closed in every environment.
  */
 export async function POST(req: Request) {
   const user = await getCurrentUser();
@@ -69,16 +66,10 @@ export async function POST(req: Request) {
   const totalPoints = pkg.points + pkg.bonus + promoBonus;
 
   if (!paymentsConfigured()) {
-    await adjustPoints(
-      user.id,
-      totalPoints,
-      `شراء ${pkg.points} نقطة (+${pkg.bonus} هدية${promoBonus ? ` +${promoBonus} كود خصم` : ""})`
+    return NextResponse.json(
+      { error: "شحن النقاط متوقف مؤقتًا" },
+      { status: 503 }
     );
-    if (promoId && promoBonus > 0) {
-      await recordPromoRedemption({ promoId, userId: user.id, bonusPoints: promoBonus });
-    }
-    await awardReferralBonus(user.id, pkg.points + pkg.bonus);
-    return NextResponse.json({ ok: true, credited: true, points: totalPoints });
   }
 
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -91,7 +82,7 @@ export async function POST(req: Request) {
       amount,
       promoCodeId: promoId,
       promoBonus,
-      invoiceId: "pending",
+      invoiceId: null,
     },
   });
 
@@ -102,7 +93,7 @@ export async function POST(req: Request) {
     backUrl: `${site}/dashboard/wallet`,
   });
   if (!invoice) {
-    await db.payment.delete({ where: { id: payment.id } });
+    await db.payment.update({ where: { id: payment.id }, data: { status: "FAILED" } });
     return NextResponse.json({ error: "تعذر إنشاء الفاتورة — حاول لاحقاً" }, { status: 502 });
   }
 

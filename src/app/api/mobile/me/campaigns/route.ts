@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { adjustPoints } from "@/lib/points";
+import { adjustPointsWithClient } from "@/lib/points";
 import { getSettingInt } from "@/lib/settings";
 import { targetAudience } from "@/lib/targeting";
 import { CITIES } from "@/lib/constants";
@@ -94,27 +94,44 @@ export async function POST(req: Request) {
     );
   }
 
-  const ok = await adjustPoints(user.id, -cost, `حملة إعلانية (${days} أيام): ${listing.title}`);
-  if (ok === null) {
-    return NextResponse.json({ error: "رصيد النقاط غير كافٍ" }, { status: 400 });
-  }
-
   const endsAt = new Date(Date.now() + days * 86_400_000);
-  const campaign = await db.campaign.create({
-    data: {
-      listingId,
-      ownerId: user.id,
-      days,
-      endsAt,
-      pointsSpent: cost,
-      status: "ACTIVE",
-      targetCity,
-    },
+  const campaign = await db.$transaction(async (tx) => {
+    const reserved = await tx.listing.updateMany({
+      where: { id: listingId, sellerId: user.id, status: "ACTIVE", isPromoted: false },
+      data: { isPromoted: true, promotedUntil: endsAt },
+    });
+    if (reserved.count !== 1) throw new Error("CAMPAIGN_ALREADY_ACTIVE");
+    const balance = await adjustPointsWithClient(
+      tx,
+      user.id,
+      -cost,
+      `حملة إعلانية (${days} أيام): ${listing.title}`
+    );
+    if (balance === null) throw new Error("INSUFFICIENT_POINTS");
+    return tx.campaign.create({
+      data: {
+        listingId,
+        ownerId: user.id,
+        days,
+        endsAt,
+        pointsSpent: cost,
+        status: "ACTIVE",
+        targetCity,
+      },
+    });
+  }).catch((error: unknown) => {
+    if (
+      error instanceof Error &&
+      (error.message === "INSUFFICIENT_POINTS" || error.message === "CAMPAIGN_ALREADY_ACTIVE")
+    ) return null;
+    throw error;
   });
-  await db.listing.update({
-    where: { id: listingId },
-    data: { isPromoted: true, promotedUntil: endsAt },
-  });
+  if (!campaign) {
+    return NextResponse.json(
+      { error: "الرصيد غير كافٍ أو توجد حملة نشطة بالفعل" },
+      { status: 409 }
+    );
+  }
 
   const audience = await targetAudience(
     {

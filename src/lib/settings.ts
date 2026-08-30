@@ -60,7 +60,10 @@ export async function getTopupConfig(): Promise<{ enabled: boolean; message: str
     getSetting("TOPUP_DISABLED_MESSAGE"),
   ]);
   return {
-    enabled: enabled !== "0",
+    enabled:
+      enabled !== "0" &&
+      process.env.PAYMENTS_ENABLED === "true" &&
+      !!process.env.MOYASAR_SECRET_KEY,
     message: message.trim() || "شحن النقاط غير متاح حالياً — سيتم تفعيله قريباً.",
   };
 }

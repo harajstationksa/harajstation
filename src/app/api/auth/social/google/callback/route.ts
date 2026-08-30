@@ -6,6 +6,9 @@ import { fetchProfile, googleConfigured, siteUrl, STATE_COOKIE } from "@/lib/goo
 import { rateLimitGuard } from "@/lib/rate-limit";
 import { getFreeTierConfig } from "@/lib/settings";
 import { generateReferralCode } from "@/lib/referral";
+import { STAFF_ROLES } from "@/lib/constants";
+import { emailConfigured } from "@/lib/email";
+import { maskEmail, startOtpChallenge } from "@/lib/login-otp";
 
 const AVATAR_COLORS = ["#db7759", "#0ea5e9", "#8b5cf6", "#10b981", "#ec4899"];
 
@@ -38,7 +41,29 @@ export async function GET(req: Request) {
   // Google says it owns this address — that claim is the whole point of the flow
   if (!profile.emailVerified) return fail("google_unverified");
 
-  let user = await db.user.findUnique({ where: { email: profile.email } });
+  // Provider subject (`sub`) is the stable identity. Email alone is never
+  // trusted to silently take over an existing, unverified password account.
+  let user = await db.user.findUnique({ where: { googleSub: profile.sub } });
+
+  if (!user) {
+    const emailOwner = await db.user.findUnique({ where: { email: profile.email } });
+    if (emailOwner) {
+      if (STAFF_ROLES.includes(emailOwner.role)) return fail("staff");
+      const legacyGoogleAccount = emailOwner.passwordHash.startsWith("oauth:google:");
+      if (!emailOwner.emailVerifiedAt && !legacyGoogleAccount) {
+        return fail("google_link_required");
+      }
+      user = await db.user.update({
+        where: { id: emailOwner.id },
+        data: {
+          googleSub: profile.sub,
+          ...(legacyGoogleAccount && !emailOwner.emailVerifiedAt
+            ? { emailVerifiedAt: new Date() }
+            : {}),
+        },
+      });
+    }
+  }
 
   if (!user) {
     // same launch promo as email signup: free PRO for N days while the switch is on
@@ -54,6 +79,7 @@ export async function GET(req: Request) {
       data: {
         name: profile.name,
         email: profile.email,
+        googleSub: profile.sub,
         city: "الرياض", // editable from settings — Google doesn't tell us
         // unusable hash: a social account can only ever sign in through Google
         passwordHash: `oauth:google:${randomUUID()}`,
@@ -64,15 +90,24 @@ export async function GET(req: Request) {
         ...proGrant,
       },
     });
-  } else if (!user.emailVerifiedAt) {
-    // they signed up with a password first; Google just verified the address
-    user = await db.user.update({
-      where: { id: user.id },
-      data: { emailVerifiedAt: new Date() },
-    });
   }
 
   if (user.isBanned) return fail("banned");
+  if (STAFF_ROLES.includes(user.role)) return fail("staff");
+
+  // Respect the user's email 2FA preference for every provider. The opaque
+  // challenge is harmless without the separately emailed six-digit code.
+  if (user.twoFactorEmail) {
+    if (!emailConfigured()) return fail("two_factor_unavailable");
+    const otp = await startOtpChallenge(user);
+    if (!otp.ok) return fail("two_factor_unavailable");
+    const next = new URL("/login", siteUrl());
+    next.searchParams.set("otpChallenge", otp.challenge);
+    next.searchParams.set("otpEmail", maskEmail(user.email));
+    const res = NextResponse.redirect(next);
+    res.cookies.delete(STATE_COOKIE);
+    return res;
+  }
 
   const token = await signSessionToken({
     sub: user.id,

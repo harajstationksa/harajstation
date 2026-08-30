@@ -13,11 +13,17 @@ const SOCIAL_ERRORS: Record<string, Record<string, string>> = {
     google: "تعذّر تسجيل الدخول عبر Google — حاول مرة أخرى",
     google_unverified: "بريد حساب Google غير مؤكد لدى Google نفسها",
     banned: "هذا الحساب محظور.",
+    staff: "حسابات فريق العمل تدخل من بوابة الإدارة فقط.",
+    google_link_required: "فعّل حسابك الحالي بالبريد أولاً، ثم أعد تسجيل الدخول عبر Google لربطه بأمان.",
+    two_factor_unavailable: "تعذّر بدء التحقق بخطوتين — استخدم كلمة المرور أو حاول لاحقًا.",
   },
   en: {
     google: "Google sign-in failed — try again",
     google_unverified: "This Google account's email isn't verified with Google itself",
     banned: "This account is banned.",
+    staff: "Staff accounts must use the admin portal.",
+    google_link_required: "Verify your existing email account first, then retry Google to link it safely.",
+    two_factor_unavailable: "Two-factor verification is unavailable — use your password or try again later.",
   },
 };
 
@@ -33,7 +39,8 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter();
   const { lang, t } = useLang();
-  const socialError = SOCIAL_ERRORS[lang]?.[useSearchParams().get("error") ?? ""] ?? "";
+  const searchParams = useSearchParams();
+  const socialError = SOCIAL_ERRORS[lang]?.[searchParams.get("error") ?? ""] ?? "";
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(socialError);
@@ -44,7 +51,13 @@ function LoginForm() {
   // brute-force guard feedback: show the reset shortcut prominently
   const [suggestReset, setSuggestReset] = useState(false);
   // email-2FA second step: set when the password passed and a code was mailed
-  const [otp, setOtp] = useState<{ challenge: string; email: string } | null>(null);
+  const oauthChallenge = searchParams.get("otpChallenge");
+  const oauthEmail = searchParams.get("otpEmail");
+  const [otp, setOtp] = useState<{ challenge: string; email: string } | null>(() =>
+    oauthChallenge?.length === 64 && oauthEmail
+      ? { challenge: oauthChallenge, email: oauthEmail }
+      : null
+  );
   const [code, setCode] = useState("");
   const [cooldown, setCooldown] = useState(0);
   const a = t.auth;

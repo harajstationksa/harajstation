@@ -121,6 +121,7 @@ export async function POST(
         });
         await tx.transaction.create({
           data: {
+            auctionId: auction.id,
             listingId: auction.listingId,
             sellerId: auction.listing.sellerId,
             buyerId: user.id,

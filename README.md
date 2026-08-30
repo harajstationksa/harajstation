@@ -28,7 +28,7 @@ npm run db:seed         # بيانات تجريبية (اختياري)
 npm run dev             # http://localhost:3000
 ```
 
-بدون مفاتيح الخدمات الخارجية يعمل المشروع بوضع تطوير كامل: الصور تُحفظ محلياً، رابط استعادة كلمة المرور يظهر على الشاشة، وشحن النقاط يُضاف مباشرة بدون دفع.
+بدون مفاتيح الخدمات الخارجية تُحفظ الصور محلياً في التطوير ويظهر رابط استعادة كلمة المرور للتجربة. شحن النقاط متوقف افتراضياً ولا يمنح رصيداً بلا بوابة دفع.
 
 ## متغيرات البيئة
 
@@ -38,6 +38,9 @@ npm run dev             # http://localhost:3000
 DATABASE_URL / DIRECT_URL   # PostgreSQL (pgbouncer + session pooler)
 AUTH_SECRET                 # 32+ حرفاً — إلزامي في الإنتاج
 CRON_SECRET                 # مفتاح نقطة /api/cron
+CHAT_SECRET                 # 32+ حرفاً — مستقل عن مفتاح الجلسات
+REDIS_URL                   # عدادات الحماية المشتركة بين عمال PM2
+PAYMENTS_ENABLED            # false حتى اكتمال البوابة والـwebhook
 NEXT_PUBLIC_SITE_URL        # https://harajstation.com
 R2_*                        # تخزين الصور
 MOYASAR_*                   # الدفع

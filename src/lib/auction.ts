@@ -80,16 +80,19 @@ export async function finalizeExpiredAuctions() {
     const top = auction.bids[0];
 
     if (!top) {
-      await db.$transaction([
-        db.auction.update({
-          where: { id: auction.id },
+      const finalized = await db.$transaction(async (tx) => {
+        const locked = await tx.auction.updateMany({
+          where: { id: auction.id, status: "LIVE", endsAt: { lte: new Date() } },
           data: { status: "NO_SALE" },
-        }),
-        db.listing.update({
+        });
+        if (locked.count !== 1) return false;
+        await tx.listing.update({
           where: { id: auction.listingId },
           data: { status: "EXPIRED" },
-        }),
-      ]);
+        });
+        return true;
+      }, { isolationLevel: "Serializable" });
+      if (!finalized) continue;
       await notify(
         auction.listing.sellerId,
         "SYSTEM",
@@ -104,17 +107,19 @@ export async function finalizeExpiredAuctions() {
       Date.now() + CONFIRM_WINDOW_HOURS * 60 * 60 * 1000
     );
 
-    await db.$transaction([
-      db.auction.update({
-        where: { id: auction.id },
+    const finalized = await db.$transaction(async (tx) => {
+      const locked = await tx.auction.updateMany({
+        where: { id: auction.id, status: "LIVE", endsAt: { lte: new Date() } },
         data: { status: "ENDED", winnerId: top.bidderId, winningBid: top.amount },
-      }),
-      db.listing.update({
+      });
+      if (locked.count !== 1) return false;
+      await tx.listing.update({
         where: { id: auction.listingId },
         data: { status: "SOLD" },
-      }),
-      db.transaction.create({
+      });
+      await tx.transaction.create({
         data: {
+          auctionId: auction.id,
           listingId: auction.listingId,
           sellerId: auction.listing.sellerId,
           buyerId: top.bidderId,
@@ -122,8 +127,10 @@ export async function finalizeExpiredAuctions() {
           source: "AUCTION",
           deadline,
         },
-      }),
-    ]);
+      });
+      return true;
+    }, { isolationLevel: "Serializable" });
+    if (!finalized) continue;
 
     await notify(
       auction.listing.sellerId,

@@ -21,7 +21,9 @@ const CSP = [
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   `connect-src 'self' ${GA_CONNECT_SRC}`,
-  "frame-ancestors 'self'",
+  "frame-src https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://www.tiktok.com",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
 ].join("; ");

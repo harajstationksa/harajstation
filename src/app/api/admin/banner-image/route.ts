@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { STAFF_ROLES } from "@/lib/constants";
+import { getAdminCurrentUser } from "@/lib/auth";
 import { saveImages, MAX_FILE } from "@/lib/uploads";
 import { rateLimitGuard } from "@/lib/rate-limit";
 
@@ -9,8 +8,8 @@ export async function POST(req: Request) {
   const limited = await rateLimitGuard(req, "banner-image", 20, 10 * 60_000);
   if (limited) return limited;
 
-  const user = await getCurrentUser();
-  if (!user || !STAFF_ROLES.includes(user.role)) {
+  const user = await getAdminCurrentUser(["ADMIN"]);
+  if (!user) {
     return NextResponse.json({ error: "غير مصرح" }, { status: 403 });
   }
 

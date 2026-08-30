@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { compareSync } from "bcryptjs";
 import { db } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, SESSION_COOKIE } from "@/lib/auth";
 import { isValidDisplayName, normalizeSaudiPhone } from "@/lib/utils";
 import { CITIES } from "@/lib/constants";
 import { rateLimitGuard } from "@/lib/rate-limit";
+import { emailConfigured } from "@/lib/email";
+import { issueEmailVerification } from "@/lib/email-verify";
 
 const schema = z.object({
   name: z.string().min(2).max(60),
@@ -59,6 +61,12 @@ export async function PATCH(req: Request) {
   const newEmail = parsed.data.email?.toLowerCase().trim();
   const emailChanged = !!newEmail && newEmail !== user.email;
   if (emailChanged) {
+    if (!emailConfigured()) {
+      return NextResponse.json(
+        { error: "لا يمكن تغيير البريد لأن خدمة التحقق غير متاحة" },
+        { status: 503 }
+      );
+    }
     if (!parsed.data.currentPassword) {
       return NextResponse.json(
         { error: "أدخل كلمة المرور الحالية لتغيير البريد الإلكتروني" },
@@ -90,9 +98,29 @@ export async function PATCH(req: Request) {
       phone,
       // changing the number resets verification (future OTP flow)
       phoneVerified: phone === user.phone ? user.phoneVerified : false,
-      ...(emailChanged ? { email: newEmail } : {}),
+      ...(emailChanged
+        ? {
+            email: newEmail,
+            emailVerifiedAt: null,
+            twoFactorEmail: false,
+            googleSub: null,
+            sessionVersion: { increment: 1 },
+          }
+        : {}),
     },
   });
+
+  if (emailChanged && newEmail) {
+    const sent = await issueEmailVerification(user.id, newEmail).catch(() => false);
+    const res = NextResponse.json(
+      sent
+        ? { ok: true, needsVerification: true }
+        : { error: "تم تغيير البريد، لكن تعذّر إرسال رسالة التفعيل. استخدم إعادة الإرسال." },
+      { status: sent ? 200 : 503 }
+    );
+    res.cookies.delete(SESSION_COOKIE);
+    return res;
+  }
 
   return NextResponse.json({ ok: true });
 }

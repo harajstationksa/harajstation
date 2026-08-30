@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { isRateLimited, rateLimitGuard } from "@/lib/rate-limit";
 import { emailConfigured, sendPasswordResetEmail } from "@/lib/email";
+import { hashOneTimeToken } from "@/lib/tokens";
 
 const schema = z.object({ email: z.string().email() });
 
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
   await db.passwordResetToken.create({
     data: {
       userId: user.id,
-      token,
+      token: hashOneTimeToken(token),
       expiresAt: new Date(Date.now() + TOKEN_TTL_MIN * 60_000),
     },
   });

@@ -7,7 +7,7 @@ import { getSettingInt } from "@/lib/settings";
 import { getPlanLimits } from "@/lib/limits";
 import { notify } from "@/lib/notify";
 import { isRateLimited } from "@/lib/rate-limit";
-import { deleteImages } from "@/lib/uploads";
+import { deleteImages, deletePrivateImage } from "@/lib/uploads";
 import { parseJson } from "../../../../_lib/serialize";
 
 const schema = z.object({
@@ -119,10 +119,15 @@ export async function POST(
       });
       const files = [
         ...parseJson<string[]>(listing.images, []),
-        ...chatImages.map((m) => m.imageUrl!),
+        ...chatImages.map((m) => m.imageUrl!).filter((url) => !url.startsWith("private:")),
       ];
+      const privateFiles = chatImages
+        .map((m) => m.imageUrl!)
+        .filter((url) => url.startsWith("private:"))
+        .map((url) => url.slice("private:".length));
       await db.listing.delete({ where: { id } });
       deleteImages(files).catch(() => {}); // best-effort storage cleanup
+      Promise.all(privateFiles.map((path) => deletePrivateImage(path))).catch(() => {});
       return NextResponse.json({ ok: true });
     }
   }

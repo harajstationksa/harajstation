@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    ".design-sync/**",
+    ".ds-sync/**",
+    "ds-bundle/**",
+    "server-snapshot-*/**",
+    "PROJECT_AUDIT_REPORT.html",
   ]),
 ]);
 

@@ -29,18 +29,24 @@ export function PushManager() {
 
   useEffect(() => {
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    setIsIOS(ios);
-    setStandalone(window.matchMedia("(display-mode: standalone)").matches);
-    if ("serviceWorker" in navigator && "PushManager" in window) {
-      setSupported(true);
-      navigator.serviceWorker
+    const isSupported = "serviceWorker" in navigator && "PushManager" in window;
+    let active = true;
+    const initialize = isSupported
+      ? navigator.serviceWorker
         .register("/sw.js", { scope: "/", updateViaCache: "none" })
         .then((reg) => reg.pushManager.getSubscription())
-        .then((sub) => setSubscribed(!!sub))
-        .catch(() => {});
-    } else {
-      setSupported(false);
-    }
+        .catch(() => null)
+      : Promise.resolve(null);
+    initialize.then((sub) => {
+      if (!active) return;
+      setIsIOS(ios);
+      setStandalone(window.matchMedia("(display-mode: standalone)").matches);
+      setSupported(isSupported);
+      setSubscribed(!!sub);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   async function subscribe() {

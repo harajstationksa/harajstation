@@ -6,6 +6,7 @@ export default defineConfig({
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   test: {
+    include: ["tests/**/*.test.ts"],
     environment: "node",
     setupFiles: ["./tests/setup.ts"],
     // integration tests hit the local dev database — never run them in parallel

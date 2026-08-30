@@ -1,7 +1,7 @@
 import { db } from "./db";
-import { adjustPoints } from "./points";
-import { awardReferralBonus } from "./referral";
-import { recordPromoRedemption } from "./promo";
+import { adjustPointsWithClient } from "./points";
+import { getReferralConfig } from "./referral";
+import { notify } from "./notify";
 
 /**
  * Moyasar integration (invoice flow):
@@ -16,7 +16,7 @@ const API = "https://api.moyasar.com/v1";
 export const VAT_RATE = 0.15;
 
 export function paymentsConfigured() {
-  return !!process.env.MOYASAR_SECRET_KEY;
+  return process.env.PAYMENTS_ENABLED === "true" && !!process.env.MOYASAR_SECRET_KEY;
 }
 
 function authHeader() {
@@ -85,6 +85,7 @@ export async function confirmPayment(
   if (payment.status === "PAID") return "paid";
   if (payment.status === "FAILED") return "failed";
 
+  if (!paymentsConfigured() || !payment.invoiceId) return "pending";
   const status = await fetchInvoiceStatus(payment.invoiceId);
   if (status !== "paid") {
     if (status === "expired" || status === "canceled" || status === "failed") {
@@ -97,29 +98,129 @@ export async function confirmPayment(
     return "pending";
   }
 
-  // exactly-once credit: only the caller that flips PENDING→PAID credits
-  const flipped = await db.payment.updateMany({
-    where: { id: paymentId, status: "PENDING" },
-    data: { status: "PAID", paidAt: new Date() },
-  });
-  if (flipped.count === 1) {
-    await adjustPoints(
-      payment.userId,
-      payment.points,
-      payment.promoBonus > 0
-        ? `شحن ${payment.points} نقطة (منها ${payment.promoBonus} بونص كود خصم) — دفع إلكتروني`
-        : `شحن ${payment.points} نقطة — دفع إلكتروني`
-    );
-    if (payment.promoCodeId && payment.promoBonus > 0) {
-      await recordPromoRedemption({
-        promoId: payment.promoCodeId,
-        userId: payment.userId,
-        bonusPoints: payment.promoBonus,
-        paymentId: payment.id,
-      });
+  const referralConfig = await getReferralConfig();
+  let referralNotice: { userId: string; buyerName: string; reward: number } | null = null;
+
+  // The status flip, user balance, point ledger, promo counters and referral
+  // reward commit together. Advisory locks serialize the two public callbacks
+  // without leaving a half-paid row if any later step fails.
+  await db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payment:${paymentId}`}))`;
+    const current = await tx.payment.findUnique({ where: { id: paymentId } });
+    if (!current || current.status !== "PENDING") return;
+
+    let creditPoints = current.points;
+    let appliedPromoBonus = current.promoBonus;
+    let appliedPromoId = current.promoCodeId;
+
+    if (appliedPromoId && appliedPromoBonus > 0) {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`promo:${appliedPromoId}:${current.userId}`}))`;
+      const promo = await tx.promoCode.findUnique({ where: { id: appliedPromoId } });
+      const alreadyUsed = promo?.oncePerUser
+        ? await tx.promoRedemption.findFirst({
+            where: { promoId: appliedPromoId, userId: current.userId },
+            select: { id: true },
+          })
+        : null;
+      const eligible =
+        !!promo &&
+        promo.isActive &&
+        (!promo.expiresAt || promo.expiresAt >= new Date()) &&
+        (promo.maxUses === 0 || promo.usedCount < promo.maxUses) &&
+        !alreadyUsed;
+
+      if (eligible && promo) {
+        const reserved = await tx.promoCode.updateMany({
+          where: {
+            id: promo.id,
+            isActive: true,
+            OR: [{ maxUses: 0 }, { usedCount: { lt: promo.maxUses } }],
+          },
+          data: { usedCount: { increment: 1 } },
+        });
+        if (reserved.count === 1) {
+          await tx.promoRedemption.create({
+            data: {
+              promoId: promo.id,
+              userId: current.userId,
+              bonusPoints: appliedPromoBonus,
+              paymentId: current.id,
+              eligibilityKey: promo.oncePerUser
+                ? `${promo.id}:${current.userId}`
+                : null,
+            },
+          });
+        } else {
+          creditPoints -= appliedPromoBonus;
+          appliedPromoBonus = 0;
+          appliedPromoId = null;
+        }
+      } else {
+        creditPoints -= appliedPromoBonus;
+        appliedPromoBonus = 0;
+        appliedPromoId = null;
+      }
     }
-    // referral commission on the paid package (excluding the promo bonus)
-    await awardReferralBonus(payment.userId, payment.points - payment.promoBonus, payment.id);
+
+    const newBalance = await adjustPointsWithClient(
+      tx,
+      current.userId,
+      creditPoints,
+      appliedPromoBonus > 0
+        ? `شحن ${creditPoints} نقطة (منها ${appliedPromoBonus} بونص كود خصم) — دفع إلكتروني`
+        : `شحن ${creditPoints} نقطة — دفع إلكتروني`
+    );
+    if (newBalance === null) throw new Error("Payment user no longer exists");
+
+    if (referralConfig.enabled && referralConfig.percent > 0) {
+      const buyer = await tx.user.findUnique({
+        where: { id: current.userId },
+        select: { name: true, referredById: true },
+      });
+      const purchased = creditPoints - appliedPromoBonus;
+      const reward = Math.floor((purchased * referralConfig.percent) / 100);
+      if (buyer?.referredById && buyer.referredById !== current.userId && reward > 0) {
+        const refBalance = await adjustPointsWithClient(
+          tx,
+          buyer.referredById,
+          reward,
+          `مكافأة إحالة ${referralConfig.percent}% — شحن ${buyer.name} ${purchased.toLocaleString("en-US")} نقطة`
+        );
+        if (refBalance !== null) {
+          await tx.referralEarning.create({
+            data: {
+              referrerId: buyer.referredById,
+              referredId: current.userId,
+              paymentId: current.id,
+              points: reward,
+            },
+          });
+          referralNotice = { userId: buyer.referredById, buyerName: buyer.name, reward };
+        }
+      }
+    }
+
+    await tx.payment.update({
+      where: { id: current.id },
+      data: {
+        status: "PAID",
+        paidAt: new Date(),
+        points: creditPoints,
+        promoBonus: appliedPromoBonus,
+        promoCodeId: appliedPromoId,
+      },
+    });
+  });
+
+  if (referralNotice) {
+    const notice = referralNotice as { userId: string; buyerName: string; reward: number };
+    await notify(
+      notice.userId,
+      "SYSTEM",
+      "مكافأة إحالة 🎁",
+      `حصلت على ${notice.reward.toLocaleString("en-US")} نقطة لأن ${notice.buyerName} شحن رصيده عبر كود إحالتك`,
+      "/dashboard/referrals"
+    ).catch(() => {});
   }
   return "paid";
 }

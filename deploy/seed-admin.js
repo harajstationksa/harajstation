@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable @typescript-eslint/no-require-imports */
 /**
  * One-shot, idempotent: makes admin@harajstation.com THE admin-portal account
  * and strips the ADMIN role from every other user (they become normal users —

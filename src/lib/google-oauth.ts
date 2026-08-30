@@ -45,6 +45,7 @@ export function consentUrl(state: string) {
 }
 
 export type GoogleProfile = {
+  sub: string;
   email: string;
   emailVerified: boolean;
   name: string;
@@ -77,14 +78,16 @@ export async function fetchProfile(code: string): Promise<GoogleProfile | null> 
   if (!infoRes.ok) return null;
 
   const info = (await infoRes.json()) as {
+    sub?: string;
     email?: string;
     email_verified?: boolean;
     name?: string;
     picture?: string;
   };
-  if (!info.email) return null;
+  if (!info.sub || !info.email) return null;
 
   return {
+    sub: info.sub,
     email: info.email.toLowerCase().trim(),
     emailVerified: info.email_verified === true,
     name: info.name?.trim() || info.email.split("@")[0],

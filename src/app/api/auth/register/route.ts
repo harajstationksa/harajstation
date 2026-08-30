@@ -59,6 +59,13 @@ export async function POST(req: Request) {
     );
   }
 
+  if (process.env.NODE_ENV === "production" && !emailConfigured()) {
+    return NextResponse.json(
+      { error: "التسجيل متوقف مؤقتًا لأن خدمة البريد غير متاحة" },
+      { status: 503 }
+    );
+  }
+
   const email = parsed.data.email.toLowerCase();
   const exists = await db.user.findUnique({ where: { email } });
   if (exists) {
@@ -97,13 +104,19 @@ export async function POST(req: Request) {
   });
 
   // confirmation email — fire-and-forget so a mail hiccup never blocks signup
-  issueEmailVerification(user.id, email).catch(() => {});
+  const verificationSent = await issueEmailVerification(user.id, email).catch(() => false);
 
   // The account exists but stays locked until the link is clicked, so signing
   // them in here would hand out exactly the session the rule is meant to
   // withhold. Without mail configured (local dev) nobody could ever verify, so
   // there we sign in as before.
   if (emailConfigured()) {
+    if (!verificationSent) {
+      return NextResponse.json(
+        { error: "تعذّر إرسال رسالة التفعيل — أعد المحاولة من شاشة الدخول" },
+        { status: 503 }
+      );
+    }
     return NextResponse.json({ ok: true, needsVerification: true, email });
   }
 

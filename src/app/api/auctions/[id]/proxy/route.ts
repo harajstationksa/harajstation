@@ -6,6 +6,7 @@ import { notify } from "@/lib/notify";
 import { applyProxyBids } from "@/lib/proxy-bid";
 import { formatSAR } from "@/lib/utils";
 import { rateLimitGuard } from "@/lib/rate-limit";
+import { Prisma } from "@prisma/client";
 
 const schema = z.object({
   maxAmount: z.number().int().positive(),
@@ -37,7 +38,7 @@ export async function POST(
   const { maxAmount, anonymous } = parsed.data;
 
   try {
-    const result = await db.$transaction(async (tx) => {
+    const runProxyBid = () => db.$transaction(async (tx) => {
       const auction = await tx.auction.findUnique({
         where: { id },
         include: {
@@ -92,7 +93,18 @@ export async function POST(
         prevTopBidderId,
         ...resolved,
       };
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    let result: Awaited<ReturnType<typeof runProxyBid>> | undefined;
+    for (let attempt = 1; result === undefined; attempt++) {
+      try {
+        result = await runProxyBid();
+      } catch (error) {
+        const conflict =
+          error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034";
+        if (!conflict || attempt >= 3) throw error;
+      }
+    }
 
     // notifications (outside the transaction)
     if (
