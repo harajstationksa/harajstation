@@ -18,11 +18,26 @@ cd "$APP_DIR"
 echo "==> pulling"
 git pull --ff-only
 
+commit=$(git rev-parse --short=12 HEAD)
+RELEASE_ROOT=/var/www/harajstation-releases
+release="$RELEASE_ROOT/$commit-$(date -u +%Y%m%dT%H%M%SZ)"
+mkdir -p "$release"
+
+echo "==> preparing immutable release $release"
+git archive HEAD | tar -x -C "$release"
+ln -s "$APP_DIR/.env" "$release/.env"
+mkdir -p "$APP_DIR/private-uploads"
+ln -s "$APP_DIR/private-uploads" "$release/private-uploads"
+cd "$release"
+
 echo "==> deps"
 npm ci
 
 echo "==> prisma client"
 npx prisma generate
+
+echo "==> runtime dependency audit"
+npm audit --omit=dev --audit-level=high
 
 echo "==> production configuration"
 node --env-file=.env scripts/validate-production-env.cjs
@@ -41,21 +56,22 @@ npx prisma migrate deploy
 echo "==> migrate legacy private chat data"
 npm run migrate:chat -- --apply
 
-mkdir -p private-uploads
-chmod 700 private-uploads
-find private-uploads -type d -exec chmod 700 {} +
-find private-uploads -type f -exec chmod 600 {} +
+chmod 700 "$APP_DIR/private-uploads"
+find "$APP_DIR/private-uploads" -type d -exec chmod 700 {} +
+find "$APP_DIR/private-uploads" -type f -exec chmod 600 {} +
 
 echo "==> build"
 npm run build
 
 echo "==> restart"
 if pm2 describe harajstation >/dev/null 2>&1; then
-  pm2 reload harajstation --update-env
+  pm2 startOrReload "$release/deploy/ecosystem.config.cjs" --update-env
 else
-  pm2 start deploy/ecosystem.config.cjs
+  pm2 start "$release/deploy/ecosystem.config.cjs"
   pm2 save
 fi
+
+ln -sfn "$release" /var/www/harajstation-current
 
 pm2 status harajstation
 echo "==> health"
@@ -68,4 +84,4 @@ for attempt in 1 2 3 4 5 6; do
   sleep 2
 done
 [ "$healthy" = 1 ] || { echo "!! health check failed after reload" >&2; exit 1; }
-echo "==> done — https://harajstation.com"
+echo "==> done — https://harajstation.com ($release)"

@@ -41,8 +41,8 @@ ufw allow 'Nginx Full'
 ufw --force enable
 
 echo "==> directories"
-mkdir -p "$APP_DIR" "$LOG_DIR" /var/backups/harajstation /var/lib/haraj-backup
-chown -R haraj:haraj "$APP_DIR" "$LOG_DIR" /var/backups/harajstation /var/lib/haraj-backup
+mkdir -p "$APP_DIR" /var/www/harajstation-releases "$LOG_DIR" /var/backups/harajstation /var/lib/haraj-backup
+chown -R haraj:haraj "$APP_DIR" /var/www/harajstation-releases "$LOG_DIR" /var/backups/harajstation /var/lib/haraj-backup
 chmod 700 /var/backups/harajstation /var/lib/haraj-backup
 
 echo
