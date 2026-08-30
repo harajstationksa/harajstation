@@ -20,6 +20,7 @@ git pull --ff-only
 
 commit=$(git rev-parse --short=12 HEAD)
 RELEASE_ROOT=/var/www/harajstation-releases
+RUN_ROOT=/var/www/harajstation-run
 release="$RELEASE_ROOT/$commit-$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p "$release"
 
@@ -67,14 +68,18 @@ find "$APP_DIR/private-uploads" -type d -exec chmod 700 {} +
 find "$APP_DIR/private-uploads" -type f -exec chmod 600 {} +
 
 echo "==> restart"
-if pm2 describe harajstation >/dev/null 2>&1; then
-  pm2 startOrReload "$release/deploy/ecosystem.config.cjs" --update-env
+mkdir -p "$RUN_ROOT"
+cp "$release/deploy/start-release.cjs" "$RUN_ROOT/start-release.cjs"
+chmod 755 "$RUN_ROOT/start-release.cjs"
+ln -sfn "$release" "$RELEASE_ROOT/current"
+if pm2 describe harajstation 2>/dev/null | grep -q "$RUN_ROOT/start-release.cjs"; then
+  pm2 reload "$release/deploy/ecosystem.config.cjs" --update-env
 else
+  # One-time migration from the legacy in-place process definition.
+  pm2 delete harajstation >/dev/null 2>&1 || true
   pm2 start "$release/deploy/ecosystem.config.cjs"
   pm2 save
 fi
-
-ln -sfn "$release" /var/www/harajstation-current
 
 pm2 status harajstation
 echo "==> health"

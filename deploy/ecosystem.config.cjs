@@ -1,23 +1,19 @@
 // حراج ستيشن — PM2 process definition
-/* eslint-disable @typescript-eslint/no-require-imports */
 //
 //   pm2 start deploy/ecosystem.config.cjs
 //   pm2 save && pm2 startup     # survive a reboot
 //
-const path = require("node:path");
-
 module.exports = {
   apps: [
     {
       name: "harajstation",
-      // Each deployment is built in an immutable release directory. Resolve
-      // cwd from this config so PM2 switches releases without mutating the one
-      // currently serving traffic.
-      cwd: path.resolve(__dirname, ".."),
+      // Stable launcher: each worker resolves the atomic `current` symlink at
+      // startup, so old workers keep their old release until PM2 replaces them.
+      cwd: "/var/www/harajstation-run",
       // call Next directly instead of `npm start` — one less process in the tree
       // -H 127.0.0.1: only nginx may reach the app. Exposed on 0.0.0.0 the
       // rate-limiter's IP headers could be forged by hitting :3000 directly.
-      script: "node_modules/next/dist/bin/next",
+      script: "/var/www/harajstation-run/start-release.cjs",
       args: "start -p 3000 -H 127.0.0.1",
 
       // TWO cluster workers: `pm2 reload` becomes zero-downtime (one worker
