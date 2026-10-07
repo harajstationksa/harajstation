@@ -1,0 +1,48 @@
+# Dependencies and build output
+/node_modules/
+/.pnp
+.pnp.*
+/.yarn/
+/.next/
+/out/
+/build/
+/coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Secrets, keys and local data
+.env*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+/prisma/dev.db*
+/public/uploads/
+/private-uploads/
+/backups/
+*.age
+*.dump
+
+# Local editor state and generated artifacts
+/.*/
+!/.github/
+/artifacts/
+/ds-bundle/
+/*.html
+/*.md
+!/README.md
+!/REQUIREMENTS.md
+!/DEPLOY.md
+!/SECURITY.md
+!/CHANGELOG.md
+
+# Logs and temporary files
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*

@@ -1,0 +1,9 @@
+# /etc/cron.d/harajstation — runs the finalizers every minute.
+# (cron.d files need the user column and a trailing newline.)
+SHELL=/bin/sh
+PATH=/usr/local/bin:/usr/bin:/bin
+
+* * * * * root /usr/local/bin/haraj-cron.sh
+
+# daily encrypted DB + private-files backup
+17 3 * * * haraj /bin/bash /var/www/harajstation-releases/current/deploy/backup.sh >> /var/backups/harajstation/backup.log 2>&1

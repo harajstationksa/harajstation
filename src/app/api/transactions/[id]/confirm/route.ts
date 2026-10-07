@@ -1,0 +1,64 @@
+import { apiMessage } from "@/lib/api-messages";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { db } from "@/lib/db";
+import { getSession } from "@/lib/auth";
+import { evaluateTransaction } from "@/lib/credibility";
+import { rateLimitGuard } from "@/lib/rate-limit";
+
+const schema = z.object({ answer: z.enum(["YES", "NO"]) });
+
+export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const limited = await rateLimitGuard(req, "tx-confirm", 10, 10 * 60_000);
+  if (limited) return limited;
+  const { id } = await ctx.params;
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const parsed = schema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: apiMessage(req, "إجابة غير صالحة") }, { status: 400 });
+  }
+
+  const t = await db.transaction.findUnique({ where: { id } });
+  if (!t) {
+    return NextResponse.json({ error: apiMessage(req, "المعاملة غير موجودة") }, { status: 404 });
+  }
+  if (t.status !== "PENDING") {
+    return NextResponse.json({ error: apiMessage(req, "المعاملة مغلقة") }, { status: 409 });
+  }
+
+  const isSeller = t.sellerId === session.sub;
+  const isBuyer = t.buyerId === session.sub;
+  if (!isSeller && !isBuyer) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+  if ((isSeller && t.sellerAnswer) || (isBuyer && t.buyerAnswer)) {
+    return NextResponse.json(
+      { error: apiMessage(req, "سبق أن أجبت على هذه المعاملة") },
+      { status: 409 },
+    );
+  }
+
+  const changed = await db.transaction.updateMany({
+    where: {
+      id,
+      status: "PENDING",
+      deadline: { gt: new Date() },
+      ...(isSeller
+        ? { sellerId: session.sub, sellerAnswer: null }
+        : { buyerId: session.sub, buyerAnswer: null }),
+    },
+    data: isSeller ? { sellerAnswer: parsed.data.answer } : { buyerAnswer: parsed.data.answer },
+  });
+  if (changed.count !== 1)
+    return NextResponse.json(
+      { error: apiMessage(req, "سبق تأكيد المعاملة أو انتهت مهلة التأكيد") },
+      { status: 409 },
+    );
+  await evaluateTransaction(id);
+
+  return NextResponse.json({ ok: true });
+}

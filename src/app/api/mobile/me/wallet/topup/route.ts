@@ -1,0 +1,105 @@
+import { apiMessage } from "@/lib/api-messages";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/auth";
+import { createInvoice, paymentsConfigured, totalWithVat, VAT_RATE } from "@/lib/payments";
+import { validatePromo } from "@/lib/promo";
+import { isRateLimited } from "@/lib/rate-limit";
+import { getTopupConfig } from "@/lib/settings";
+
+const schema = z.object({
+  packageId: z.string().min(1),
+  promo: z.string().optional(),
+});
+
+/**
+ * Buy a point package — JSON twin of the wallet server action. With Moyasar
+ * configured it returns { paymentUrl } for the app to open in a webview.
+ * Gateway absence is fail-closed in every environment.
+ */
+export async function POST(req: Request) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: apiMessage(req, "غير مسجل") }, { status: 401 });
+
+  // admin pause switch — same gate as the web wallet
+  const topup = await getTopupConfig();
+  if (!topup.enabled) {
+    return NextResponse.json({ error: apiMessage(req, topup.message) }, { status: 403 });
+  }
+
+  if (await isRateLimited(`buy-points:${user.id}`, 8, 10 * 60_000)) {
+    return NextResponse.json(
+      { error: apiMessage(req, "محاولات كثيرة — انتظر قليلاً ثم حاول مجدداً") },
+      { status: 429 },
+    );
+  }
+
+  const parsed = schema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: apiMessage(req, "طلب غير صالح") }, { status: 400 });
+  }
+
+  const pkg = await db.pointPackage.findUnique({
+    where: { id: parsed.data.packageId },
+  });
+  if (!pkg || !pkg.isActive) {
+    return NextResponse.json({ error: apiMessage(req, "الباقة غير متاحة") }, { status: 404 });
+  }
+
+  let promoId: string | null = null;
+  let promoBonus = 0;
+  const promoInput = (parsed.data.promo ?? "").trim();
+  if (promoInput) {
+    const check = await validatePromo(promoInput, user.id);
+    if (!check.ok) {
+      return NextResponse.json({ error: apiMessage(req, check.error) }, { status: 400 });
+    }
+    promoId = check.promo.id;
+    promoBonus = Math.floor(((pkg.points + pkg.bonus) * check.promo.percent) / 100);
+  }
+
+  const totalPoints = pkg.points + pkg.bonus + promoBonus;
+
+  if (!paymentsConfigured()) {
+    return NextResponse.json(
+      { error: apiMessage(req, "شحن النقاط متوقف مؤقتًا") },
+      { status: 503 },
+    );
+  }
+
+  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const amount = totalWithVat(pkg.price);
+  const payment = await db.payment.create({
+    data: {
+      userId: user.id,
+      packageId: pkg.id,
+      points: totalPoints,
+      amount,
+      promoCodeId: promoId,
+      promoBonus,
+      invoiceId: null,
+    },
+  });
+
+  const invoice = await createInvoice({
+    amountHalalas: amount,
+    description: `حراج ستيشن — شحن ${pkg.points} نقطة${pkg.bonus ? ` (+${pkg.bonus} هدية)` : ""}${promoBonus ? ` (+${promoBonus} كود خصم)` : ""} — شامل ضريبة القيمة المضافة ${VAT_RATE * 100}%`,
+    successUrl: `${site}/dashboard/wallet/confirm?p=${payment.id}`,
+    backUrl: `${site}/dashboard/wallet`,
+  });
+  if (!invoice) {
+    await db.payment.update({ where: { id: payment.id }, data: { status: "FAILED" } });
+    return NextResponse.json(
+      { error: apiMessage(req, "تعذر إنشاء الفاتورة — حاول لاحقاً") },
+      { status: 502 },
+    );
+  }
+
+  await db.payment.update({
+    where: { id: payment.id },
+    data: { invoiceId: invoice.id },
+  });
+
+  return NextResponse.json({ ok: true, paymentUrl: invoice.url, paymentId: payment.id });
+}

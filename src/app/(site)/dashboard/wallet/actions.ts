@@ -1,0 +1,81 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
+import { requireUser } from "@/lib/auth";
+import { createInvoice, paymentsConfigured, totalWithVat, VAT_RATE } from "@/lib/payments";
+import { validatePromo } from "@/lib/promo";
+import { isRateLimited } from "@/lib/rate-limit";
+import { getTopupConfig } from "@/lib/settings";
+
+/**
+ * Buy a point package. With Moyasar keys configured this creates an invoice
+ * and redirects to the hosted payment page (points are credited after the
+ * payment is verified). Missing/disabled gateway configuration always fails
+ * closed; development credits use tests/seeds, never this production action.
+ * An optional promo code adds percent% bonus points on top of the package.
+ */
+export async function buyPointsAction(formData: FormData) {
+  const user = await requireUser();
+  // admin pause switch — the wallet page hides the forms, this stops direct posts
+  const topup = await getTopupConfig();
+  if (!topup.enabled) redirect("/dashboard/wallet");
+  // every attempt creates a Payment row + Moyasar invoice — cap per account
+  if (await isRateLimited(`buy-points:${user.id}`, 8, 10 * 60_000)) {
+    redirect(
+      `/dashboard/wallet?promoError=${encodeURIComponent("محاولات كثيرة — انتظر قليلاً ثم حاول مجدداً")}`,
+    );
+  }
+  const packageId = String(formData.get("packageId"));
+  const promoInput = String(formData.get("promo") ?? "").trim();
+  const pkg = await db.pointPackage.findUnique({ where: { id: packageId } });
+  if (!pkg || !pkg.isActive) return;
+
+  // promo code (optional): validated here, redeemed when the payment confirms
+  let promoId: string | null = null;
+  let promoBonus = 0;
+  if (promoInput) {
+    const check = await validatePromo(promoInput, user.id);
+    if (!check.ok) {
+      redirect(`/dashboard/wallet?promoError=${encodeURIComponent(check.error)}`);
+    }
+    promoId = check.promo.id;
+    promoBonus = Math.floor(((pkg.points + pkg.bonus) * check.promo.percent) / 100);
+  }
+
+  const totalPoints = pkg.points + pkg.bonus + promoBonus;
+
+  if (!paymentsConfigured()) redirect("/dashboard/wallet?error=disabled");
+
+  const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const amount = totalWithVat(pkg.price);
+  const payment = await db.payment.create({
+    data: {
+      userId: user.id,
+      packageId: pkg.id,
+      points: totalPoints,
+      amount,
+      promoCodeId: promoId,
+      promoBonus,
+      invoiceId: null,
+    },
+  });
+
+  const invoice = await createInvoice({
+    amountHalalas: amount,
+    description: `حراج ستيشن — شحن ${pkg.points} نقطة${pkg.bonus ? ` (+${pkg.bonus} هدية)` : ""}${promoBonus ? ` (+${promoBonus} كود خصم)` : ""} — شامل ضريبة القيمة المضافة ${VAT_RATE * 100}%`,
+    successUrl: `${site}/dashboard/wallet/confirm?p=${payment.id}`,
+    backUrl: `${site}/dashboard/wallet`,
+  });
+  if (!invoice) {
+    await db.payment.update({ where: { id: payment.id }, data: { status: "FAILED" } });
+    redirect("/dashboard/wallet?error=payment");
+  }
+
+  await db.payment.update({
+    where: { id: payment.id },
+    data: { invoiceId: invoice.id },
+  });
+
+  redirect(invoice.url);
+}

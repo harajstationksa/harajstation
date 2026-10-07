@@ -1,0 +1,196 @@
+.dock {
+  pointer-events: auto;
+  margin-inline: auto;
+  width: min(100%, 26rem);
+  background: #fffdfa;
+  border: 1px solid #ece3dd;
+  border-radius: 22px;
+  box-shadow:
+    0 10px 28px rgb(27 30 35 / 16%),
+    0 2px 7px rgb(27 30 35 / 7%);
+  transition:
+    width 520ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-radius 520ms ease,
+    box-shadow 520ms ease;
+}
+.compact {
+  width: min(100%, 264px);
+  border-radius: 18px;
+  box-shadow: 0 6px 18px rgb(27 30 35 / 13%);
+}
+.items {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: center;
+  gap: 2px;
+  height: 70px;
+  padding: 6px;
+  transition:
+    height 520ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.compact .items {
+  height: 54px;
+  padding: 4px;
+}
+.item,
+.addLink {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 56px;
+  border-radius: 15px;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease,
+    height 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.compact .item,
+.compact .addLink {
+  height: 44px;
+}
+.item {
+  flex-direction: column;
+  gap: 4px;
+  color: #62666b;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease,
+    height 520ms cubic-bezier(0.22, 1, 0.36, 1),
+    gap 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.compact .item {
+  gap: 0;
+}
+.item.active {
+  color: var(--color-primary-700);
+  background: #faeee7;
+}
+.icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.label {
+  max-height: 15px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    max-height 520ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 240ms ease 100ms,
+    transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.compact .label {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    max-height 520ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 200ms ease,
+    transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.active .label {
+  font-weight: 700;
+}
+.addButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 15px;
+  background: var(--color-primary-600);
+  color: white;
+  box-shadow: 0 4px 10px rgb(166 74 48 / 20%);
+  transition:
+    background-color 180ms ease,
+    transform 180ms ease,
+    width 520ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 520ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-radius 520ms ease;
+}
+.compact .addButton {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+}
+.navigationHint {
+  position: absolute;
+  bottom: 2px;
+  width: 12px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--color-primary-600);
+  opacity: 0;
+  pointer-events: none;
+}
+.navigationHint[data-pending="true"] {
+  opacity: 1;
+}
+.item:has(.navigationHint[data-pending="true"]) {
+  color: var(--color-primary-700);
+  background: #faeee7;
+}
+.item:active,
+.addLink:active .addButton {
+  transform: scale(0.95);
+}
+.item:focus-visible,
+.addLink:focus-visible {
+  outline: 2px solid var(--color-primary-700);
+  outline-offset: 2px;
+}
+@media (hover: hover) {
+  .item:hover {
+    background: #f8f2ee;
+    color: var(--color-primary-700);
+  }
+  .item.active:hover {
+    background: #faeee7;
+  }
+  .addLink:hover .addButton {
+    background: var(--color-primary-700);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dock,
+  .items,
+  .item,
+  .addLink,
+  .addButton,
+  .label {
+    transition: none;
+  }
+  .item:active,
+  .addLink:active .addButton {
+    transform: none;
+  }
+}
+@media (forced-colors: active) {
+  .dock {
+    background: Canvas;
+    border-color: ButtonText;
+  }
+  .item,
+  .item.active {
+    color: LinkText;
+  }
+  .item.active {
+    outline: 1px solid LinkText;
+  }
+  .addButton {
+    background: ButtonFace;
+    color: ButtonText;
+    border: 1px solid ButtonText;
+  }
+}

@@ -1,0 +1,98 @@
+export const CITIES = [
+  "الرياض",
+  "جدة",
+  "مكة المكرمة",
+  "المدينة المنورة",
+  "الدمام",
+  "الخبر",
+  "الظهران",
+  "الأحساء",
+  "الطائف",
+  "تبوك",
+  "بريدة",
+  "عنيزة",
+  "حائل",
+  "أبها",
+  "خميس مشيط",
+  "جازان",
+  "نجران",
+  "الباحة",
+  "سكاكا",
+  "عرعر",
+  "ينبع",
+  "الجبيل",
+  "حفر الباطن",
+  "القطيف",
+  "الخرج",
+] as const;
+
+export const CONDITIONS = {
+  NEW: "جديد",
+  LIKE_NEW: "كالجديد",
+  USED: "مستعمل",
+} as const;
+
+export type Condition = keyof typeof CONDITIONS;
+
+export const LISTING_STATUS = {
+  ACTIVE: "نشط",
+  PENDING: "قيد المراجعة",
+  AWAITING_INFO: "بانتظار معلومات منك",
+  SOLD: "تم البيع",
+  EXPIRED: "منتهي",
+  REMOVED: "محذوف",
+} as const;
+
+export const AUCTION_DURATIONS = [
+  { hours: 24, label: "يوم واحد", labelEn: "1 day" },
+  { hours: 72, label: "3 أيام", labelEn: "3 days" },
+  { hours: 120, label: "5 أيام", labelEn: "5 days" },
+  { hours: 168, label: "7 أيام", labelEn: "7 days" },
+] as const;
+
+export const TRUST_LEVELS = [
+  { min: 81, label: "ممتاز", labelEn: "Excellent", color: "#16a34a", stars: 5 },
+  { min: 61, label: "موثوق", labelEn: "Trusted", color: "#65a30d", stars: 4 },
+  { min: 41, label: "متوسط", labelEn: "Average", color: "#eab308", stars: 3 },
+  { min: 21, label: "مبتدئ", labelEn: "Beginner", color: "#db7759", stars: 2 },
+  { min: 0, label: "غير موثوق", labelEn: "Untrusted", color: "#dc2626", stars: 1 },
+] as const;
+
+export const STAFF_ROLES = ["ADMIN", "MODERATOR", "SUPPORT", "ACCOUNTANT", "STAFF"];
+
+export const ROLE_LABELS: Record<string, string> = {
+  USER: "مستخدم",
+  ADMIN: "مدير",
+  MODERATOR: "مشرف",
+  SUPPORT: "دعم فني",
+  ACCOUNTANT: "محاسب",
+  STAFF: "موظف بصلاحيات مخصّصة",
+};
+
+// Credibility point rules (see spec §3)
+export const CRED = {
+  CONFIRMED_BOTH: 5,
+  TIMEOUT_ONE_SIDE: -3,
+  EXPIRED_BOTH: -5,
+  DISPUTE_LOSER: -15,
+  DISPUTE_WINNER: 5,
+} as const;
+
+// Mutual-confirmation window opened by a sale / auction win. Two days proved
+// too tight — shipping between cities, inspection and travel routinely ate it,
+// and a silent party loses credibility points — so the base window is 10 days
+// and the buyer may ask the seller for ONE extension on top of it.
+export const CONFIRM_WINDOW_DAYS = 10;
+export const CONFIRM_WINDOW_HOURS = CONFIRM_WINDOW_DAYS * 24;
+// day choices offered to the buyer when requesting more time
+export const EXTENSION_DAY_OPTIONS = [3, 5, 7, 10];
+export const EXTENSION_MAX_DAYS = 10;
+export const SNIPE_WINDOW_MS = 2 * 60 * 1000; // last 2 minutes
+export const SNIPE_EXTENSION_MS = 2 * 60 * 1000; // Add to the PREVIOUS deadline; repeated late bids extend it again.
+
+// Account limits
+export const LIMITS = {
+  FREE_LISTINGS: 10,
+  FREE_AUCTIONS: 3,
+  PRO_AUCTIONS: 10,
+} as const;

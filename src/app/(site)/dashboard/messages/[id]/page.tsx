@@ -1,0 +1,89 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ChevronRight } from "lucide-react";
+import { db } from "@/lib/db";
+import { requireUser } from "@/lib/auth";
+import { parseImages } from "@/lib/utils";
+import { Avatar } from "@/components/Avatar";
+import { ChatThread } from "@/components/ChatThread";
+import { BlockUserButton } from "@/components/BlockUserButton";
+import { ReportButton } from "@/components/ReportButton";
+import { getT } from "@/lib/i18n";
+
+export const dynamic = "force-dynamic";
+
+export default async function ConversationPage({ params }: { params: Promise<{ id: string }> }) {
+  const user = await requireUser();
+  const { t } = await getT();
+  const { id } = await params;
+
+  const conv = await db.conversation.findUnique({
+    where: { id },
+    include: { listing: { include: { auction: true } }, buyer: true, seller: true },
+  });
+  if (!conv || (conv.buyerId !== user.id && conv.sellerId !== user.id)) notFound();
+
+  const other = conv.buyerId === user.id ? conv.seller : conv.buyer;
+  const ownBlock = await db.userBlock.findUnique({
+    where: { blockerId_blockedId: { blockerId: user.id, blockedId: other.id } },
+    select: { id: true },
+  });
+  // direct profile chats have no listing attached
+  const listingHref = conv.listing
+    ? conv.listing.auction
+      ? `/auctions/${conv.listing.auction.id}`
+      : `/listings/${conv.listing.id}`
+    : null;
+
+  return (
+    <div className="space-y-4">
+      <Link
+        href="/dashboard/messages"
+        className="inline-flex items-center gap-1 text-sm text-neutral-500 hover:text-primary-600"
+      >
+        <ChevronRight className="size-4" />
+        {t.dash.thread.all}
+      </Link>
+
+      <div className="card p-3.5 flex items-center gap-3">
+        <Avatar
+          name={other.name}
+          color={other.avatarColor}
+          src={other.avatarUrl}
+          className="size-11 text-base"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="font-bold text-sm flex items-center gap-2">
+            <Link href={`/profile/${other.id}`} className="hover:text-primary-600">
+              {other.name}
+            </Link>
+            <ReportButton targetType="USER" targetId={other.id} compact />
+            <BlockUserButton userId={other.id} initiallyBlocked={!!ownBlock} />
+          </p>
+          {conv.listing && listingHref && (
+            <Link
+              href={listingHref}
+              className="text-xs text-primary-600 hover:underline line-clamp-1"
+            >
+              {t.dash.thread.about} {conv.listing.title}
+            </Link>
+          )}
+        </div>
+        {conv.listing && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={parseImages(conv.listing.images)[0]}
+            alt=""
+            className="size-11 rounded-lg object-cover border border-neutral-100 shrink-0"
+          />
+        )}
+      </div>
+
+      <ChatThread
+        key={conv.id}
+        conversationId={conv.id}
+        role={conv.sellerId === user.id ? "seller" : "buyer"}
+      />
+    </div>
+  );
+}

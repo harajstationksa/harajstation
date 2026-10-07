@@ -1,0 +1,37 @@
+import type { NextConfig } from "next";
+
+const securityHeaders = [
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  // HSTS is ignored over plain HTTP, so it is safe to always send
+  {
+    key: "Strict-Transport-Security",
+    value:
+      "max-age=63072000; includeSubDomains" +
+      (process.env.HSTS_PRELOAD === "true" ? "; preload" : ""),
+  },
+];
+
+const nextConfig: NextConfig = {
+  // Derived from the server-only credential so there is one switch, not two:
+  // the Google button only renders when sign-in can actually work.
+  env: {
+    NEXT_PUBLIC_GOOGLE_ENABLED: process.env.GOOGLE_CLIENT_ID ? "1" : "",
+  },
+  experimental: {
+    // Having a proxy.ts makes Next buffer every request body so it can be read
+    // twice, and it TRUNCATES anything past this limit — silently, with the
+    // request still going through. The default 10MB was under a listing's max
+    // upload (10 images x 5MB), so a seller with phone photos got a chopped
+    // multipart body and a "bad request" they could do nothing about.
+    // Keep this at or above nginx's client_max_body_size.
+    proxyClientMaxBodySize: "60mb",
+  },
+  async headers() {
+    return [{ source: "/(.*)", headers: securityHeaders }];
+  },
+};
+
+export default nextConfig;
