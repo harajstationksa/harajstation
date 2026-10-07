@@ -106,9 +106,11 @@ beforeAll(async () => {
       emailVerifiedAt: new Date(),
     })),
   });
-  const cat = await db.category.findFirst();
-  if (!cat) throw Error("category fixture required");
-  category = cat.id;
+  category = (
+    await db.category.create({
+      data: { slug: prefix, nameAr: prefix, nameEn: prefix, icon: "Box" },
+    })
+  ).id;
   listing = (
     await db.listing.create({
       data: {
@@ -148,6 +150,7 @@ afterAll(async () => {
   await db.user.deleteMany({
     where: { OR: [{ id: { in: ids } }, { email: { startsWith: prefix } }] },
   });
+  await db.category.deleteMany({ where: { id: category } });
   await db.$disconnect();
 });
 it("SEC-01: stale credentials cannot issue a fresh session", async () => {

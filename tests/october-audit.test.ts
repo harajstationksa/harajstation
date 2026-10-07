@@ -70,7 +70,11 @@ beforeAll(async () => {
       sessionVersion: 1,
     })),
   });
-  categoryId = (await db.category.findFirstOrThrow()).id;
+  categoryId = (
+    await db.category.create({
+      data: { slug: prefix, nameAr: prefix, nameEn: prefix, icon: "Box" },
+    })
+  ).id;
   listingId = (
     await db.listing.create({
       data: {
@@ -105,6 +109,7 @@ afterAll(async () => {
   await db.bid.deleteMany({ where: { bidderId: { in: users } } });
   await db.listing.deleteMany({ where: { sellerId: { in: users } } });
   await db.user.deleteMany({ where: { id: { in: users } } });
+  await db.category.deleteMany({ where: { id: categoryId } });
 });
 it("OAuth deletion requires delivered, purpose-bound OTP and actually anonymizes the account", async () => {
   state.actor = users[3];

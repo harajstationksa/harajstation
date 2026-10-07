@@ -30,11 +30,17 @@ import { db } from "@/lib/db";
 import { POST as upload, DELETE as removeImage } from "@/app/api/store/images/route";
 import { POST as bid } from "@/app/api/auctions/[id]/bids/route";
 const prefix = "atomic-oct-" + randomUUID().slice(0, 8);
-let storeId = "",
+let categoryId = "",
+  storeId = "",
   listingId = "",
   auctionId = "";
 const users = [prefix + "-buyer", prefix + "-seller"];
 beforeAll(async () => {
+  categoryId = (
+    await db.category.create({
+      data: { slug: prefix, nameAr: prefix, nameEn: prefix, icon: "Box" },
+    })
+  ).id;
   await db.user.createMany({
     data: users.map((id) => ({
       id,
@@ -58,7 +64,7 @@ beforeAll(async () => {
     await db.listing.create({
       data: {
         sellerId: users[1],
-        categoryId: (await db.category.findFirstOrThrow()).id,
+        categoryId,
         title: "Atomic audit auction",
         description: "Local atomicity regression fixture",
         city: "الرياض",
@@ -101,6 +107,7 @@ afterAll(async () => {
   await db.transaction.deleteMany({ where: { listingId } });
   await db.listing.deleteMany({ where: { id: listingId } });
   await db.user.deleteMany({ where: { id: { in: users } } });
+  await db.category.deleteMany({ where: { id: categoryId } });
 });
 it("Store image replacement queues one durable cleanup job; DELETE queues the removed image too", async () => {
   const fd = new FormData();

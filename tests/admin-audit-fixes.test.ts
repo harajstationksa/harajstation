@@ -352,7 +352,12 @@ it("A11: malformed pagination and repeated query parameters are bounded", () => 
     expect(pageNumber(value)).toBe(1);
   expect(pageNumber("2")).toBe(2);
   expect(text(["a", "b"])).toBe("");
-  expect(publicAsset("/images/ph/car.svg")).toContain("https://harajstation.com/images/ph/car.svg");
+  const expected = new URL(
+    "/images/ph/car.svg",
+    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+  ).href;
+  expect(publicAsset("/images/ph/car.svg")).toBe(expected);
+  expect(publicAsset("https://cdn.example.com/car.svg")).toBe("https://cdn.example.com/car.svg");
 });
 it("A12: retrying a broadcast request creates one durable fanout and audit", async () => {
   const input = {
