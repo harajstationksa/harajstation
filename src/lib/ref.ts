@@ -3,11 +3,10 @@ import { db } from "./db";
 
 /** Atomic counter; pass the publishing transaction so the counter rolls back on failure. */
 export async function generateListingRef(client: Prisma.TransactionClient = db): Promise<string> {
-  await client.setting.upsert({
-    where: { key: "LISTING_SEQ" },
-    create: { key: "LISTING_SEQ", value: "100000" },
-    update: {},
-  });
+  // Concurrent first publications must initialize the counter without a create race.
+  await client.$executeRaw`
+    INSERT INTO "Setting" ("key", "value") VALUES ('LISTING_SEQ', '100000')
+    ON CONFLICT ("key") DO NOTHING`;
   for (let attempt = 0; attempt < 20; attempt++) {
     const rows = await client.$queryRaw<Array<{ value: string }>>`
       UPDATE "Setting" SET value=(GREATEST(CASE WHEN value ~ '^[0-9]+$' THEN value::bigint ELSE 100000 END,100000)+1)::text
