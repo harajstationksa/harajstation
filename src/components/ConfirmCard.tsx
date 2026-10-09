@@ -46,6 +46,7 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
   const [loading, setLoading] = useState<"YES" | "NO" | "EVIDENCE" | "EXT" | null>(null);
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
+  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [extOpen, setExtOpen] = useState(false);
   const [extDays, setExtDays] = useState(EXTENSION_DAY_OPTIONS[0]);
   const [extNote, setExtNote] = useState("");
@@ -73,10 +74,12 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
     e.preventDefault();
     setLoading("EVIDENCE");
     setError("");
+    const body = new FormData();
+    body.set("note", note);
+    if (evidenceFile) body.set("image", evidenceFile);
     const res = await clientFetch(`/api/transactions/${tx.id}/evidence`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ note }),
+      body,
     });
     setLoading(null);
     if (!res.ok) {
@@ -85,6 +88,7 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
       return;
     }
     setNote("");
+    setEvidenceFile(null);
     router.refresh();
   }
 
@@ -372,6 +376,15 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
               minLength={10}
               required
             />
+            <label className="block text-xs text-neutral-500">
+              {d.evidencePhoto}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="block w-full mt-1 text-xs"
+                onChange={(e) => setEvidenceFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
             <button className="btn-secondary w-full" disabled={loading !== null}>
               {loading === "EVIDENCE" ? (
                 <Loader2 className="size-4 animate-spin" />

@@ -101,6 +101,16 @@ export default async function AdminDisputesPage() {
                         <span suppressHydrationWarning>{timeAgo(ev.createdAt)}</span>
                       </p>
                       <p className="text-neutral-700 leading-relaxed">{ev.note}</p>
+                      {ev.fileUrl?.startsWith("private:") && (
+                        <a
+                          href={`/api/admin/evidence/${ev.id}`}
+                          target="_blank"
+                          rel="noopener"
+                          className="inline-block mt-2 text-xs text-primary-600 underline"
+                        >
+                          عرض الصورة المرفقة
+                        </a>
+                      )}
                     </div>
                   ))}
                 </div>

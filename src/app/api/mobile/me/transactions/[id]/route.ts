@@ -75,7 +75,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
           evidences: t.dispute.evidences.map((e) => ({
             id: e.id,
             note: e.note,
-            fileUrl: e.fileUrl,
+            fileUrl: e.fileUrl?.startsWith("private:")
+              ? `/api/transactions/${t.id}/evidence/${e.id}/image`
+              : e.fileUrl,
             user: e.user,
             createdAt: e.createdAt.toISOString(),
           })),

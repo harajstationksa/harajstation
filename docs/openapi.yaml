@@ -116,6 +116,14 @@ paths:
           description: Successful response
         "4XX":
           description: Error response
+  "/api/admin/evidence/{id}":
+    get:
+      summary: "GET /api/admin/evidence/{id}"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
   "/api/admin/finance/export":
     get:
       summary: "GET /api/admin/finance/export"
@@ -797,6 +805,14 @@ paths:
   "/api/transactions/{id}/evidence":
     post:
       summary: "POST /api/transactions/{id}/evidence"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/transactions/{id}/evidence/{evidenceId}/image":
+    get:
+      summary: "GET /api/transactions/{id}/evidence/{evidenceId}/image"
       responses:
         "200":
           description: Successful response

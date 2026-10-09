@@ -36,7 +36,7 @@ export async function privateImageResponse(path: string): Promise<Response> {
 /** Which of these private paths are still referenced — three indexed queries per batch. */
 async function referencedPrivatePaths(paths: string[]): Promise<Set<string>> {
   if (!paths.length) return new Set();
-  const [messages, identities, stores] = await Promise.all([
+  const [messages, identities, stores, evidence] = await Promise.all([
     db.message.findMany({
       where: { imageUrl: { in: paths.map((path) => `private:${path}`) } },
       select: { imageUrl: true },
@@ -46,11 +46,16 @@ async function referencedPrivatePaths(paths: string[]): Promise<Set<string>> {
       select: { docPath: true },
     }),
     db.storeVerification.findMany({ where: { docPath: { in: paths } }, select: { docPath: true } }),
+    db.evidence.findMany({
+      where: { fileUrl: { in: paths.map((path) => `private:${path}`) } },
+      select: { fileUrl: true },
+    }),
   ]);
   return new Set([
     ...messages.map((m) => (m.imageUrl ?? "").slice("private:".length)),
     ...identities.map((v) => v.docPath),
     ...stores.map((v) => v.docPath),
+    ...evidence.map((e) => (e.fileUrl ?? "").slice("private:".length)),
   ]);
 }
 

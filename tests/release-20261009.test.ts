@@ -17,6 +17,10 @@ import { finalizeExpiredAuctions } from "@/lib/auction";
 import { BID_POLICY, maxBidFor } from "@/lib/bid-policy";
 import { base32Encode, currentTotpStep, totpCode, verifyTotp } from "@/lib/totp";
 import { reversePaymentIfRefunded } from "@/lib/payments";
+import { POST as addEvidence } from "@/app/api/transactions/[id]/evidence/route";
+import { GET as evidenceImage } from "@/app/api/transactions/[id]/evidence/[evidenceId]/image/route";
+import sharp from "sharp";
+import { deletePrivateImage } from "@/lib/uploads";
 
 const prefix = `rel1009-${Date.now()}`;
 const users: Record<string, string> = {};
@@ -273,4 +277,56 @@ it("claws back points when a paid invoice is refunded", async () => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
   }
+});
+
+it("stores dispute photos privately and shows them only to the parties", async () => {
+  const listing = await db.listing.create({
+    data: {
+      title: "Release fixture disputed",
+      description: "Temporary local fixture for evidence photos",
+      city: "الرياض",
+      sellerId: users.seller,
+      categoryId: category,
+      status: "SOLD",
+    },
+  });
+  listingIds.push(listing.id);
+  const tx = await db.transaction.create({
+    data: {
+      listingId: listing.id,
+      sellerId: users.seller,
+      buyerId: users.vet,
+      amount: 100,
+      source: "STANDARD",
+      status: "DISPUTED",
+      deadline: new Date(Date.now() + 86_400_000),
+    },
+  });
+  const dispute = await db.dispute.create({
+    data: { transactionId: tx.id },
+  });
+  const png = await sharp({
+    create: { width: 4, height: 4, channels: 3, background: "#ff0000" },
+  })
+    .png()
+    .toBuffer();
+  const fd = new FormData();
+  fd.set("note", "The item arrived broken, photo attached");
+  fd.set("image", new File([new Uint8Array(png)], "proof.png", { type: "image/png" }));
+  actor.id = users.vet;
+  const res = await addEvidence(
+    new Request("http://localhost/release", { method: "POST", body: fd }),
+    ctx(tx.id),
+  );
+  expect(res.status).toBe(200);
+  const evidence = await db.evidence.findFirstOrThrow({ where: { disputeId: dispute.id } });
+  expect(evidence.fileUrl?.startsWith("private:evidence/")).toBe(true);
+  const params = { params: Promise.resolve({ id: tx.id, evidenceId: evidence.id }) };
+  actor.id = users.seller;
+  expect((await evidenceImage(new Request("http://localhost/x"), params)).status).toBe(200);
+  actor.id = users.stranger;
+  expect((await evidenceImage(new Request("http://localhost/x"), params)).status).toBe(404);
+  await db.evidence.deleteMany({ where: { disputeId: dispute.id } });
+  await db.dispute.delete({ where: { id: dispute.id } });
+  await deletePrivateImage(evidence.fileUrl!.slice("private:".length));
 });
