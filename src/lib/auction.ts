@@ -210,7 +210,11 @@ export async function voidBidderOnAuction(
   reason: "SELLER_BLOCK" | "ACCOUNT_BAN",
   actorId: string | null,
 ): Promise<{ voided: number; newTopBidderId: string | null; previousTopBidderId: string | null }> {
-  const order = [{ amount: "desc" as const }, { createdAt: "asc" as const }, { id: "asc" as const }];
+  const order = [
+    { amount: "desc" as const },
+    { createdAt: "asc" as const },
+    { id: "asc" as const },
+  ];
   const before = await tx.bid.findFirst({ where: { auctionId }, orderBy: order });
   const voided = await tx.$executeRaw`
     INSERT INTO "VoidedBid" (id, "auctionId", "bidderId", amount, "maskedName", anonymous, "bidAt", "voidedById", reason)

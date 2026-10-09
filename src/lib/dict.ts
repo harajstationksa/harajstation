@@ -781,7 +781,8 @@ const ar = {
       pwBtn: "إرسال رابط التغيير إلى بريدي",
       genericError: "حدث خطأ — حاول مجدداً",
       signOutAllTitle: "تسجيل الخروج من كل الأجهزة",
-      signOutAllDesc: "ينهي كل الجلسات المفتوحة لحسابك على أي جهاز آخر — استخدمه إن فقدت جهازاً أو شككت في دخول غيرك.",
+      signOutAllDesc:
+        "ينهي كل الجلسات المفتوحة لحسابك على أي جهاز آخر — استخدمه إن فقدت جهازاً أو شككت في دخول غيرك.",
       signOutAllBtn: "إنهاء كل الجلسات",
       // 2FA card
       tfaTitle: "التحقق بخطوتين (2FA)",
@@ -1956,7 +1957,8 @@ const en: typeof ar = {
       pwBtn: "Email me the change link",
       genericError: "Something went wrong — try again",
       signOutAllTitle: "Sign out of all devices",
-      signOutAllDesc: "Ends every open session of your account on any device — use it if you lost a device or suspect someone else signed in.",
+      signOutAllDesc:
+        "Ends every open session of your account on any device — use it if you lost a device or suspect someone else signed in.",
       signOutAllBtn: "End all sessions",
       tfaTitle: "Two-Factor Authentication (2FA)",
       tfaOn: "Enabled",

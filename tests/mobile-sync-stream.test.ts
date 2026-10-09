@@ -65,7 +65,9 @@ describe("mobile revision stream", () => {
   });
 
   it("public scope never resolves the session or personal state", async () => {
-    const response = await GET(new Request("https://harajstation.com/api/mobile/sync?scope=public"));
+    const response = await GET(
+      new Request("https://harajstation.com/api/mobile/sync?scope=public"),
+    );
     const reader = response.body!.getReader();
     const frame = new TextDecoder().decode((await reader.read()).value);
     expect(frame).toContain('"account":"guest"');

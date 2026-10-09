@@ -13,7 +13,11 @@ export async function GET(
   const { id, evidenceId } = await ctx.params;
   const evidence = await db.evidence.findUnique({
     where: { id: evidenceId },
-    include: { dispute: { include: { transaction: { select: { id: true, buyerId: true, sellerId: true } } } } },
+    include: {
+      dispute: {
+        include: { transaction: { select: { id: true, buyerId: true, sellerId: true } } },
+      },
+    },
   });
   const tx = evidence?.dispute.transaction;
   if (

@@ -256,7 +256,10 @@ export default function AdminLoginPage() {
               />
               {needsTotp && (
                 <div className="space-y-1">
-                  <label htmlFor="admin-totp" className="block text-sm text-neutral-600 text-center">
+                  <label
+                    htmlFor="admin-totp"
+                    className="block text-sm text-neutral-600 text-center"
+                  >
                     رمز تطبيق المصادقة (Google Authenticator أو ما يماثله)
                   </label>
                   <input

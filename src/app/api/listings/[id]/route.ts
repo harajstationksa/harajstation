@@ -234,7 +234,12 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (!updated) {
     await deleteImages(saved.urls);
     return NextResponse.json(
-      { error: apiMessage(req, "لا يمكن تعديل إعلان محذوف أو مزاد بدأت المزايدة عليه أو إعلان عليه صفقة متفق عليها") },
+      {
+        error: apiMessage(
+          req,
+          "لا يمكن تعديل إعلان محذوف أو مزاد بدأت المزايدة عليه أو إعلان عليه صفقة متفق عليها",
+        ),
+      },
       { status: 409 },
     );
   }

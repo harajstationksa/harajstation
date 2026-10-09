@@ -121,9 +121,7 @@ export async function POST(req: Request) {
           {
             error: apiMessage(
               req,
-              accountLocked
-                ? lockNowError()
-                : (networkVerdict?.error ?? teaseFor(count).error),
+              accountLocked ? lockNowError() : (networkVerdict?.error ?? teaseFor(count).error),
             ),
             locked,
           },

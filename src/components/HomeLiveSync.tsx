@@ -51,7 +51,12 @@ export function HomeLiveSync() {
       source.addEventListener("revision", (event) => {
         try {
           const value: unknown = JSON.parse((event as MessageEvent).data);
-          if (!value || typeof value !== "object" || !("market" in value) || !("catalogue" in value))
+          if (
+            !value ||
+            typeof value !== "object" ||
+            !("market" in value) ||
+            !("catalogue" in value)
+          )
             return;
           if (typeof value.market !== "string" || typeof value.catalogue !== "string") return;
           const revision = `${value.catalogue}:${value.market}`;

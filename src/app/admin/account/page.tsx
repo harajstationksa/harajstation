@@ -11,7 +11,12 @@ export default async function Page() {
     <div className="max-w-4xl space-y-5">
       <AdminPageHeader
         section="account"
-        description={<>رمز البريد مطلوب لكل دخول، ولتأكيد التغييرات الحساسة. فعّل تطبيق المصادقة ليصبح الدخول بعاملين مستقلين.</>}
+        description={
+          <>
+            رمز البريد مطلوب لكل دخول، ولتأكيد التغييرات الحساسة. فعّل تطبيق المصادقة ليصبح الدخول
+            بعاملين مستقلين.
+          </>
+        }
       >
         حسابي
       </AdminPageHeader>

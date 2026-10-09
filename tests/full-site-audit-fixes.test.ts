@@ -219,17 +219,18 @@ it("SEC-03: mailbox changes revoke old recovery links", async () => {
       expiresAt: new Date(Date.now() + 600000),
     },
   });
-  const change = await account(
-    request(
-      {
-        name: "Local Audit Changed",
-        city: "الرياض",
-        email: prefix + "-changed@example.invalid",
-        currentPassword: "InitialAudit123",
-      },
-      "PATCH",
-    ),
-  );
+  const body = {
+    name: "Local Audit Changed",
+    city: "الرياض",
+    email: prefix + "-changed@example.invalid",
+    currentPassword: "InitialAudit123",
+  };
+  // every email change needs a code from the current mailbox
+  const ask = await account(request(body, "PATCH"));
+  expect(ask.status).toBe(200);
+  const { requiresOtp, challenge } = await ask.json();
+  expect(requiresOtp).toBe(true);
+  const change = await account(request({ ...body, challenge, code: state.codes.at(-1) }, "PATCH"));
   expect(change.status).toBe(200);
   const finish = await reset(request({ token: raw, password: "OldInboxReset123" }));
   expect(finish.status).toBe(400);

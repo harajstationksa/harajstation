@@ -1,10 +1,5 @@
 function imageOrigins() {
-  const origins = [
-    "'self'",
-    "data:",
-    "blob:",
-    "https://*.googleusercontent.com",
-  ];
+  const origins = ["'self'", "data:", "blob:", "https://*.googleusercontent.com"];
   if (process.env.R2_PUBLIC_URL) {
     try {
       const url = new URL(process.env.R2_PUBLIC_URL);

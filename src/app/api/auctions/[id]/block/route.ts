@@ -75,13 +75,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
           create: { auctionId: id, userId: bid.bidderId },
           update: {},
         });
-        const result = await voidBidderOnAuction(
-          tx,
-          id,
-          bid.bidderId,
-          "SELLER_BLOCK",
-          session.sub,
-        );
+        const result = await voidBidderOnAuction(tx, id, bid.bidderId, "SELLER_BLOCK", session.sub);
         await tx.auditLog.create({
           data: {
             actorId: session.sub,

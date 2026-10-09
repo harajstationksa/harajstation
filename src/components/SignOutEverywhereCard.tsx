@@ -1,6 +1,7 @@
 "use client";
 
 import { clientFetch } from "@/lib/client-fetch";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2, LogOut } from "lucide-react";
 import { useLang } from "@/components/LangProvider";
@@ -9,6 +10,7 @@ import { useLang } from "@/components/LangProvider";
 export function SignOutEverywhereCard() {
   const { t } = useLang();
   const d = t.dash.settings;
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -25,7 +27,8 @@ export function SignOutEverywhereCard() {
       setLoading(false);
       return;
     }
-    window.location.href = "/login";
+    router.push("/login");
+    router.refresh();
   }
 
   return (
