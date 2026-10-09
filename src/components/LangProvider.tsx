@@ -1,26 +1,21 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { Dictionary, Lang } from "@/lib/dict";
+import { DICT, type Lang } from "@/lib/dict";
 
-type LangValue = { lang: Lang; t: Dictionary };
-const LangContext = createContext<LangValue | null>(null);
+const LangContext = createContext<Lang>("ar");
 
-export function LangProvider({
-  lang,
-  dictionary,
-  children,
-}: {
-  lang: Lang;
-  dictionary: Dictionary;
-  children: React.ReactNode;
-}) {
-  return <LangContext.Provider value={{ lang, t: dictionary }}>{children}</LangContext.Provider>;
+/**
+ * Only the language crosses the server/client boundary. The dictionary holds
+ * formatter functions (e.g. `bonusGift(n)`), which React cannot serialize as
+ * props — passing it from the server layout made every page fail to render.
+ */
+export function LangProvider({ lang, children }: { lang: Lang; children: React.ReactNode }) {
+  return <LangContext.Provider value={lang}>{children}</LangContext.Provider>;
 }
 
-/** Client-side hook: current language + the selected dictionary. */
+/** Client-side hook: current language + dictionary. */
 export function useLang() {
-  const value = useContext(LangContext);
-  if (!value) throw new Error("useLang must be used inside LangProvider");
-  return value;
+  const lang = useContext(LangContext);
+  return { lang, t: DICT[lang] };
 }

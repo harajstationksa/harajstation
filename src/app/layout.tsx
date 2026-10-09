@@ -64,7 +64,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { lang, t: dictionary } = await getT();
+  const { lang } = await getT();
 
   return (
     <html
@@ -75,7 +75,7 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col bg-neutral-50">
         {/* who the site is, and the search box Google can show inside a result */}
         <JsonLd data={[organizationLd(), websiteLd()]} />
-        <LangProvider lang={lang} dictionary={dictionary}>
+        <LangProvider lang={lang}>
           <NativeFormMessages />
           {children}
         </LangProvider>
