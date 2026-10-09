@@ -1,17 +1,21 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AlertTriangle, Loader2, Trash2 } from "lucide-react";
 import { useLang } from "@/components/LangProvider";
 
-/** PDPL danger zone: permanent account deletion behind a password confirm. */
-export function DeleteAccountCard() {
-  const { t } = useLang();
+/** Confirm with a password or an email OTP for an OAuth-only account. */
+export function DeleteAccountCard({ oauthOnly = false }: { oauthOnly?: boolean }) {
+  const { t, lang } = useLang();
   const d = t.dash.settings;
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState("");
+  const [challenge, setChallenge] = useState("");
+  const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -19,14 +23,21 @@ export function DeleteAccountCard() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const res = await fetch("/api/account/delete", {
+    const res = await clientFetch("/api/account/delete", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify(
+        oauthOnly ? { challenge: challenge || undefined, code: code || undefined } : { password },
+      ),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       setError(data.error ?? d.genericError);
+      setLoading(false);
+      return;
+    }
+    if (data.requiresOtp) {
+      setChallenge(data.challenge);
       setLoading(false);
       return;
     }
@@ -55,19 +66,49 @@ export function DeleteAccountCard() {
         </button>
       ) : (
         <form onSubmit={submit} className="space-y-3 max-w-sm">
-          <div>
-            <label className="block text-sm font-medium mb-1.5">
-              {d.delConfirmPw}
-            </label>
-            <input
-              className="input"
-              dir="ltr"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
+          {oauthOnly ? (
+            <div className="rounded-xl bg-amber-50 p-3 text-sm">
+              <p>
+                {lang === "ar"
+                  ? "أكّد حذف حسابك برمز تحقق يُرسل إلى بريدك الحالي."
+                  : "Confirm account deletion with a code sent to your current email."}
+              </p>
+              {challenge && (
+                <label className="block mt-2">
+                  {lang === "ar" ? "رمز التحقق" : "Verification code"}
+                  <input
+                    className="input mt-1"
+                    dir="ltr"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    required
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                  />
+                </label>
+              )}
+            </div>
+          ) : (
+            <div>
+              <label
+                className="block text-sm font-medium mb-1.5"
+                htmlFor="a11y-deleteaccountcard-1"
+              >
+                {d.delConfirmPw}
+              </label>
+              <input
+                className="input"
+                dir="ltr"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                id="a11y-deleteaccountcard-1"
+              />
+            </div>
+          )}
           {error && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
               {error}
@@ -76,16 +117,20 @@ export function DeleteAccountCard() {
           <div className="flex items-center gap-2">
             <button
               className="btn bg-red-600 text-white hover:bg-red-700"
-              disabled={loading || !password}
+              disabled={
+                loading ||
+                (!oauthOnly && !password) ||
+                (oauthOnly && !!challenge && code.length !== 6)
+              }
             >
               {loading && <Loader2 className="size-4 animate-spin" />}
-              {d.delFinal}
+              {oauthOnly && !challenge
+                ? lang === "ar"
+                  ? "إرسال رمز التحقق"
+                  : "Send verification code"
+                : d.delFinal}
             </button>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="btn-secondary"
-            >
+            <button type="button" onClick={() => setOpen(false)} className="btn-secondary">
               {d.delBack}
             </button>
           </div>

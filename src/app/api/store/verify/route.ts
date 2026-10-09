@@ -1,3 +1,4 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
@@ -21,14 +22,12 @@ export async function POST(req: Request) {
 
   const fd = await req.formData().catch(() => null);
   const storeId = String(fd?.get("storeId") ?? "");
-  const store = storeId
-    ? await db.store.findUnique({ where: { id: storeId } })
-    : null;
+  const store = storeId ? await db.store.findUnique({ where: { id: storeId } }) : null;
   if (!store || store.userId !== user.id) {
-    return NextResponse.json({ error: "غير مصرح" }, { status: 403 });
+    return NextResponse.json({ error: apiMessage(req, "غير مصرح") }, { status: 403 });
   }
   if (store.isVerified) {
-    return NextResponse.json({ error: "المتجر موثّق بالفعل" }, { status: 400 });
+    return NextResponse.json({ error: apiMessage(req, "المتجر موثّق بالفعل") }, { status: 400 });
   }
 
   const existing = await db.storeVerification.findUnique({
@@ -36,38 +35,60 @@ export async function POST(req: Request) {
   });
   if (existing?.status === "PENDING") {
     return NextResponse.json(
-      { error: "طلبك قيد المراجعة بالفعل — سنعلمك فور مراجعته" },
-      { status: 409 }
+      { error: apiMessage(req, "طلبك قيد المراجعة بالفعل — سنعلمك فور مراجعته") },
+      { status: 409 },
     );
   }
 
   const file = fd?.get("document");
   if (!(file instanceof File) || file.size === 0) {
     return NextResponse.json(
-      { error: "أرفق صورة السجل التجاري أو وثيقة العمل الحر" },
-      { status: 400 }
+      { error: apiMessage(req, "أرفق صورة السجل التجاري أو وثيقة العمل الحر") },
+      { status: 400 },
     );
   }
 
   const saved = await savePrivateImage(file, "store-verify");
   if (!saved.ok) {
-    return NextResponse.json({ error: saved.error }, { status: 400 });
+    return NextResponse.json({ error: apiMessage(req, saved.error) }, { status: 400 });
   }
 
-  await db.storeVerification.upsert({
-    where: { storeId: store.id },
-    create: { storeId: store.id, docPath: saved.path },
-    update: {
-      docPath: saved.path,
-      status: "PENDING",
-      note: null,
-      createdAt: new Date(),
-      reviewedAt: null,
-    },
-  });
-  if (existing?.docPath && existing.docPath !== saved.path) {
-    await deletePrivateImage(existing.docPath);
+  const result = await db
+    .$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id=${user.id} FOR UPDATE`;
+      const currentOwner = await tx.store.findUnique({
+        where: { id: store.id },
+      });
+      const current = await tx.storeVerification.findUnique({
+        where: { storeId: store.id },
+      });
+      if (
+        !currentOwner ||
+        currentOwner.isVerified ||
+        (current && current.status !== "REJECTED") ||
+        (current?.id ?? null) !== (existing?.id ?? null) ||
+        (current?.docPath ?? null) !== (existing?.docPath ?? null)
+      )
+        return { ok: false as const };
+      // A new id binds the review to this document, never a previous submission.
+      if (current) await tx.storeVerification.delete({ where: { id: current.id } });
+      await tx.storeVerification.create({
+        data: { storeId: store.id, docPath: saved.path },
+      });
+      return { ok: true as const, oldPath: current?.docPath };
+    })
+    .catch(async (error) => {
+      await deletePrivateImage(saved.path);
+      throw error;
+    });
+  if (!result.ok) {
+    await deletePrivateImage(saved.path);
+    return NextResponse.json(
+      { error: apiMessage(req, "تغير طلب التوثيق أثناء الرفع؛ حدّث الصفحة") },
+      { status: 409 },
+    );
   }
+  if (result.oldPath && result.oldPath !== saved.path) await deletePrivateImage(result.oldPath);
 
   return NextResponse.json({ ok: true });
 }

@@ -5,6 +5,7 @@ import { ChangePasswordCard } from "@/components/ChangePasswordCard";
 import { TwoFactorCard } from "@/components/TwoFactorCard";
 import { IdentityVerifyCard } from "@/components/IdentityVerifyCard";
 import { DeleteAccountCard } from "@/components/DeleteAccountCard";
+import { SignOutEverywhereCard } from "@/components/SignOutEverywhereCard";
 import { getT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,7 @@ export default async function SettingsPage() {
     <div className="space-y-5">
       <h1 className="section-title">{t.dash.settingsPage.title}</h1>
       <SettingsForm
+        oauthOnly={user.passwordHash.startsWith("oauth:")}
         initial={{
           name: user.name,
           city: user.city,
@@ -36,13 +38,18 @@ export default async function SettingsPage() {
         }}
       />
       <ChangePasswordCard email={user.email} />
-      <TwoFactorCard email={user.email} initialEnabled={user.twoFactorEmail} />
+      <TwoFactorCard
+        email={user.email}
+        initialEnabled={user.twoFactorEmail}
+        requiresPassword={!user.passwordHash.startsWith("oauth:google:") || !user.googleSub}
+      />
       <IdentityVerifyCard
         verified={user.idVerified}
         status={(idReq?.status as "PENDING" | "APPROVED" | "REJECTED") ?? null}
         note={idReq?.note ?? null}
       />
-      <DeleteAccountCard />
+      <SignOutEverywhereCard />
+      <DeleteAccountCard oauthOnly={user.passwordHash.startsWith("oauth:")} />
     </div>
   );
 }

@@ -20,80 +20,209 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { hasStaffPermission, STAFF_NAV_ACCESS } from "@/lib/staff-permissions";
 
 const groups: {
   label: string;
   items: { href: string; label: string; icon: typeof Users; roles: string[] }[];
 }[] = [
   {
-    label: "عام",
+    label: "نظرة عامة",
     items: [
-      { href: "/admin", label: "لوحة المعلومات", icon: LayoutDashboard, roles: ["ADMIN", "MODERATOR", "SUPPORT", "ACCOUNTANT"] },
-      { href: "/admin/users", label: "إدارة المستخدمين", icon: Users, roles: ["ADMIN", "MODERATOR", "SUPPORT"] },
-      { href: "/admin/listings", label: "إدارة الإعلانات", icon: ListChecks, roles: ["ADMIN", "MODERATOR"] },
-      { href: "/admin/bids", label: "سجل المزايدات", icon: Gavel, roles: ["ADMIN", "MODERATOR"] },
-    ],
-  },
-  {
-    label: "التسويق",
-    items: [
-      { href: "/admin/campaigns", label: "الحملات الإعلانية", icon: Megaphone, roles: ["ADMIN", "MODERATOR"] },
-      { href: "/admin/promos", label: "الإحالة وأكواد الخصم", icon: BadgePercent, roles: ["ADMIN"] },
-      { href: "/admin/banners", label: "إدارة البانرات", icon: ImageIcon, roles: ["ADMIN"] },
+      {
+        href: "/admin",
+        label: "لوحة المعلومات",
+        icon: LayoutDashboard,
+        roles: ["ADMIN", "MODERATOR", "SUPPORT"],
+      },
+      {
+        href: "/admin/search",
+        label: "بحث الإدارة",
+        icon: ListChecks,
+        roles: ["ADMIN", "MODERATOR", "SUPPORT"],
+      },
+      {
+        href: "/admin/users",
+        label: "إدارة المستخدمين",
+        icon: Users,
+        roles: ["ADMIN", "MODERATOR", "SUPPORT"],
+      },
+      {
+        href: "/admin/listings",
+        label: "إدارة الإعلانات",
+        icon: ListChecks,
+        roles: ["ADMIN", "MODERATOR"],
+      },
+      {
+        href: "/admin/bids",
+        label: "سجل المزايدات",
+        icon: Gavel,
+        roles: ["ADMIN", "MODERATOR"],
+      },
     ],
   },
   {
     label: "الثقة والأمان",
     items: [
-      { href: "/admin/disputes", label: "إدارة النزاعات", icon: Scale, roles: ["ADMIN", "SUPPORT"] },
-      { href: "/admin/identity", label: "توثيق الهوية", icon: UserCheck, roles: ["ADMIN", "MODERATOR"] },
-      { href: "/admin/stores", label: "توثيق المتاجر", icon: Store, roles: ["ADMIN", "MODERATOR"] },
-      { href: "/admin/reports", label: "البلاغات", icon: Flag, roles: ["ADMIN", "MODERATOR", "SUPPORT"] },
-      { href: "/admin/moderation", label: "الإشراف والإشعارات", icon: ShieldBan, roles: ["ADMIN"] },
+      {
+        href: "/admin/reports",
+        label: "البلاغات",
+        icon: Flag,
+        roles: ["ADMIN", "MODERATOR", "SUPPORT"],
+      },
+      {
+        href: "/admin/disputes",
+        label: "إدارة النزاعات",
+        icon: Scale,
+        roles: ["ADMIN", "SUPPORT"],
+      },
+      {
+        href: "/admin/identity",
+        label: "توثيق الهوية",
+        icon: UserCheck,
+        roles: ["ADMIN", "MODERATOR"],
+      },
+      {
+        href: "/admin/stores",
+        label: "توثيق المتاجر",
+        icon: Store,
+        roles: ["ADMIN", "MODERATOR"],
+      },
+      {
+        href: "/admin/moderation",
+        label: "الإشراف والإشعارات",
+        icon: ShieldBan,
+        roles: ["ADMIN"],
+      },
+    ],
+  },
+  {
+    label: "التسويق",
+    items: [
+      {
+        href: "/admin/campaigns",
+        label: "الحملات الإعلانية",
+        icon: Megaphone,
+        roles: ["ADMIN", "MODERATOR"],
+      },
+      {
+        href: "/admin/promos",
+        label: "الإحالة وأكواد الخصم",
+        icon: BadgePercent,
+        roles: ["ADMIN"],
+      },
+      {
+        href: "/admin/banners",
+        label: "إدارة البانرات",
+        icon: ImageIcon,
+        roles: ["ADMIN"],
+      },
     ],
   },
   {
     label: "المالية",
     items: [
-      { href: "/admin/plans", label: "الباقات والأسعار", icon: Wallet, roles: ["ADMIN"] },
-      { href: "/admin/points", label: "النقاط والأسعار", icon: Coins, roles: ["ADMIN"] },
-      { href: "/admin/staff", label: "إدارة الموظفين", icon: ShieldCheck, roles: ["ADMIN"] },
+      {
+        href: "/admin/finance",
+        label: "التقارير المالية",
+        icon: Wallet,
+        roles: ["ADMIN", "ACCOUNTANT"],
+      },
+      {
+        href: "/admin/transactions",
+        label: "معاملات البيع",
+        icon: Wallet,
+        roles: ["ADMIN", "SUPPORT"],
+      },
     ],
   },
   {
-    label: "الحساب",
+    label: "إدارة المنصة",
     items: [
-      { href: "/admin/account", label: "حسابي", icon: UserCog, roles: ["ADMIN", "MODERATOR", "SUPPORT", "ACCOUNTANT"] },
+      {
+        href: "/admin/plans",
+        label: "الباقات والأسعار",
+        icon: Wallet,
+        roles: ["ADMIN"],
+      },
+      {
+        href: "/admin/points",
+        label: "النقاط والأسعار",
+        icon: Coins,
+        roles: ["ADMIN"],
+      },
+      {
+        href: "/admin/staff",
+        label: "إدارة الموظفين",
+        icon: ShieldCheck,
+        roles: ["ADMIN"],
+      },
+      {
+        href: "/admin/audit",
+        label: "سجل الإدارة الكامل",
+        icon: ShieldCheck,
+        roles: ["ADMIN"],
+      },
+      {
+        href: "/admin/operations",
+        label: "صحة التشغيل",
+        icon: ShieldCheck,
+        roles: ["ADMIN"],
+      },
+      {
+        href: "/admin/account",
+        label: "حسابي",
+        icon: UserCog,
+        roles: ["ADMIN", "MODERATOR", "SUPPORT", "ACCOUNTANT"],
+      },
     ],
   },
 ];
 
-export function AdminNav({ role }: { role: string }) {
+export function AdminNav({
+  role,
+  staffPermissions,
+  onNavigate,
+}: {
+  role: string;
+  staffPermissions: string;
+  drawer?: boolean;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
 
   return (
-    <nav className="flex lg:flex-col gap-1 lg:gap-0.5 overflow-x-auto no-scrollbar">
+    <nav aria-label="أقسام لوحة الإدارة" className="flex flex-col">
       {groups.map((group) => {
-        const visible = group.items.filter((item) => item.roles.includes(role));
+        const visible = group.items.filter((item) => {
+          if (item.href === "/admin/account") return true;
+          if (item.href === "/admin/staff") return role === "ADMIN";
+          if (
+            item.href === "/admin/search" &&
+            !hasStaffPermission({ role, staffPermissions }, "users.view") &&
+            !hasStaffPermission({ role, staffPermissions }, "listings.view")
+          )
+            return false;
+          const permission = STAFF_NAV_ACCESS[item.href];
+          return (
+            !!permission &&
+            (item.roles.includes(role) || role === "STAFF") &&
+            hasStaffPermission({ role, staffPermissions }, permission)
+          );
+        });
         if (visible.length === 0) return null;
         return (
-          <div key={group.label} className="flex lg:flex-col gap-1 lg:gap-0.5 shrink-0 lg:shrink">
-            <p className="max-lg:hidden text-[10px] font-bold text-neutral-500 tracking-wider px-3 pt-4 pb-1.5 first:pt-1">
-              {group.label}
-            </p>
+          <div key={group.label} className="admin-nav-group">
+            <p className="admin-nav-label">{group.label}</p>
             {visible.map(({ href, label, icon: Icon }) => {
               const active = href === "/admin" ? pathname === href : pathname.startsWith(href);
               return (
                 <Link
                   key={href}
                   href={href}
-                  className={cn(
-                    "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors",
-                    active
-                      ? "bg-primary-500 text-white shadow-sm shadow-primary-500/30"
-                      : "text-neutral-300 hover:bg-white/8 hover:text-white"
-                  )}
+                  onClick={onNavigate}
+                  aria-current={active ? "page" : undefined}
+                  className="admin-nav-link"
                 >
                   <Icon className="size-4.5 shrink-0" />
                   {label}

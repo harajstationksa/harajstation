@@ -1,0 +1,836 @@
+openapi: 3.0.3
+info:
+  title: Haraj Station API
+  version: 1.0.0
+  description: Generated inventory of route handlers. Request and response schemas are being added per mobile contract.
+servers:
+  - url: https://harajstation.com
+paths:
+  "/api/account":
+    patch:
+      summary: "PATCH /api/account"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/account/2fa":
+    post:
+      summary: "POST /api/account/2fa"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/account/avatar":
+    delete:
+      summary: "DELETE /api/account/avatar"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+    post:
+      summary: "POST /api/account/avatar"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/account/blocks":
+    delete:
+      summary: "DELETE /api/account/blocks"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+    post:
+      summary: "POST /api/account/blocks"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/account/delete":
+    post:
+      summary: "POST /api/account/delete"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/admin-auth/forgot":
+    post:
+      summary: "POST /api/admin-auth/forgot"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/admin-auth/login":
+    post:
+      summary: "POST /api/admin-auth/login"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/admin-auth/logout":
+    post:
+      summary: "POST /api/admin-auth/logout"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/admin-auth/otp":
+    post:
+      summary: "POST /api/admin-auth/otp"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/admin-auth/resend":
+    post:
+      summary: "POST /api/admin-auth/resend"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/admin-auth/reset":
+    post:
+      summary: "POST /api/admin-auth/reset"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/admin/banner-image":
+    post:
+      summary: "POST /api/admin/banner-image"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/admin/evidence/{id}":
+    get:
+      summary: "GET /api/admin/evidence/{id}"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/admin/finance/export":
+    get:
+      summary: "GET /api/admin/finance/export"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/auctions/{id}":
+    get:
+      summary: "GET /api/auctions/{id}"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/auctions/{id}/bids":
+    post:
+      summary: "POST /api/auctions/{id}/bids"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/auctions/{id}/block":
+    post:
+      summary: "POST /api/auctions/{id}/block"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/auctions/{id}/proxy":
+    delete:
+      summary: "DELETE /api/auctions/{id}/proxy"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+    post:
+      summary: "POST /api/auctions/{id}/proxy"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/auth/forgot":
+    post:
+      summary: "POST /api/auth/forgot"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/auth/login":
+    post:
+      summary: "POST /api/auth/login"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/auth/login/otp":
+    post:
+      summary: "POST /api/auth/login/otp"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/auth/login/otp/context":
+    get:
+      summary: "GET /api/auth/login/otp/context"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/auth/login/otp/resend":
+    post:
+      summary: "POST /api/auth/login/otp/resend"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/auth/logout":
+    post:
+      summary: "POST /api/auth/logout"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/auth/register":
+    post:
+      summary: "POST /api/auth/register"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/auth/reset":
+    post:
+      summary: "POST /api/auth/reset"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/auth/social":
+    post:
+      summary: "POST /api/auth/social"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/auth/social/google/callback":
+    get:
+      summary: "GET /api/auth/social/google/callback"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/auth/social/google/start":
+    get:
+      summary: "GET /api/auth/social/google/start"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/auth/verify-email/resend":
+    post:
+      summary: "POST /api/auth/verify-email/resend"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/conversations":
+    post:
+      summary: "POST /api/conversations"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/conversations/{id}/messages":
+    get:
+      summary: "GET /api/conversations/{id}/messages"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+    post:
+      summary: "POST /api/conversations/{id}/messages"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/conversations/{id}/messages/{messageId}/image":
+    get:
+      summary: "GET /api/conversations/{id}/messages/{messageId}/image"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/conversations/{id}/read":
+    post:
+      summary: "POST /api/conversations/{id}/read"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/cron":
+    get:
+      summary: "GET /api/cron"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/favorites/{listingId}":
+    post:
+      summary: "POST /api/favorites/{listingId}"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/follow/{sellerId}":
+    delete:
+      summary: "DELETE /api/follow/{sellerId}"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+    post:
+      summary: "POST /api/follow/{sellerId}"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/health":
+    get:
+      summary: "GET /api/health"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/identity":
+    get:
+      summary: "GET /api/identity"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+    post:
+      summary: "POST /api/identity"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/identity/doc/{id}":
+    get:
+      summary: "GET /api/identity/doc/{id}"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/listings":
+    post:
+      summary: "POST /api/listings"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/listings/ai-describe":
+    post:
+      summary: "POST /api/listings/ai-describe"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/listings/price-guide":
+    get:
+      summary: "GET /api/listings/price-guide"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/listings/{id}":
+    patch:
+      summary: "PATCH /api/listings/{id}"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/listings/{id}/comments":
+    post:
+      summary: "POST /api/listings/{id}/comments"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/listings/{id}/share-card":
+    get:
+      summary: "GET /api/listings/{id}/share-card"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/auctions":
+    get:
+      summary: "GET /api/mobile/auctions"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/bootstrap":
+    get:
+      summary: "GET /api/mobile/bootstrap"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/home":
+    get:
+      summary: "GET /api/mobile/home"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/listings":
+    get:
+      summary: "GET /api/mobile/listings"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/listings/{id}":
+    get:
+      summary: "GET /api/mobile/listings/{id}"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/me":
+    get:
+      summary: "GET /api/mobile/me"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/me/campaigns":
+    get:
+      summary: "GET /api/mobile/me/campaigns"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+    post:
+      summary: "POST /api/mobile/me/campaigns"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/me/campaigns/{id}/cancel":
+    post:
+      summary: "POST /api/mobile/me/campaigns/{id}/cancel"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/me/conversations":
+    get:
+      summary: "GET /api/mobile/me/conversations"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/me/favorites":
+    get:
+      summary: "GET /api/mobile/me/favorites"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/me/listings":
+    get:
+      summary: "GET /api/mobile/me/listings"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/me/listings/{id}/action":
+    post:
+      summary: "POST /api/mobile/me/listings/{id}/action"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/me/notifications":
+    get:
+      summary: "GET /api/mobile/me/notifications"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+    post:
+      summary: "POST /api/mobile/me/notifications"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/me/offers":
+    get:
+      summary: "GET /api/mobile/me/offers"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+    post:
+      summary: "POST /api/mobile/me/offers"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/me/referrals":
+    get:
+      summary: "GET /api/mobile/me/referrals"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/me/saved-searches":
+    get:
+      summary: "GET /api/mobile/me/saved-searches"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/me/transactions":
+    get:
+      summary: "GET /api/mobile/me/transactions"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/me/transactions/{id}":
+    get:
+      summary: "GET /api/mobile/me/transactions/{id}"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/me/wallet":
+    get:
+      summary: "GET /api/mobile/me/wallet"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/me/wallet/daily":
+    post:
+      summary: "POST /api/mobile/me/wallet/daily"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/me/wallet/topup":
+    post:
+      summary: "POST /api/mobile/me/wallet/topup"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/profile/{id}":
+    get:
+      summary: "GET /api/mobile/profile/{id}"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/stores":
+    get:
+      summary: "GET /api/mobile/stores"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/stores/{slug}":
+    get:
+      summary: "GET /api/mobile/stores/{slug}"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/mobile/sync":
+    get:
+      summary: "GET /api/mobile/sync"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/notifications/count":
+    get:
+      summary: "GET /api/notifications/count"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/notifications/read":
+    post:
+      summary: "POST /api/notifications/read"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/ops/health":
+    get:
+      summary: "GET /api/ops/health"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/payments/webhook":
+    post:
+      summary: "POST /api/payments/webhook"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/promo/validate":
+    post:
+      summary: "POST /api/promo/validate"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/push/subscribe":
+    post:
+      summary: "POST /api/push/subscribe"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/push/unsubscribe":
+    post:
+      summary: "POST /api/push/unsubscribe"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/reports":
+    post:
+      summary: "POST /api/reports"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/saved-searches":
+    post:
+      summary: "POST /api/saved-searches"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/saved-searches/{id}":
+    delete:
+      summary: "DELETE /api/saved-searches/{id}"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/search/suggest":
+    get:
+      summary: "GET /api/search/suggest"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/showcase/{id}/open":
+    post:
+      summary: "POST /api/showcase/{id}/open"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/store":
+    delete:
+      summary: "DELETE /api/store"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+    post:
+      summary: "POST /api/store"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/store/follow/{storeId}":
+    delete:
+      summary: "DELETE /api/store/follow/{storeId}"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+    post:
+      summary: "POST /api/store/follow/{storeId}"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/store/images":
+    delete:
+      summary: "DELETE /api/store/images"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+    post:
+      summary: "POST /api/store/images"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/store/verify":
+    post:
+      summary: "POST /api/store/verify"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/store/verify/doc/{id}":
+    get:
+      summary: "GET /api/store/verify/doc/{id}"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/transactions/{id}/confirm":
+    post:
+      summary: "POST /api/transactions/{id}/confirm"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/transactions/{id}/evidence":
+    post:
+      summary: "POST /api/transactions/{id}/evidence"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/transactions/{id}/evidence/{evidenceId}/image":
+    get:
+      summary: "GET /api/transactions/{id}/evidence/{evidenceId}/image"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/transactions/{id}/extension":
+    post:
+      summary: "POST /api/transactions/{id}/extension"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response
+  "/api/transactions/{id}/review":
+    post:
+      summary: "POST /api/transactions/{id}/review"
+      responses:
+        "200":
+          description: Successful response
+        "4XX":
+          description: Error response

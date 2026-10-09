@@ -1,34 +1,64 @@
 import { db } from "./db";
-import { sendPush, sendPushMany } from "./push";
+import type { Prisma } from "@prisma/client";
 
-/**
- * Create an in-app notification AND mirror it to the user's browsers via Web
- * Push (best-effort). All notification producers go through here, so push
- * covers bids, outbids, wins, messages, campaign endings… automatically.
- */
+export async function notifyWithClient(
+  tx: Prisma.TransactionClient,
+  userIds: string[],
+  type: string,
+  title: string,
+  body: string,
+  link?: string,
+  eventKey?: string,
+) {
+  const ids = [...new Set(userIds)].filter(Boolean);
+  if (!ids.length) return;
+  const inserted = await tx.notification.createManyAndReturn({
+    data: ids.map((userId) => ({
+      userId,
+      type,
+      title,
+      body,
+      link,
+      eventKey: eventKey ? `${eventKey}:${userId}` : null,
+    })),
+    skipDuplicates: true,
+    select: { userId: true },
+  });
+  if (inserted.length)
+    await tx.backgroundJob.create({
+      data: {
+        kind: "PUSH",
+        payload: JSON.stringify({
+          userIds: inserted.map((n) => n.userId),
+          payload: { title, body, link },
+        }),
+      },
+    });
+}
+
+/** Inbox delivery and durable push work commit together; requests never wait on a provider. */
 export async function notify(
   userId: string,
   type: string,
   title: string,
   body: string,
-  link?: string
+  link?: string,
 ) {
-  await db.notification.create({ data: { userId, type, title, body, link } });
-  await sendPush(userId, { title, body, link });
+  await notifyMany([userId], type, title, body, link);
 }
-
-/** Same as notify() for a batch of users (one createMany + fanned-out push). */
 export async function notifyMany(
   userIds: string[],
   type: string,
   title: string,
   body: string,
-  link?: string
+  link?: string,
+  eventKey?: string,
 ) {
   const ids = [...new Set(userIds)].filter(Boolean);
-  if (ids.length === 0) return;
-  await db.notification.createMany({
-    data: ids.map((userId) => ({ userId, type, title, body, link })),
-  });
-  await sendPushMany(ids, { title, body, link });
+  for (let offset = 0; offset < ids.length; offset += 100) {
+    const batch = ids.slice(offset, offset + 100);
+    await db.$transaction(async (tx) => {
+      await notifyWithClient(tx, batch, type, title, body, link, eventKey);
+    });
+  }
 }

@@ -1,0 +1,8 @@
+[Unit]
+Description=Check Haraj jobs, SMTP, services and backups every minute
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+Persistent=true
+[Install]
+WantedBy=timers.target

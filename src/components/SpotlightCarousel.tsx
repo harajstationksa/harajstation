@@ -1,5 +1,7 @@
 "use client";
 
+import { ProgressiveImage } from "./ProgressiveImage";
+import type { ImagePreview } from "@/lib/image-placeholders";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Flame, Gavel, Megaphone } from "lucide-react";
@@ -24,7 +26,13 @@ export type SpotlightItem = {
  * crossfade + slow Ken-Burns zoom, story-style progress bars (clickable),
  * and pause-on-hover. A single item renders as a static card.
  */
-export function SpotlightCarousel({ items }: { items: SpotlightItem[] }) {
+export function SpotlightCarousel({
+  items,
+  previews = {},
+}: {
+  items: SpotlightItem[];
+  previews?: Record<string, ImagePreview | null>;
+}) {
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
 
@@ -56,17 +64,17 @@ export function SpotlightCarousel({ items }: { items: SpotlightItem[] }) {
               tabIndex={isActive ? 0 : -1}
               className={cn(
                 "group absolute inset-0 block transition-opacity duration-700 ease-out",
-                isActive ? "opacity-100 z-10" : "opacity-0 pointer-events-none"
+                isActive ? "opacity-100 z-10" : "opacity-0 pointer-events-none",
               )}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <ProgressiveImage
+                preview={previews[it.cover]}
                 src={it.cover}
                 alt={it.title}
                 className={cn(
                   "size-full object-cover ease-linear",
                   // slow Ken-Burns zoom over the slide's screen time
-                  isActive ? "scale-105 duration-[6000ms] transition-transform" : "scale-100"
+                  isActive ? "scale-105 duration-[6000ms] transition-transform" : "scale-100",
                 )}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/10" />
@@ -142,7 +150,10 @@ export function SpotlightCarousel({ items }: { items: SpotlightItem[] }) {
                   />
                 ) : (
                   <span
-                    className={cn("block h-full bg-white transition-all", i < active ? "w-full" : "w-0")}
+                    className={cn(
+                      "block h-full bg-white transition-all",
+                      i < active ? "w-full" : "w-0",
+                    )}
                   />
                 )}
               </span>

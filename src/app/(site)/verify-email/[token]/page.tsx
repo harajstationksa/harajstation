@@ -12,11 +12,7 @@ export async function generateMetadata() {
 }
 
 /** Landing page for the emailed confirmation link — single-use, 48h TTL. */
-export default async function VerifyEmailPage({
-  params,
-}: {
-  params: Promise<{ token: string }>;
-}) {
+export default async function VerifyEmailPage({ params }: { params: Promise<{ token: string }> }) {
   const { t } = await getT();
   const { token } = await params;
 
@@ -49,9 +45,7 @@ export default async function VerifyEmailPage({
           <>
             <CheckCircle2 className="size-12 text-green-600 mx-auto" />
             <h1 className="font-display font-bold text-2xl">{t.pub.verifyOkTitle}</h1>
-            <p className="text-sm text-neutral-500">
-              {t.pub.verifyOkBody}
-            </p>
+            <p className="text-sm text-neutral-500">{t.pub.verifyOkBody}</p>
             <Link href="/" className="btn-primary w-full">
               {t.pub.startBrowsing}
             </Link>
@@ -60,9 +54,7 @@ export default async function VerifyEmailPage({
           <>
             <XCircle className="size-12 text-red-600 mx-auto" />
             <h1 className="font-display font-bold text-2xl">{t.pub.verifyBadTitle}</h1>
-            <p className="text-sm text-neutral-500">
-              {t.pub.verifyBadBody}
-            </p>
+            <p className="text-sm text-neutral-500">{t.pub.verifyBadBody}</p>
             <Link href="/dashboard" className="btn-primary w-full">
               {t.pub.goDashboard}
             </Link>

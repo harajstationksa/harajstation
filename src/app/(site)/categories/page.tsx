@@ -30,10 +30,7 @@ export default async function CategoriesPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {categories.map((cat) => (
           <div key={cat.id} className="card p-5">
-            <Link
-              href={`/category/${cat.slug}`}
-              className="flex items-center gap-3 group"
-            >
+            <Link href={`/category/${cat.slug}`} className="flex items-center gap-3 group">
               <CategoryIcon
                 name={cat.icon}
                 className="size-7 text-neutral-950 group-hover:text-primary-600 transition-colors shrink-0"

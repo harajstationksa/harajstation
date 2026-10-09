@@ -1,3 +1,4 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
@@ -19,8 +20,8 @@ export async function POST(req: Request) {
 
   if (!emailConfigured()) {
     return NextResponse.json(
-      { error: "إرسال البريد غير مفعّل حالياً" },
-      { status: 503 }
+      { error: apiMessage(req, "إرسال البريد غير مفعّل حالياً") },
+      { status: 503 },
     );
   }
 
@@ -35,8 +36,8 @@ export async function POST(req: Request) {
     }
     if (await isRateLimited(`verify-resend:mail:${email}`, 5, 60 * 60_000)) {
       return NextResponse.json(
-        { error: "أرسلنا رسائل كثيرة لهذا البريد — راجع صندوق الوارد والسبام" },
-        { status: 429 }
+        { error: apiMessage(req, "أرسلنا رسائل كثيرة لهذا البريد — راجع صندوق الوارد والسبام") },
+        { status: 429 },
       );
     }
 
@@ -50,14 +51,19 @@ export async function POST(req: Request) {
 
   // ── signed in: the dashboard banner ──
   if (session.emailVerifiedAt) {
-    return NextResponse.json({ error: "بريدك مؤكد بالفعل" }, { status: 400 });
+    return NextResponse.json({ error: apiMessage(req, "بريدك مؤكد بالفعل") }, { status: 400 });
   }
   // the IP cap above doesn't stop the same account resending from many
   // networks — bound the account itself too
   if (await isRateLimited(`verify-resend:u:${session.id}`, 5, 60 * 60_000)) {
     return NextResponse.json(
-      { error: "أرسلنا رسائل تأكيد كثيرة — راجع بريدك (وصندوق الرسائل غير المرغوبة) أو انتظر قليلاً" },
-      { status: 429 }
+      {
+        error: apiMessage(
+          req,
+          "أرسلنا رسائل تأكيد كثيرة — راجع بريدك (وصندوق الرسائل غير المرغوبة) أو انتظر قليلاً",
+        ),
+      },
+      { status: 429 },
     );
   }
 

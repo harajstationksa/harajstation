@@ -1,3 +1,5 @@
+import { getImagePreviews } from "@/lib/image-placeholders";
+import { publicListingWhere } from "@/lib/listing-policy";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -24,7 +26,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const auction = await db.auction.findUnique({
-    where: { id },
+    where: { id, listing: publicListingWhere },
     include: {
       listing: { select: { title: true, description: true, images: true, city: true } },
       bids: { orderBy: { amount: "desc" }, take: 1, select: { amount: true } },
@@ -58,7 +60,7 @@ export default async function AuctionPage({
   const [session, auction] = await Promise.all([
     getSession(),
     db.auction.findUnique({
-      where: { id },
+      where: { id, listing: publicListingWhere },
       include: {
         listing: { include: { seller: true, category: true } },
         bids: {
@@ -108,9 +110,7 @@ export default async function AuctionPage({
   // the seller sees real names of bidders who chose to bid openly;
   // everyone else (including other bidders) only ever sees masked names
   const revealTo = (bid: { anonymous: boolean }) => isSeller && !bid.anonymous;
-  const myLastBid = session
-    ? auction.bids.find((b) => b.bidderId === session.sub)
-    : null;
+  const myLastBid = session ? auction.bids.find((b) => b.bidderId === session.sub) : null;
 
   const initial: AuctionState = {
     status: auction.status,
@@ -164,9 +164,13 @@ export default async function AuctionPage({
       />
       {/* breadcrumb */}
       <nav className="flex items-center gap-1 text-sm text-neutral-500 mb-4 flex-wrap">
-        <Link href="/" className="hover:text-primary-600">{t.categoryPage.home}</Link>
+        <Link href="/" className="hover:text-primary-600">
+          {t.categoryPage.home}
+        </Link>
         <ChevronLeft className="size-3.5 ltr:rotate-180 shrink-0" />
-        <Link href="/auctions" className="hover:text-primary-600">{t.nav.auctions}</Link>
+        <Link href="/auctions" className="hover:text-primary-600">
+          {t.nav.auctions}
+        </Link>
         <ChevronLeft className="size-3.5 ltr:rotate-180 shrink-0" />
         <span className="text-neutral-800 line-clamp-1">{listing.title}</span>
       </nav>
@@ -208,7 +212,14 @@ export default async function AuctionPage({
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
         {/* main column */}
         <div className="lg:col-span-3 space-y-6">
-          <Gallery images={parseImages(listing.images)} title={listing.title} />
+          <Gallery
+            previews={await getImagePreviews([
+              ...parseImages(listing.images),
+              "/images/ph/chair1.svg",
+            ])}
+            images={parseImages(listing.images)}
+            title={listing.title}
+          />
 
           <div className="card p-5 max-lg:hidden space-y-4">
             <h2 className="font-bold flex items-center gap-2">
@@ -269,11 +280,7 @@ export default async function AuctionPage({
       </div>
 
       <div className="mt-8 max-w-3xl">
-        <Comments
-          listingId={listing.id}
-          sellerId={listing.sellerId}
-          loggedIn={!!session}
-        />
+        <Comments listingId={listing.id} sellerId={listing.sellerId} loggedIn={!!session} />
       </div>
     </div>
   );

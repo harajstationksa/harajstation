@@ -27,7 +27,9 @@ export default async function ContactPage() {
           <div key={label} className="card p-5 space-y-2">
             <Icon className="size-6 text-primary-500 mx-auto" />
             <p className="font-bold text-sm">{label}</p>
-            <p className="text-sm text-neutral-500" dir="ltr">{value}</p>
+            <p className="text-sm text-neutral-500" dir="ltr">
+              {value}
+            </p>
           </div>
         ))}
       </div>

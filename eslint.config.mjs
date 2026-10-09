@@ -15,8 +15,11 @@ const eslintConfig = defineConfig([
     ".design-sync/**",
     ".ds-sync/**",
     "ds-bundle/**",
-    "server-snapshot-*/**",
-    "PROJECT_AUDIT_REPORT.html",
+    "backups/**",
+    "artifacts/**",
+    "coverage/**",
+    "*AUDIT*.html",
+    "*FIXES*.html",
   ]),
 ]);
 

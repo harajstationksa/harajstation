@@ -11,7 +11,15 @@ export function parseJson<T>(raw: string | null | undefined, fallback: T): T {
 }
 
 export const listingCardInclude = {
-  category: { select: { slug: true, nameAr: true, nameEn: true, icon: true, parent: { select: { slug: true } } } },
+  category: {
+    select: {
+      slug: true,
+      nameAr: true,
+      nameEn: true,
+      icon: true,
+      parent: { select: { slug: true } },
+    },
+  },
   seller: {
     select: {
       id: true,
@@ -57,7 +65,7 @@ export function serializeListingCard(l: ListingWithCard) {
     images,
     image: images[0] ?? null,
     status: l.status,
-    isFeatured: l.isFeatured,
+    isFeatured: l.isFeatured && (!l.featuredUntil || l.featuredUntil > new Date()),
     isPromoted: l.isPromoted,
     views: l.views,
     deliveryMethod: l.deliveryMethod,

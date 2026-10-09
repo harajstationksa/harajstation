@@ -2,102 +2,83 @@ import {
   createCipheriv,
   createDecipheriv,
   createHash,
+  hkdfSync,
   randomBytes,
   timingSafeEqual,
 } from "node:crypto";
 
-/**
- * Constant-time string comparison for shared secrets (cron key, webhook
- * token). Hashing first equalizes lengths, so nothing leaks — not even size.
- */
 export function safeEqual(a: string, b: string): boolean {
-  const ha = createHash("sha256").update(a).digest();
-  const hb = createHash("sha256").update(b).digest();
-  return timingSafeEqual(ha, hb);
+  return timingSafeEqual(
+    createHash("sha256").update(a).digest(),
+    createHash("sha256").update(b).digest(),
+  );
 }
-
-/**
- * At-rest encryption for private chat messages (AES-256-GCM).
- *
- * Messages are stored encrypted in the database and decrypted only when
- * served to one of the two conversation parties. New ciphertext includes a
- * key id so CHAT_SECRET can be rotated; CHAT_SECRET_PREVIOUS is a comma-
- * separated read-only keyring. Legacy v1 rows can still use AUTH_SECRET while
- * they are migrated, but new writes never couple chat and session keys.
- */
-
-const V1_PREFIX = "enc:v1:";
-const V2_PREFIX = "enc:v2:";
-
-function developmentSecret() {
-  return "chat|samel-insecure-dev-secret";
-}
-
-function currentSecret(): string {
+const PREFIXES = ["enc:v1:", "enc:v2:", "enc:v3:"] as const;
+const FAILED = "⚠️ تعذّر فك تشفير هذه الرسالة";
+function currentSecret() {
   const secret = process.env.CHAT_SECRET;
-  if (!secret || secret.length < 32) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("CHAT_SECRET must be set to a random value of 32+ characters in production");
-    }
-    return developmentSecret();
-  }
+  if (!secret || secret.length < 32)
+    throw new Error("CHAT_SECRET must contain at least 32 characters");
   return secret;
 }
-
-function keyFromSecret(secret: string): Buffer {
-  return createHash("sha256").update(`chat|${secret}`).digest();
+function key(secret: string, version: number) {
+  return version === 3
+    ? Buffer.from(
+        hkdfSync(
+          "sha256",
+          secret,
+          "harajstation:chat:hkdf:v3",
+          "AES-256-GCM message encryption",
+          32,
+        ),
+      )
+    : createHash("sha256").update(`chat|${secret}`).digest();
 }
-
-function keyId(secret: string): string {
+function keyId(secret: string) {
   return createHash("sha256").update(`kid|${secret}`).digest("hex").slice(0, 16);
 }
-
-function readableSecrets(): string[] {
-  const values = [
-    process.env.CHAT_SECRET,
-    ...(process.env.CHAT_SECRET_PREVIOUS ?? "").split(","),
-    // v1 compatibility only; remove after all legacy rows are re-encrypted.
-    process.env.AUTH_SECRET,
-    process.env.NODE_ENV === "production" ? undefined : developmentSecret(),
+function readableSecrets() {
+  return [
+    ...new Set(
+      [
+        process.env.CHAT_SECRET,
+        ...(process.env.CHAT_SECRET_PREVIOUS ?? "").split(","),
+        process.env.CHAT_LEGACY_AUTH_SECRET,
+      ]
+        .map((v) => v?.trim())
+        .filter((v): v is string => !!v),
+    ),
   ];
-  return [...new Set(values.map((v) => v?.trim()).filter((v): v is string => !!v))];
 }
-
 export function encryptText(plain: string): string {
-  const secret = currentSecret();
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", keyFromSecret(secret), iv);
+  const secret = currentSecret(),
+    iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key(secret, 3), iv);
   const data = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return `${V2_PREFIX}${keyId(secret)}:${iv.toString("base64")}:${tag.toString("base64")}:${data.toString("base64")}`;
+  return `enc:v3:${keyId(secret)}:${iv.toString("base64")}:${cipher.getAuthTag().toString("base64")}:${data.toString("base64")}`;
 }
-
 export function decryptText(stored: string): string {
-  if (!stored.startsWith(V1_PREFIX) && !stored.startsWith(V2_PREFIX)) return stored;
-  const v2 = stored.startsWith(V2_PREFIX);
-  const parts = stored.slice((v2 ? V2_PREFIX : V1_PREFIX).length).split(":");
-  const [kid, ivB64, tagB64, dataB64] = v2
-    ? parts
-    : [null, parts[0], parts[1], parts[2]];
-  if (!ivB64 || !tagB64 || dataB64 === undefined) {
-    return "⚠️ تعذّر فك تشفير هذه الرسالة";
-  }
-  const candidates = readableSecrets().filter((secret) => !kid || keyId(secret) === kid);
-  for (const secret of candidates) {
+  const index = PREFIXES.findIndex((p) => stored.startsWith(p));
+  if (index === -1) return stored.startsWith("enc:") ? FAILED : stored;
+  const version = index + 1;
+  const parts = stored.slice(PREFIXES[index].length).split(":");
+  if (parts.length !== (version === 1 ? 3 : 4)) return FAILED;
+  const [kid, ivB64, tagB64, dataB64] = version === 1 ? [null, ...parts] : parts;
+  if (!ivB64 || !tagB64 || typeof dataB64 !== "string") return FAILED;
+  const iv = Buffer.from(ivB64, "base64"),
+    tag = Buffer.from(tagB64, "base64");
+  if (iv.length !== 12 || tag.length !== 16) return FAILED;
+  for (const secret of readableSecrets().filter((s) => !kid || keyId(s) === kid)) {
     try {
-      const decipher = createDecipheriv(
-        "aes-256-gcm",
-        keyFromSecret(secret),
-        Buffer.from(ivB64, "base64")
-      );
-      decipher.setAuthTag(Buffer.from(tagB64, "base64"));
+      const decipher = createDecipheriv("aes-256-gcm", key(secret, version), iv);
+      decipher.setAuthTag(tag);
       return Buffer.concat([
         decipher.update(Buffer.from(dataB64, "base64")),
         decipher.final(),
       ]).toString("utf8");
     } catch {
-      // Try the next key in the rotation ring.
+      /* Try an explicitly configured previous key. */
     }
   }
-  return "⚠️ تعذّر فك تشفير هذه الرسالة";
+  return FAILED;
 }

@@ -1,16 +1,25 @@
 "use client";
+import "../admin/admin.css";
 
+import { clientFetch } from "@/lib/client-fetch";
+async function resilientFetch(input: RequestInfo | URL, init?: RequestInit) {
+  try {
+    return await clientFetch(input, {
+      ...init,
+      signal: AbortSignal.timeout(20000),
+    });
+  } catch {
+    return new Response(JSON.stringify({ error: "تعذّر الاتصال. حاول مجددًا" }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+}
+
+import { AdminPasswordRecovery } from "@/components/AdminPasswordRecovery";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  AlertTriangle,
-  ArrowLeft,
-  KeyRound,
-  Loader2,
-  Lock,
-  Mail,
-  ShieldCheck,
-} from "lucide-react";
+import { AlertTriangle, ArrowLeft, KeyRound, Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
 
 type Step = "email" | "password" | "code";
 
@@ -26,6 +35,8 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
+  const [needsTotp, setNeedsTotp] = useState(false);
+  const [totp, setTotp] = useState("");
   const [challenge, setChallenge] = useState("");
   const [maskedEmail, setMaskedEmail] = useState("");
   const [error, setError] = useState("");
@@ -37,12 +48,10 @@ export default function AdminLoginPage() {
     setBusy(true);
     setError("");
     setInfo("");
-    const res = await fetch("/api/admin-auth/login", {
+    const res = await resilientFetch("/api/admin-auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(
-        withPassword ? { email, password } : { email }
-      ),
+      body: JSON.stringify(withPassword ? { email, password } : { email }),
     });
     const data = await res.json().catch(() => ({}));
     setBusy(false);
@@ -57,6 +66,7 @@ export default function AdminLoginPage() {
     if (data.requiresOtp) {
       setChallenge(data.challenge);
       setMaskedEmail(data.email);
+      setNeedsTotp(!!data.totp);
       setStep("code");
       setTimeout(() => codeRef.current?.focus(), 50);
     }
@@ -65,10 +75,10 @@ export default function AdminLoginPage() {
   async function submitCode() {
     setBusy(true);
     setError("");
-    const res = await fetch("/api/admin-auth/otp", {
+    const res = await resilientFetch("/api/admin-auth/otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ challenge, code }),
+      body: JSON.stringify(needsTotp ? { challenge, code, totp } : { challenge, code }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -85,7 +95,7 @@ export default function AdminLoginPage() {
     setBusy(true);
     setError("");
     setInfo("");
-    const res = await fetch("/api/admin-auth/resend", {
+    const res = await resilientFetch("/api/admin-auth/resend", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ challenge }),
@@ -104,25 +114,28 @@ export default function AdminLoginPage() {
     setStep("email");
     setPassword("");
     setCode("");
+    setTotp("");
+    setNeedsTotp(false);
     setChallenge("");
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
+    <div className="admin-login min-h-dvh flex items-center justify-center p-4 sm:p-8">
+      <div className="w-full max-w-[440px]">
         <div className="text-center mb-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="حراج ستيشن" className="h-14 mx-auto mb-3 object-contain" />
-          <h1 className="font-display font-extrabold text-xl text-white">
-            بوابة الإدارة
-          </h1>
-          <p className="text-sm text-neutral-400 mt-1 flex items-center justify-center gap-1.5">
+          <h1 className="font-display font-extrabold text-2xl text-neutral-800">بوابة الإدارة</h1>
+          <p className="text-sm text-neutral-500 mt-1 flex items-center justify-center gap-1.5">
             <ShieldCheck className="size-4 text-primary-500" />
-            دخول محمي بالتحقق الثنائي
+            دخول آمن لفريق الإدارة
           </p>
         </div>
 
-        <div className="bg-neutral-900 border border-white/10 rounded-2xl p-6 space-y-4">
+        <div className="admin-login-card p-6 sm:p-8 space-y-5">
+          {step === "email" && (
+            <p className="text-sm text-neutral-500">أدخل بريد حسابك الإداري لمتابعة الدخول.</p>
+          )}
           {step === "email" && (
             <form
               className="space-y-4"
@@ -132,7 +145,10 @@ export default function AdminLoginPage() {
               }}
             >
               <div>
-                <label className="block text-sm font-medium text-neutral-300 mb-1.5">
+                <label
+                  htmlFor="admin-login-email"
+                  className="block text-sm font-medium text-neutral-600 mb-1.5"
+                >
                   البريد الإلكتروني
                 </label>
                 <div className="relative">
@@ -140,9 +156,10 @@ export default function AdminLoginPage() {
                   <input
                     dir="ltr"
                     type="email"
+                    id="admin-login-email"
                     autoComplete="email"
                     autoFocus
-                    className="input bg-neutral-800 border-neutral-700 text-white w-full"
+                    className="input bg-neutral-50 border-neutral-200 text-neutral-800 w-full pe-10"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -150,7 +167,11 @@ export default function AdminLoginPage() {
                 </div>
               </div>
               <button className="btn-primary w-full" disabled={busy}>
-                {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowLeft className="size-4" />}
+                {busy ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <ArrowLeft className="size-4" />
+                )}
                 متابعة
               </button>
             </form>
@@ -164,9 +185,14 @@ export default function AdminLoginPage() {
                 if (password) submitLogin(true);
               }}
             >
-              <p className="text-sm text-neutral-400" dir="ltr">{email}</p>
+              <p className="text-sm text-neutral-500" dir="ltr">
+                {email}
+              </p>
               <div>
-                <label className="block text-sm font-medium text-neutral-300 mb-1.5">
+                <label
+                  htmlFor="admin-login-password"
+                  className="block text-sm font-medium text-neutral-600 mb-1.5"
+                >
                   كلمة المرور
                 </label>
                 <div className="relative">
@@ -174,9 +200,10 @@ export default function AdminLoginPage() {
                   <input
                     dir="ltr"
                     type="password"
+                    id="admin-login-password"
                     autoComplete="current-password"
                     autoFocus
-                    className="input bg-neutral-800 border-neutral-700 text-white w-full"
+                    className="input bg-neutral-50 border-neutral-200 text-neutral-800 w-full pe-10"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -184,13 +211,17 @@ export default function AdminLoginPage() {
                 </div>
               </div>
               <button className="btn-primary w-full" disabled={busy}>
-                {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowLeft className="size-4" />}
+                {busy ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <ArrowLeft className="size-4" />
+                )}
                 متابعة
               </button>
               <button
                 type="button"
                 onClick={restart}
-                className="text-xs text-neutral-500 hover:text-neutral-300 w-full text-center"
+                className="text-xs text-neutral-500 hover:text-neutral-900 w-full text-center"
               >
                 تغيير البريد
               </button>
@@ -202,33 +233,56 @@ export default function AdminLoginPage() {
               className="space-y-4"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (/^\d{6}$/.test(code)) submitCode();
+                if (/^\d{6}$/.test(code) && (!needsTotp || /^\d{6}$/.test(totp))) submitCode();
               }}
             >
               <div className="text-center space-y-1">
                 <KeyRound className="size-8 text-primary-500 mx-auto" />
-                <p className="text-sm text-neutral-300">
-                  أرسلنا رمز دخول من 6 أرقام إلى
-                </p>
-                <p className="text-sm font-semibold text-white" dir="ltr">
+                <p className="text-sm text-neutral-600">أرسلنا رمز دخول من 6 أرقام إلى</p>
+                <p className="text-sm font-semibold text-neutral-800" dir="ltr">
                   {maskedEmail}
                 </p>
               </div>
               <input
                 ref={codeRef}
+                aria-label="رمز الدخول من ستة أرقام"
                 dir="ltr"
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 maxLength={6}
-                className="input bg-neutral-800 border-neutral-700 text-white w-full text-center text-2xl font-bold tracking-[0.5em]"
+                className="input bg-neutral-50 border-neutral-200 text-neutral-800 w-full text-center text-2xl font-bold tracking-[0.5em]"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/[^\d]/g, ""))}
               />
+              {needsTotp && (
+                <div className="space-y-1">
+                  <label
+                    htmlFor="admin-totp"
+                    className="block text-sm text-neutral-600 text-center"
+                  >
+                    رمز تطبيق المصادقة (Google Authenticator أو ما يماثله)
+                  </label>
+                  <input
+                    id="admin-totp"
+                    dir="ltr"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={6}
+                    className="input bg-neutral-50 border-neutral-200 text-neutral-800 w-full text-center text-2xl font-bold tracking-[0.5em]"
+                    value={totp}
+                    onChange={(e) => setTotp(e.target.value.replace(/[^\d]/g, ""))}
+                  />
+                </div>
+              )}
               <button
                 className="btn-primary w-full"
-                disabled={busy || code.length !== 6}
+                disabled={busy || code.length !== 6 || (needsTotp && totp.length !== 6)}
               >
-                {busy ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
+                {busy ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <ShieldCheck className="size-4" />
+                )}
                 دخول
               </button>
               <div className="flex items-center justify-between text-xs">
@@ -236,14 +290,14 @@ export default function AdminLoginPage() {
                   type="button"
                   onClick={resend}
                   disabled={busy}
-                  className="text-primary-400 hover:text-primary-300"
+                  className="text-primary-600 hover:text-primary-700"
                 >
                   إعادة إرسال الرمز
                 </button>
                 <button
                   type="button"
                   onClick={restart}
-                  className="text-neutral-500 hover:text-neutral-300"
+                  className="text-neutral-500 hover:text-neutral-900"
                 >
                   رجوع
                 </button>
@@ -251,14 +305,21 @@ export default function AdminLoginPage() {
             </form>
           )}
 
+          {(step === "email" || step === "password") && <AdminPasswordRecovery email={email} />}
           {error && (
-            <p className="flex items-start gap-2 text-sm text-red-400 bg-red-950/40 border border-red-900/50 rounded-lg px-3 py-2">
+            <p
+              role="alert"
+              className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2"
+            >
               <AlertTriangle className="size-4 shrink-0 mt-0.5" />
               {error}
             </p>
           )}
           {info && !error && (
-            <p className="text-sm text-green-400 bg-green-950/40 border border-green-900/50 rounded-lg px-3 py-2 text-center">
+            <p
+              role="status"
+              className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2 text-center"
+            >
               {info}
             </p>
           )}

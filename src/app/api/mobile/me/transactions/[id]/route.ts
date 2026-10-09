@@ -1,23 +1,25 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { parseJson } from "../../../_lib/serialize";
 
 /** Full transaction detail: answers, dispute, evidence, reviews. */
-export async function GET(
-  _req: Request,
-  ctx: { params: Promise<{ id: string }> }
-) {
+export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "غير مسجل" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: apiMessage(_req, "غير مسجل") }, { status: 401 });
 
   const { id } = await ctx.params;
   const t = await db.transaction.findUnique({
     where: { id },
     include: {
       listing: { select: { id: true, title: true, images: true } },
-      seller: { select: { id: true, name: true, avatarUrl: true, avatarColor: true, credibility: true } },
-      buyer: { select: { id: true, name: true, avatarUrl: true, avatarColor: true, credibility: true } },
+      seller: {
+        select: { id: true, name: true, avatarUrl: true, avatarColor: true, credibility: true },
+      },
+      buyer: {
+        select: { id: true, name: true, avatarUrl: true, avatarColor: true, credibility: true },
+      },
       dispute: {
         include: {
           evidences: {
@@ -29,7 +31,7 @@ export async function GET(
     },
   });
   if (!t || (t.sellerId !== session.sub && t.buyerId !== session.sub)) {
-    return NextResponse.json({ error: "غير مصرح" }, { status: 403 });
+    return NextResponse.json({ error: apiMessage(_req, "غير مصرح") }, { status: 403 });
   }
 
   const reviews = await db.review.findMany({
@@ -73,7 +75,9 @@ export async function GET(
           evidences: t.dispute.evidences.map((e) => ({
             id: e.id,
             note: e.note,
-            fileUrl: e.fileUrl,
+            fileUrl: e.fileUrl?.startsWith("private:")
+              ? `/api/transactions/${t.id}/evidence/${e.id}/image`
+              : e.fileUrl,
             user: e.user,
             createdAt: e.createdAt.toISOString(),
           })),

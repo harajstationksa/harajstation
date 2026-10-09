@@ -1,19 +1,36 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
+import { isValidDisplayName } from "@/lib/utils";
 import { SESSION_COOKIE, sessionCookieOptions, signSessionToken } from "@/lib/auth";
-import { fetchProfile, googleConfigured, siteUrl, STATE_COOKIE } from "@/lib/google-oauth";
+import {
+  fetchProfile,
+  googleConfigured,
+  siteUrl,
+  STATE_COOKIE,
+  VERIFIER_COOKIE,
+  NONCE_COOKIE,
+  OAUTH_OTP_COOKIE,
+  cookieValue,
+  oauthCookieOptions,
+} from "@/lib/google-oauth";
 import { rateLimitGuard } from "@/lib/rate-limit";
 import { getFreeTierConfig } from "@/lib/settings";
 import { generateReferralCode } from "@/lib/referral";
 import { STAFF_ROLES } from "@/lib/constants";
 import { emailConfigured } from "@/lib/email";
-import { maskEmail, startOtpChallenge } from "@/lib/login-otp";
+import { startOtpChallenge } from "@/lib/login-otp";
+import { safeEqual } from "@/lib/crypto";
 
 const AVATAR_COLORS = ["#db7759", "#0ea5e9", "#8b5cf6", "#10b981", "#ec4899"];
 
 function fail(reason: string) {
-  return NextResponse.redirect(new URL(`/login?error=${reason}`, siteUrl()));
+  return clearFlow(NextResponse.redirect(new URL(`/login?error=${reason}`, siteUrl())));
+}
+function clearFlow(res: NextResponse) {
+  for (const name of [STATE_COOKIE, VERIFIER_COOKIE, NONCE_COOKIE]) res.cookies.delete(name);
+  res.headers.set("Referrer-Policy", "no-referrer");
+  return res;
 }
 
 /** Google sends the visitor back here with a one-time code. */
@@ -25,18 +42,16 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  const cookieState = req.headers
-    .get("cookie")
-    ?.split(";")
-    .map((c) => c.trim().split("="))
-    .find(([k]) => k === STATE_COOKIE)?.[1];
+  const cookieState = cookieValue(req, STATE_COOKIE);
+  const verifier = cookieValue(req, VERIFIER_COOKIE),
+    nonce = cookieValue(req, NONCE_COOKIE);
 
   // the user declined at the consent screen, or the state doesn't match ours
-  if (!code || !state || !cookieState || state !== cookieState) {
+  if (!code || !state || !cookieState || !verifier || !nonce || !safeEqual(state, cookieState)) {
     return fail("google");
   }
 
-  const profile = await fetchProfile(code);
+  const profile = await fetchProfile(code, verifier, nonce);
   if (!profile) return fail("google");
   // Google says it owns this address — that claim is the whole point of the flow
   if (!profile.emailVerified) return fail("google_unverified");
@@ -46,7 +61,9 @@ export async function GET(req: Request) {
   let user = await db.user.findUnique({ where: { googleSub: profile.sub } });
 
   if (!user) {
-    const emailOwner = await db.user.findUnique({ where: { email: profile.email } });
+    const emailOwner = await db.user.findUnique({
+      where: { email: profile.email },
+    });
     if (emailOwner) {
       if (STAFF_ROLES.includes(emailOwner.role)) return fail("staff");
       const legacyGoogleAccount = emailOwner.passwordHash.startsWith("oauth:google:");
@@ -75,9 +92,13 @@ export async function GET(req: Request) {
         }
       : {};
 
+    // Google names are free text; keep the same display-name rule as signup
+    const name = isValidDisplayName(profile.name)
+      ? profile.name.slice(0, 60)
+      : profile.email.split("@")[0].slice(0, 60) || "مستخدم";
     user = await db.user.create({
       data: {
-        name: profile.name,
+        name,
         email: profile.email,
         googleSub: profile.sub,
         city: "الرياض", // editable from settings — Google doesn't tell us
@@ -102,21 +123,22 @@ export async function GET(req: Request) {
     const otp = await startOtpChallenge(user);
     if (!otp.ok) return fail("two_factor_unavailable");
     const next = new URL("/login", siteUrl());
-    next.searchParams.set("otpChallenge", otp.challenge);
-    next.searchParams.set("otpEmail", maskEmail(user.email));
     const res = NextResponse.redirect(next);
-    res.cookies.delete(STATE_COOKIE);
-    return res;
+    res.cookies.set(OAUTH_OTP_COOKIE, otp.challenge, oauthCookieOptions);
+    return clearFlow(res);
   }
 
-  const token = await signSessionToken({
-    sub: user.id,
-    role: user.role,
-    name: user.name,
-  });
+  const token = await signSessionToken(
+    {
+      sub: user.id,
+      role: user.role,
+      name: user.name,
+    },
+    user.sessionVersion,
+  );
 
   const res = NextResponse.redirect(new URL("/dashboard", siteUrl()));
   res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions);
-  res.cookies.delete(STATE_COOKIE);
-  return res;
+  res.cookies.delete(OAUTH_OTP_COOKIE);
+  return clearFlow(res);
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import Link from "next/link";
 import { useState } from "react";
 import { CheckCircle2, KeyRound, Loader2 } from "lucide-react";
@@ -18,7 +20,7 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const res = await fetch("/api/auth/forgot", {
+    const res = await clientFetch("/api/auth/forgot", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
@@ -67,8 +69,11 @@ export default function ForgotPasswordPage() {
         ) : (
           <form onSubmit={submit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1.5">{f.email}</label>
+              <label htmlFor="forgot-email" className="block text-sm font-medium mb-1.5">
+                {f.email}
+              </label>
               <input
+                id="forgot-email"
                 className="input"
                 dir="ltr"
                 type="email"

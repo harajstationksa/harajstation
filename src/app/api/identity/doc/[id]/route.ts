@@ -1,17 +1,14 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
-import { readFile } from "node:fs/promises";
 import { db } from "@/lib/db";
 import { getAdminCurrentUser } from "@/lib/auth";
-import { privateUploadPath } from "@/lib/uploads";
+import { privateImageResponse } from "@/lib/private-storage";
 
 /** Serve an ID document to staff only — the file lives outside /public. */
-export async function GET(
-  _req: Request,
-  ctx: { params: Promise<{ id: string }> }
-) {
-  const user = await getAdminCurrentUser(["ADMIN", "MODERATOR", "SUPPORT"]);
+export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const user = await getAdminCurrentUser(["ADMIN", "MODERATOR"], "identity.view");
   if (!user) {
-    return NextResponse.json({ error: "غير مصرح" }, { status: 403 });
+    return NextResponse.json({ error: apiMessage(_req, "غير مصرح") }, { status: 403 });
   }
 
   const { id } = await ctx.params;
@@ -21,20 +18,5 @@ export async function GET(
   }
 
   // path is server-generated, but normalize defensively anyway
-  const full = privateUploadPath(request.docPath);
-  if (!full) {
-    return NextResponse.json({ error: "bad path" }, { status: 400 });
-  }
-
-  try {
-    const buf = await readFile(full);
-    return new NextResponse(new Uint8Array(buf), {
-      headers: {
-        "Content-Type": "image/webp",
-        "Cache-Control": "private, no-store",
-      },
-    });
-  } catch {
-    return NextResponse.json({ error: "الملف غير موجود" }, { status: 404 });
-  }
+  return privateImageResponse(request.docPath);
 }

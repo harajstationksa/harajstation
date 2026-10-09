@@ -21,11 +21,7 @@ export async function generateMetadata() {
  * confirmation → credibility → reviews pipeline auctions already use — the
  * reviews that make the NEXT sale faster.
  */
-export default async function MarkSoldPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function MarkSoldPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { t } = await getT();
   const s = t.soldFlow;
@@ -88,7 +84,7 @@ export default async function MarkSoldPage({
     }
   }
   const candidates = [...byBuyer.values()].sort(
-    (a, b) => Number(b.offerAccepted) - Number(a.offerAccepted)
+    (a, b) => Number(b.offerAccepted) - Number(a.offerAccepted),
   );
   const suggestedAmount =
     candidates.find((c) => c.offerAccepted)?.offerAmount ?? listing.price ?? undefined;
@@ -109,7 +105,11 @@ export default async function MarkSoldPage({
 
       <div className="card p-3.5 flex items-center gap-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={cover} alt="" className="size-14 rounded-lg object-cover border border-neutral-100" />
+        <img
+          src={cover}
+          alt=""
+          className="size-14 rounded-lg object-cover border border-neutral-100"
+        />
         <div className="min-w-0">
           <p className="font-semibold text-sm line-clamp-1">{listing.title}</p>
           {listing.price != null && (
@@ -158,8 +158,7 @@ export default async function MarkSoldPage({
                     {c.offerAmount != null && (
                       <span className="inline-flex items-center gap-1 tabular-nums">
                         <HandCoins className="size-3" />
-                        {c.offerAccepted ? s.acceptedOffer : s.offered}{" "}
-                        {formatSAR(c.offerAmount)}
+                        {c.offerAccepted ? s.acceptedOffer : s.offered} {formatSAR(c.offerAmount)}
                       </span>
                     )}
                   </span>
@@ -190,7 +189,7 @@ export default async function MarkSoldPage({
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1.5">
+          <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-1">
             {s.amountL} <span className="text-neutral-400 font-normal">{s.amountHint}</span>
           </label>
           <input
@@ -199,6 +198,7 @@ export default async function MarkSoldPage({
             inputMode="numeric"
             pattern="\d*"
             defaultValue={suggestedAmount}
+            id="a11y-page-1"
           />
         </div>
 

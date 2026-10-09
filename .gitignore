@@ -1,65 +1,49 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
+# Dependencies and build output
+/node_modules/
 /.pnp
 .pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-/coverage
-
-# next.js
+/.yarn/
 /.next/
 /out/
+/build/
+/coverage/
+*.tsbuildinfo
+next-env.d.ts
 
-# production
-/build
-
-# misc
-.DS_Store
+# Secrets, keys and local data
+.env*
+!.env.example
 *.pem
+*.key
+*.p12
+*.pfx
+/prisma/dev.db*
+/public/uploads/
+/private-uploads/
+/backups/
+*.age
+*.dump
 
-# debug
+# Local editor state and generated artifacts
+/.*/
+!/.github/
+/artifacts/
+/ds-bundle/
+/*.html
+/*.md
+!/README.md
+!/REQUIREMENTS.md
+!/DEPLOY.md
+!/SECURITY.md
+!/CHANGELOG.md
+
+# Logs and temporary files
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# design-sync
-.ds-sync/
-ds-bundle/
-.design-sync/.cache/
-.design-sync/learnings/
-.design-sync/node_modules
-
-# local data & user uploads
-prisma/dev.db
-public/uploads/
-private-uploads/
-
-# local tooling & build artifacts
-.ds-sync/
-.design-sync/
-ds-bundle/
-*.tsbuildinfo
-
-# template is safe to commit
-!.env.example
-
-# local db snapshots — never commit
-backups/
+/DEPLOYMENT_ID

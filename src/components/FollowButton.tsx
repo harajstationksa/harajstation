@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BellRing, Loader2, UserPlus } from "lucide-react";
@@ -27,7 +29,7 @@ export function FollowButton({
 
   async function toggle() {
     setLoading(true);
-    const res = await fetch(`/api/follow/${sellerId}`, {
+    const res = await clientFetch(`/api/follow/${sellerId}`, {
       method: following ? "DELETE" : "POST",
     });
     setLoading(false);
@@ -46,10 +48,8 @@ export function FollowButton({
       onClick={toggle}
       disabled={loading}
       className={cn(
-        following
-          ? "btn-secondary !border-green-200 !bg-green-50 !text-green-700"
-          : "btn-primary",
-        className
+        following ? "btn-secondary !border-green-200 !bg-green-50 !text-green-700" : "btn-primary",
+        className,
       )}
     >
       {loading ? (

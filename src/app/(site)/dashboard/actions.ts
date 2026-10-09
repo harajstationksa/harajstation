@@ -2,41 +2,31 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import {
+  featureListing,
+  bumpListing,
+  relistListing,
+  removeOwnListing,
+  lockListing,
+} from "@/lib/listing-policy";
+import { validAmount } from "@/lib/listing-validation";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { CONFIRM_WINDOW_DAYS, CONFIRM_WINDOW_HOURS } from "@/lib/constants";
 import { notify, notifyMany } from "@/lib/notify";
-import { adjustPoints, claimDailyPoints } from "@/lib/points";
-import { getSettingInt } from "@/lib/settings";
-import { getPlanLimits } from "@/lib/limits";
+import { claimDailyPoints } from "@/lib/points";
 import { isRateLimited } from "@/lib/rate-limit";
-import { deleteImages, deletePrivateImage } from "@/lib/uploads";
-import { formatSAR, parseImages } from "@/lib/utils";
+import { formatSAR } from "@/lib/utils";
 
 export async function featureWithPointsAction(formData: FormData) {
   const user = await requireUser();
   const listingId = String(formData.get("listingId"));
-  const cost = await getSettingInt("FEATURE_POINT_COST", 100);
-
-  const listing = await db.listing.findUnique({ where: { id: listingId } });
-  if (!listing || listing.sellerId !== user.id) return;
-  if (listing.status !== "ACTIVE" || listing.isFeatured) return;
-  if (user.points < cost) return;
-
-  const ok = await adjustPoints(user.id, -cost, "تمييز إعلان (7 أيام)");
-  if (ok === null) return;
-  await db.listing.update({
-    where: { id: listingId },
-    data: { isFeatured: true, featuredUntil: new Date(Date.now() + 7 * 86_400_000) },
-  });
-
-  await notify(
-    user.id,
-    "SYSTEM",
-    "تم تمييز إعلانك",
-    `أصبح "${listing.title}" إعلاناً مميزاً لمدة 7 أيام مقابل ${cost} نقطة.`,
-    `/dashboard/listings`
-  );
+  const done = await featureListing(listingId, user.id);
+  if (!done)
+    redirect(
+      "/dashboard/listings?error=" +
+        encodeURIComponent("تعذّر التمييز: الإعلان غير متاح أو مميز بالفعل أو الرصيد غير كافٍ"),
+    );
 
   revalidatePath("/dashboard/listings");
   revalidatePath("/");
@@ -49,22 +39,17 @@ export async function featureWithPointsAction(formData: FormData) {
  */
 export async function bumpListingAction(formData: FormData) {
   const user = await requireUser();
-  if (await isRateLimited(`bump:${user.id}`, 30, 24 * 3_600_000)) return;
+  if (await isRateLimited(`bump:${user.id}`, 30, 24 * 3_600_000))
+    redirect("/dashboard/listings?error=" + encodeURIComponent("وصلت للحد اليومي للتجديد"));
   const id = String(formData.get("listingId"));
-  const [listing, freeHours, cost] = await Promise.all([
-    db.listing.findUnique({ where: { id } }),
-    getSettingInt("BUMP_FREE_HOURS", 48),
-    getSettingInt("BUMP_POINT_COST", 15),
-  ]);
-  if (!listing || listing.sellerId !== user.id) return;
-  if (listing.status !== "ACTIVE") return;
-
-  const freeAt = listing.bumpedAt.getTime() + freeHours * 3_600_000;
-  if (Date.now() < freeAt) {
-    const ok = await adjustPoints(user.id, -cost, "تجديد إعلان قبل الموعد المجاني");
-    if (ok === null) return;
-  }
-  await db.listing.update({ where: { id }, data: { bumpedAt: new Date() } });
+  const done = await bumpListing(id, user.id);
+  if (!done)
+    redirect(
+      "/dashboard/listings?error=" +
+        encodeURIComponent(
+          "تعذّر التجديد: تحقق من الرصيد وحالة الإعلان، وانتظر دقيقة بين المحاولات",
+        ),
+    );
   revalidatePath("/dashboard/listings");
   revalidatePath("/");
 }
@@ -81,90 +66,91 @@ export async function markSoldWithBuyerAction(formData: FormData) {
   const buyerId = String(formData.get("buyerId") ?? "").trim();
   const amountRaw = Number(String(formData.get("amount") ?? "").trim());
 
-  const listing = await db.listing.findUnique({
-    where: { id },
-    include: { auction: true },
-  });
-  if (!listing || listing.sellerId !== user.id) return;
-  if (listing.status !== "ACTIVE") return;
-  if (listing.auction && listing.auction.status === "LIVE") return;
-
-  let txCreated = false;
-  if (buyerId && buyerId !== user.id) {
-    // the chosen buyer must have actually engaged with this listing — a chat
-    // or an offer — otherwise an arbitrary user id could be roped in
-    const [conv, latestOffer] = await Promise.all([
-      db.conversation.findFirst({ where: { listingId: id, buyerId } }),
-      db.offer.findFirst({
-        where: { listingId: id, buyerId },
-        orderBy: { createdAt: "desc" },
-      }),
-    ]);
-    if (conv || latestOffer) {
-      const accepted =
-        latestOffer?.status === "ACCEPTED"
-          ? (latestOffer.counterAmount ?? latestOffer.amount)
-          : null;
-      const amount =
-        Number.isInteger(amountRaw) && amountRaw > 0
-          ? amountRaw
-          : (accepted ?? listing.price ?? 0);
-      if (amount > 0) {
-        await db.transaction.create({
-          data: {
-            listingId: id,
-            sellerId: user.id,
-            buyerId,
-            amount,
-            source: "STANDARD",
-            // the seller initiated this — their side is already a yes
-            sellerAnswer: "YES",
-            deadline: new Date(Date.now() + CONFIRM_WINDOW_HOURS * 3_600_000),
-          },
-        });
-        await notify(
-          buyerId,
-          "CONFIRM",
-          "أكّد إتمام الصفقة",
-          `البائع أكّد بيع "${listing.title}" لك بمبلغ ${formatSAR(amount)} — أكّد الاستلام خلال ${CONFIRM_WINDOW_DAYS} أيام ليُحتسب التقييم للطرفين.`,
-          "/dashboard/verifications"
-        );
-        txCreated = true;
+  const result = await db.$transaction(async (tx) => {
+    await lockListing(tx, id);
+    const listing = await tx.listing.findUnique({
+      where: { id },
+      include: { auction: true },
+    });
+    if (
+      !listing ||
+      listing.sellerId !== user.id ||
+      listing.status !== "ACTIVE" ||
+      listing.auction?.status === "LIVE"
+    )
+      return null;
+    let amount = 0,
+      txCreated = false;
+    if (buyerId && buyerId !== user.id) {
+      const [conv, offer] = await Promise.all([
+        tx.conversation.findFirst({ where: { listingId: id, buyerId } }),
+        tx.offer.findFirst({
+          where: { listingId: id, buyerId },
+          orderBy: { createdAt: "desc" },
+        }),
+      ]);
+      if (conv || offer) {
+        const accepted =
+          offer?.status === "ACCEPTED" ? (offer.counterAmount ?? offer.amount) : null;
+        amount = validAmount(amountRaw) ? amountRaw : (accepted ?? listing.price ?? 0);
+        if (validAmount(amount)) {
+          await tx.transaction.create({
+            data: {
+              listingId: id,
+              sellerId: user.id,
+              buyerId,
+              amount,
+              source: "STANDARD",
+              sellerAnswer: "YES",
+              deadline: new Date(Date.now() + CONFIRM_WINDOW_HOURS * 3600000),
+            },
+          });
+          txCreated = true;
+        }
       }
     }
-  }
-
-  await db.listing.update({
-    where: { id },
-    data: { status: "SOLD", isFeatured: false, isPromoted: false },
-  });
-
-  // let the other bidders-by-offer know the item is gone (and close their offers)
-  const openOffers = await db.offer.findMany({
-    where: {
-      listingId: id,
-      status: { in: ["PENDING", "COUNTERED"] },
-      ...(buyerId ? { buyerId: { not: buyerId } } : {}),
-    },
-    select: { id: true, buyerId: true },
-  });
-  if (openOffers.length > 0) {
-    await db.offer.updateMany({
-      where: { id: { in: openOffers.map((offer) => offer.id) } },
+    await tx.listing.update({
+      where: { id },
+      data: { status: "SOLD", isFeatured: false, isPromoted: false },
+    });
+    const openOffers = await tx.offer.findMany({
+      where: {
+        listingId: id,
+        status: { in: ["PENDING", "COUNTERED"] },
+        ...(buyerId ? { buyerId: { not: buyerId } } : {}),
+      },
+      select: { id: true, buyerId: true },
+    });
+    await tx.offer.updateMany({
+      where: { id: { in: openOffers.map((o) => o.id) } },
       data: { status: "REJECTED", decidedAt: new Date() },
     });
-    await notifyMany(
-      openOffers.map((offer) => offer.buyerId),
-      "OFFER",
-      "انتهى العرض — تم البيع",
-      `تم بيع "${listing.title}" — تصفّح إعلانات مشابهة وقدّم عرضك التالي.`,
-      "/categories"
+    return {
+      title: listing.title,
+      txCreated,
+      amount,
+      otherBuyers: openOffers.map((o) => o.buyerId),
+    };
+  });
+  if (!result) return;
+  if (result.txCreated)
+    await notify(
+      buyerId,
+      "CONFIRM",
+      "أكّد إتمام الصفقة",
+      `البائع أكّد بيع "${result.title}" لك بمبلغ ${formatSAR(result.amount)} — أكّد الاستلام خلال ${CONFIRM_WINDOW_DAYS} أيام.`,
+      "/dashboard/verifications",
     );
-  }
-
+  await notifyMany(
+    result.otherBuyers,
+    "OFFER",
+    "انتهى العرض — تم البيع",
+    `تم بيع "${result.title}".`,
+    "/categories",
+  );
   revalidatePath("/dashboard/listings");
   revalidatePath("/");
-  redirect(txCreated ? "/dashboard/verifications" : "/dashboard/listings");
+  redirect(result.txCreated ? "/dashboard/verifications" : "/dashboard/listings");
 }
 
 /** Relist a sold/expired listing back to active (owner only). */
@@ -172,57 +158,26 @@ export async function relistAction(formData: FormData) {
   const user = await requireUser();
   // relisting resets createdAt, so the listing jumps back to the top of
   // "الأحدث" — cap it so nobody can bump-spam the feed in a loop
-  if (await isRateLimited(`relist:${user.id}`, 20, 24 * 3_600_000)) return;
+  if (await isRateLimited(`relist:${user.id}`, 20, 24 * 3_600_000))
+    redirect("/dashboard/listings?error=" + encodeURIComponent("وصلت للحد اليومي لإعادة النشر"));
   const id = String(formData.get("listingId"));
-  const listing = await db.listing.findUnique({ where: { id } });
-  if (!listing || listing.sellerId !== user.id) return;
-  if (!["SOLD", "EXPIRED"].includes(listing.status)) return;
-  // auctions can't be relisted: the attached auction row still carries the old
-  // bids and end time — the seller creates a new auction instead
-  if (listing.type === "AUCTION") return;
-
-  const limits = await getPlanLimits(user.isPro);
-  const activeCount = await db.listing.count({
-    where: { sellerId: user.id, status: "ACTIVE", type: listing.type },
-  });
-  if (activeCount >= limits.maxListings) return;
-
-  await db.listing.update({
-    where: { id },
-    data: { status: "ACTIVE", createdAt: new Date(), bumpedAt: new Date() },
-  });
+  const done = await relistListing(id, user);
+  if (!done)
+    redirect(
+      "/dashboard/listings?error=" +
+        encodeURIComponent(
+          "تعذّرت إعادة النشر: تحقق من حد الباقة وحالة الإعلان؛ المزاد يحتاج إعلانًا جديدًا",
+        ),
+    );
   revalidatePath("/dashboard/listings");
   revalidatePath("/");
 }
 
-/** Permanently remove a listing (owner only). Cascades campaigns/views/etc. */
+/** Hide eligible listings without erasing transaction or conversation history. */
 export async function deleteListingAction(formData: FormData) {
   const user = await requireUser();
   const id = String(formData.get("listingId"));
-  const listing = await db.listing.findUnique({
-    where: { id },
-    include: { auction: true },
-  });
-  if (!listing || listing.sellerId !== user.id) return;
-  // block deleting an auction that has a pending/settled transaction
-  if (listing.auction && listing.auction.status === "LIVE" && listing.auction.winnerId) return;
-  // collect every stored file before the cascade wipes the rows that
-  // reference them: the listing photos + any photos sent in its chats
-  const chatImages = await db.message.findMany({
-    where: { conversation: { listingId: id }, imageUrl: { not: null } },
-    select: { imageUrl: true },
-  });
-  const files = [
-    ...parseImages(listing.images),
-    ...chatImages.map((m) => m.imageUrl!).filter((url) => !url.startsWith("private:")),
-  ];
-  const privateFiles = chatImages
-    .map((m) => m.imageUrl!)
-    .filter((url) => url.startsWith("private:"))
-    .map((url) => url.slice("private:".length));
-  await db.listing.delete({ where: { id } });
-  deleteImages(files).catch(() => {}); // best-effort storage cleanup
-  Promise.all(privateFiles.map((path) => deletePrivateImage(path))).catch(() => {});
+  await removeOwnListing(id, user.id);
   revalidatePath("/dashboard/listings");
   revalidatePath("/");
 }

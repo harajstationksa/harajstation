@@ -27,11 +27,7 @@ export async function generateMetadata() {
   return { title: t.dash.campaignDetail.title };
 }
 
-export default async function CampaignDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { lang, t } = await getT();
   const d = t.dash.campaignDetail;
@@ -57,24 +53,19 @@ export default async function CampaignDetailPage({
   if (!c || c.ownerId !== user.id) notFound();
 
   const [label, cls] = STATUS[c.status] ?? [c.status, "bg-neutral-100"];
-  const href = c.listing.auction
-    ? `/auctions/${c.listing.auction.id}`
-    : `/listings/${c.listingId}`;
+  const href = c.listing.auction ? `/auctions/${c.listing.auction.id}` : `/listings/${c.listingId}`;
   const cover = parseImages(c.listing.images)[0];
   const ctr = c.impressions > 0 ? (c.clicks / c.impressions) * 100 : null;
-  const daysLeft = c.endsAt
-    ? Math.max(0, Math.ceil((c.endsAt.getTime() - nowMs) / 86_400_000))
-    : 0;
+  const daysLeft = c.endsAt ? Math.max(0, Math.ceil((c.endsAt.getTime() - nowMs) / 86_400_000)) : 0;
   const pct =
     c.days > 0 && c.endsAt
       ? c.status === "ACTIVE"
         ? Math.min(
             100,
             Math.round(
-              ((nowMs - c.createdAt.getTime()) /
-                (c.endsAt.getTime() - c.createdAt.getTime())) *
-                100
-            )
+              ((nowMs - c.createdAt.getTime()) / (c.endsAt.getTime() - c.createdAt.getTime())) *
+                100,
+            ),
           )
         : 100
       : 0;
@@ -83,16 +74,16 @@ export default async function CampaignDetailPage({
   const dayMs = 86_400_000;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const windowDays = Math.min(
-    14,
-    Math.max(1, Math.ceil((nowMs - c.createdAt.getTime()) / dayMs))
-  );
+  const windowDays = Math.min(14, Math.max(1, Math.ceil((nowMs - c.createdAt.getTime()) / dayMs)));
   const buckets: { key: string; label: string; count: number }[] = [];
   for (let i = windowDays - 1; i >= 0; i--) {
     const d2 = new Date(today.getTime() - i * dayMs);
     buckets.push({
       key: d2.toISOString().slice(0, 10),
-      label: d2.toLocaleDateString(lang === "en" ? "en-US" : "ar-SA", { day: "numeric", month: "short" }),
+      label: d2.toLocaleDateString(lang === "en" ? "en-US" : "ar-SA", {
+        day: "numeric",
+        month: "short",
+      }),
       count: 0,
     });
   }
@@ -219,9 +210,7 @@ export default async function CampaignDetailPage({
       {/* ── daily impressions ── */}
       <div className="card p-4 sm:p-5">
         <p className="font-bold text-sm">{d.dailyTitle}</p>
-        <p className="text-xs text-neutral-400 mt-0.5 mb-4">
-          {d.lastDays(windowDays)}
-        </p>
+        <p className="text-xs text-neutral-400 mt-0.5 mb-4">{d.lastDays(windowDays)}</p>
         <div className="flex items-end gap-1 h-28" dir="rtl">
           {buckets.map((b) => (
             <div
@@ -269,10 +258,7 @@ export default async function CampaignDetailPage({
         <div className="flex justify-end">
           <form action={cancelCampaignAction}>
             <input type="hidden" name="campaignId" value={c.id} />
-            <ConfirmSubmit
-              confirm={d.stopConfirm}
-              className="act-btn text-red-600 hover:bg-red-50"
-            >
+            <ConfirmSubmit confirm={d.stopConfirm} className="act-btn text-red-600 hover:bg-red-50">
               <Square className="size-3.5" />
               {d.stopBtn}
             </ConfirmSubmit>

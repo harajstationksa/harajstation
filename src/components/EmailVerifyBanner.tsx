@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { useState } from "react";
 import { CheckCircle2, Loader2, MailWarning } from "lucide-react";
 import { useLang } from "@/components/LangProvider";
@@ -14,7 +16,9 @@ export function EmailVerifyBanner() {
   async function resend() {
     setState("sending");
     setError("");
-    const res = await fetch("/api/auth/verify-email/resend", { method: "POST" });
+    const res = await clientFetch("/api/auth/verify-email/resend", {
+      method: "POST",
+    });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       setError(data.error ?? d.sendFail);
@@ -27,9 +31,7 @@ export function EmailVerifyBanner() {
   return (
     <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 mb-6 flex items-center gap-3 flex-wrap">
       <MailWarning className="size-5 text-amber-600 shrink-0" />
-      <p className="text-sm text-amber-900 flex-1 min-w-48">
-        {d.unverified}
-      </p>
+      <p className="text-sm text-amber-900 flex-1 min-w-48">{d.unverified}</p>
       {state === "sent" ? (
         <span className="flex items-center gap-1.5 text-sm font-semibold text-green-700">
           <CheckCircle2 className="size-4" />

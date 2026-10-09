@@ -1,3 +1,7 @@
+import { cleanOrphanPrivateImages } from "@/lib/private-storage";
+import { db } from "@/lib/db";
+import { processBackgroundJobs } from "@/lib/background-jobs";
+import { expireFeaturedListings } from "@/lib/listing-policy";
 import { NextResponse } from "next/server";
 import { finalizeExpiredAuctions } from "@/lib/auction";
 import { finalizeExpiredCampaigns } from "@/lib/campaigns";
@@ -5,6 +9,7 @@ import { expirePendingTransactions } from "@/lib/credibility";
 import { expireProMemberships } from "@/lib/limits";
 import { nudgePriceDrops } from "@/lib/nudges";
 import { safeEqual } from "@/lib/crypto";
+import { withOperationalLease } from "@/lib/operational-lease";
 
 export const dynamic = "force-dynamic";
 
@@ -22,35 +27,71 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
-    return NextResponse.json(
-      { error: "CRON_SECRET is not configured" },
-      { status: 503 }
-    );
+    return NextResponse.json({ error: "CRON_SECRET is not configured" }, { status: 503 });
   }
-  const provided =
-    req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
+  const provided = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
   if (!safeEqual(provided, secret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const ran: Record<string, "ok" | string> = {};
-  const jobs: [string, () => Promise<unknown>][] = [
-    ["auctions", finalizeExpiredAuctions],
-    ["campaigns", finalizeExpiredCampaigns],
-    ["transactions", expirePendingTransactions],
-    ["proMemberships", expireProMemberships],
-    ["priceNudges", nudgePriceDrops],
-  ];
-  for (const [name, job] of jobs) {
-    try {
-      await job();
-      ran[name] = "ok";
-    } catch (e) {
-      // one failing job must not starve the others
-      ran[name] = e instanceof Error ? e.message : "failed";
+  const response = await withOperationalLease("cron", async (assertOwned) => {
+    const ran: Record<string, "ok" | string> = {};
+    const jobs: [string, () => Promise<unknown>][] = [
+      ["featuredListings", expireFeaturedListings],
+      ["auctions", finalizeExpiredAuctions],
+      ["campaigns", finalizeExpiredCampaigns],
+      ["transactions", expirePendingTransactions],
+      ["proMemberships", expireProMemberships],
+      ["priceNudges", nudgePriceDrops],
+      ["backgroundJobs", processBackgroundJobs],
+      ["privateUploads", cleanOrphanPrivateImages],
+    ];
+    // Housekeeping that walks storage does not need to run every minute.
+    const minInterval: Record<string, number> = { privateUploads: 60 * 60_000 };
+    const lastRuns = await db.operationalCheck.findMany({
+      where: { key: { in: Object.keys(minInterval) } },
+      select: { key: true, lastSuccessAt: true },
+    });
+    for (const [name, job] of jobs) {
+      assertOwned();
+      const last = lastRuns.find((row) => row.key === name)?.lastSuccessAt;
+      if (minInterval[name] && last && Date.now() - last.getTime() < minInterval[name]) {
+        ran[name] = "ok";
+        continue;
+      }
+      try {
+        await job();
+        ran[name] = "ok";
+        await db.operationalCheck
+          .upsert({
+            where: { key: name },
+            create: { key: name, lastSuccessAt: new Date() },
+            update: { lastSuccessAt: new Date() },
+          })
+          .catch(() => {
+            console.error("cron_telemetry_failed", { job: name });
+          });
+      } catch (e) {
+        // one failing job must not starve the others
+        ran[name] = "failed";
+        console.error("cron_job_failed", {
+          job: name,
+          code: (e as { code?: string })?.code ?? "JOB_FAILED",
+        });
+        await db.operationalCheck
+          .upsert({
+            where: { key: name },
+            create: { key: name, lastFailureAt: new Date() },
+            update: { lastFailureAt: new Date() },
+          })
+          .catch(() => {
+            console.error("cron_telemetry_failed", { job: name });
+          });
+      }
     }
-  }
 
-  const failed = Object.values(ran).some((v) => v !== "ok");
-  return NextResponse.json({ ok: !failed, ran }, { status: failed ? 500 : 200 });
+    const failed = Object.values(ran).some((v) => v !== "ok");
+    return NextResponse.json({ ok: !failed, ran }, { status: failed ? 500 : 200 });
+  });
+  return response ?? NextResponse.json({ ok: true, skipped: "already_running" });
 }

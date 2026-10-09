@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2, MessageSquare } from "lucide-react";
@@ -28,7 +30,7 @@ export function ChatButton({
 
   async function start() {
     setLoading(true);
-    const res = await fetch("/api/conversations", {
+    const res = await clientFetch("/api/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ listingId, buyerId, userId }),

@@ -1,3 +1,4 @@
+import { PublicImage } from "@/components/PublicImage";
 import { getT } from "@/lib/i18n";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -48,11 +49,7 @@ export async function generateMetadata({
   });
 }
 
-export default async function PublicStorePage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+export default async function PublicStorePage({ params }: { params: Promise<{ slug: string }> }) {
   const { lang, t } = await getT();
   const { slug } = await params;
   const store = await db.store.findUnique({
@@ -81,17 +78,14 @@ export default async function PublicStorePage({
   const listings = store.listings;
   const ratings = owner.reviewsGotten;
   const avgRating =
-    ratings.length > 0
-      ? ratings.reduce((s, r) => s + r.rating, 0) / ratings.length
-      : null;
+    ratings.length > 0 ? ratings.reduce((s, r) => s + r.rating, 0) / ratings.length : null;
 
   return (
     <div className="pb-12">
       {/* custom banner image (owner-uploaded) */}
       {store.bannerUrl && (
         <div className="relative h-40 sm:h-56 bg-neutral-200">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={store.bannerUrl} alt="" className="size-full object-cover" />
+          <PublicImage src={store.bannerUrl} alt="" className="size-full object-cover" />
         </div>
       )}
 
@@ -99,8 +93,7 @@ export default async function PublicStorePage({
       <div className="bg-gradient-to-l from-neutral-900 to-neutral-800 text-white">
         <div className="container-page py-10 flex flex-col sm:flex-row items-center gap-5">
           {store.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <PublicImage
               src={store.logoUrl}
               alt={store.name}
               className="size-20 rounded-2xl object-cover border-2 border-white/20 shrink-0"
@@ -129,7 +122,9 @@ export default async function PublicStorePage({
                 <MapPin className="size-4" />
                 {owner.city}
               </span>
-              <span>{t.pub.since} {formatDate(store.createdAt, lang)}</span>
+              <span>
+                {t.pub.since} {formatDate(store.createdAt, lang)}
+              </span>
               <span className="flex items-center gap-1">
                 <Users className="size-4" />
                 {followerCount.toLocaleString("en-US")} {t.pub.followers}
@@ -158,7 +153,12 @@ export default async function PublicStorePage({
               href={`/profile/${owner.id}`}
               className="flex items-center gap-2 rounded-full bg-white/10 hover:bg-white/20 px-4 py-2 transition-colors"
             >
-              <Avatar name={owner.name} color={owner.avatarColor} src={owner.avatarUrl} className="size-7 text-xs" />
+              <Avatar
+                name={owner.name}
+                color={owner.avatarColor}
+                src={owner.avatarUrl}
+                className="size-7 text-xs"
+              />
               <span className="text-sm">{owner.name}</span>
             </Link>
             <div className="flex items-center gap-2">
@@ -182,9 +182,7 @@ export default async function PublicStorePage({
       </div>
 
       <div className="container-page mt-8">
-        <h2 className="section-title mb-4">
-          {t.pub.storeProducts(listings.length)}
-        </h2>
+        <h2 className="section-title mb-4">{t.pub.storeProducts(listings.length)}</h2>
         {listings.length === 0 ? (
           <EmptyState title={t.pub.storeEmptyTitle} hint={t.pub.storeEmptyHint} />
         ) : (
@@ -194,7 +192,7 @@ export default async function PublicStorePage({
                 <AuctionCard key={listing.id} listing={listing} />
               ) : (
                 <ListingCard key={listing.id} listing={listing} />
-              )
+              ),
             )}
           </div>
         )}

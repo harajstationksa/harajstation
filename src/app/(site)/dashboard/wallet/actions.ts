@@ -23,7 +23,7 @@ export async function buyPointsAction(formData: FormData) {
   // every attempt creates a Payment row + Moyasar invoice — cap per account
   if (await isRateLimited(`buy-points:${user.id}`, 8, 10 * 60_000)) {
     redirect(
-      `/dashboard/wallet?promoError=${encodeURIComponent("محاولات كثيرة — انتظر قليلاً ثم حاول مجدداً")}`
+      `/dashboard/wallet?promoError=${encodeURIComponent("محاولات كثيرة — انتظر قليلاً ثم حاول مجدداً")}`,
     );
   }
   const packageId = String(formData.get("packageId"));

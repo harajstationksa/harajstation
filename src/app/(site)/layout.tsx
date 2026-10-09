@@ -3,11 +3,7 @@ import { Footer } from "@/components/Footer";
 import { BottomNav } from "@/components/BottomNav";
 import { recordPresence } from "@/lib/presence";
 
-export default function SiteLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function SiteLayout({ children }: { children: React.ReactNode }) {
   // live-visitor tracking for the admin "online now" panel (never blocks render)
   recordPresence().catch(() => {});
   return (

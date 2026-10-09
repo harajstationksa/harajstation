@@ -142,7 +142,11 @@ const ar = {
       "ألغِ الصفقة فوراً إذا ظهرت أي مؤشرات مريبة أو طلبات غير طبيعية.",
     ],
     safetyFooter: "حراج ستيشن منصة وسيطة فقط ولا تتحمل مسؤولية جودة المنتج أو سلامة الصفقة.",
-    delivery: { PICKUP: "استلام يدوي (مقابلة)", SHIPPING: "شحن", DELIVERY: "توصيل" } as Record<string, string>,
+    delivery: {
+      PICKUP: "استلام يدوي (مقابلة)",
+      SHIPPING: "شحن",
+      DELIVERY: "توصيل",
+    } as Record<string, string>,
     privacyNote:
       "خصوصية المزايدين: الأسماء تُعرض بهوية مقنّعة، وبيانات المزايدين الحقيقية محفوظة ومحمية داخل النظام ولا يطّلع عليها إلا ضمن الصلاحيات المسموح بها.",
   },
@@ -154,6 +158,7 @@ const ar = {
     call: "اتصال",
     fastReply: "يرد بسرعة",
     fastReplyTip: "يرد على الرسائل خلال ساعة في المتوسط",
+    verifiedTip: "هوية موثّقة من إدارة المنصة",
     waPrefill: (title: string, ref: string) =>
       `مرحباً، بخصوص إعلانك «${title}»${ref ? ` (${ref})` : ""} في حراج ستيشن`,
   },
@@ -175,7 +180,8 @@ const ar = {
     withdraw: "سحب العرض",
     withdrawConfirm: "سحب هذا العرض؟",
     accept: "قبول",
-    acceptConfirm: (amount: string) => `قبول العرض والاتفاق على ${amount}؟ سيُفتح شات مع الطرف الآخر لإكمال التفاصيل.`,
+    acceptConfirm: (amount: string) =>
+      `قبول العرض والاتفاق على ${amount}؟ سيُفتح شات مع الطرف الآخر لإكمال التفاصيل.`,
     reject: "رفض",
     rejectConfirm: "رفض هذا العرض؟",
     counter: "عرض مضاد",
@@ -199,8 +205,7 @@ const ar = {
     title: "تم البيع — لمن بعت؟",
     back: "رجوع لإعلاناتي",
     pickBuyer: "اختر المشتري",
-    whyPick:
-      `اختيار المشتري يفتح تأكيداً متبادلاً بينكما خلال ${CONFIRM_WINDOW_DAYS} أيام، يرفع مصداقيتكما ويتيح التقييم — التقييمات الحقيقية تبيع إعلانك القادم أسرع.`,
+    whyPick: `اختيار المشتري يفتح تأكيداً متبادلاً بينكما خلال ${CONFIRM_WINDOW_DAYS} أيام، يرفع مصداقيتكما ويتيح التقييم — التقييمات الحقيقية تبيع إعلانك القادم أسرع.`,
     viaChat: "راسلك",
     offered: "عرض",
     acceptedOffer: "اتفقتما على",
@@ -247,10 +252,8 @@ const ar = {
     anonQ: "تبي البائع يعرف من أنت؟",
     anonNamed: "أسوم باسمي",
     anonAnon: "أسوم مجهول",
-    anonNamedHint:
-      "اسمك يبان للبائع بس — باقي الزوار والمزايدين ما يشوفون إلا معرفك المقنّع",
-    anonAnonHint:
-      "ولا أحد يعرف من أنت، حتى البائع — تطلع للكل بمعرفك المقنّع (حراج_..)",
+    anonNamedHint: "اسمك يبان للبائع بس — باقي الزوار والمزايدين ما يشوفون إلا معرفك المقنّع",
+    anonAnonHint: "ولا أحد يعرف من أنت، حتى البائع — تطلع للكل بمعرفك المقنّع (حراج_..)",
     anonymous: "مجهول",
     chatWinner: "راسل الفائز",
     chatFailed: "ما قدرنا نفتح المحادثة، حاول مرة ثانية",
@@ -259,6 +262,7 @@ const ar = {
     blockConfirm:
       "تحظر هذا المزايد من مزادك؟ تنحذف كل مزايداته من هذا المزاد وما يقدر يزايد فيه مرة ثانية.",
     blockedOk: "تم حظر المزايد وحذف مزايداته من هذا المزاد",
+    amountLabel: "مبلغ المزايدة",
   },
   comments: {
     title: "الاستفسارات والتعليقات",
@@ -289,12 +293,13 @@ const ar = {
     contact: "تواصل معنا",
     safety: "تعامل بأمان: قابل في مكان عام، وافحص قبل الدفع، ولا تشارك بياناتك البنكية",
     rights: "جميع الحقوق محفوظة",
-    disclaimer: "حراج ستيشن منصة إعلانات ومزادات فقط، ولا تتدخل في التعاملات المالية بين البائع والمشتري.",
+    disclaimer:
+      "حراج ستيشن منصة إعلانات ومزادات فقط، ولا تتدخل في التعاملات المالية بين البائع والمشتري.",
   },
   auth: {
     loginTitle: "تسجيل الدخول",
     loginSub: "حياك الله من جديد في حراج ستيشن",
-    identifier: "البريد الإلكتروني أو رقم الجوال",
+    identifier: "البريد الإلكتروني أو رقم الجوال الموثّق",
     password: "كلمة المرور",
     forgot: "نسيت كلمة المرور؟",
     loginBtn: "دخول",
@@ -374,7 +379,8 @@ const ar = {
     back: "رجوع",
     resetPw: "استعادة كلمة المرور",
     resendActivation: "إعادة إرسال رابط التفعيل",
-    resentTo: (email: string) => `أرسلنا رابطاً جديداً إلى ${email} — راجع بريدك وصندوق الرسائل غير المرغوبة.`,
+    resentTo: (email: string) =>
+      `أرسلنا رابطاً جديداً إلى ${email} — راجع بريدك وصندوق الرسائل غير المرغوبة.`,
     verifyOkTitle: "تم تأكيد بريدك ✅",
     verifyOkBody: "شكراً لك — حسابك أصبح مؤكد البريد وجاهز تماماً.",
     startBrowsing: "ابدأ التصفح",
@@ -385,9 +391,11 @@ const ar = {
     regVerify1: "أنشأنا حسابك وأرسلنا رابط التفعيل إلى",
     regVerify2: "اضغط الرابط ثم سجّل دخولك — الرابط صالح ٤٨ ساعة.",
     regVerifySpam: "لم تجد الرسالة؟ راجع صندوق الرسائل غير المرغوبة (Spam).",
-    wonTitle: "مبروك! فزت بهذا المزاد — تم كشف بيانات التواصل مع البائع أدناه، وبانتظار تأكيد الاستلام في",
+    wonTitle:
+      "مبروك! فزت بهذا المزاد — تم كشف بيانات التواصل مع البائع أدناه، وبانتظار تأكيد الاستلام في",
     verificationsPage: "صفحة التحققات",
-    auctionContactNote: "حفاظاً على عدالة المزاد، تُكشف بيانات التواصل للفائز فقط بعد انتهاء المزاد.",
+    auctionContactNote:
+      "حفاظاً على عدالة المزاد، تُكشف بيانات التواصل للفائز فقط بعد انتهاء المزاد.",
     listingContactNote: "فضّل البائع إخفاء بيانات التواصل المباشر.",
     verifiedStore: "متجر موثّق",
     since: "منذ",
@@ -398,7 +406,8 @@ const ar = {
     storeEmptyTitle: "لا توجد منتجات معروضة حالياً",
     storeEmptyHint: "لم يُسنِد صاحب المتجر أي إعلان لهذا المتجر بعد",
     nfTitle: "ما لقينا الصفحة اللي تدور عليها",
-    nfBody: "يمكن الإعلان انباع أو انحذف، أو الرابط فيه غلطة. جرّب تدوّر من هنا — أو ابدأ من الفئات تحت.",
+    nfBody:
+      "يمكن الإعلان انباع أو انحذف، أو الرابط فيه غلطة. جرّب تدوّر من هنا — أو ابدأ من الفئات تحت.",
     nfBrowse: "تصفح الإعلانات",
     nfAuctions: "المزادات المباشرة",
     nfCategories: "كل الفئات",
@@ -420,7 +429,12 @@ const ar = {
     shShare: "مشاركة",
     shQrAlt: "QR للإعلان",
     shQrHint: "امسح الرمز بكاميرا الجوال لفتح الإعلان مباشرة",
-    sbSections: { category: "الفئات", store: "المتاجر", user: "المستخدمون", listing: "الإعلانات والمزادات" },
+    sbSections: {
+      category: "الفئات",
+      store: "المتاجر",
+      user: "المستخدمون",
+      listing: "الإعلانات والمزادات",
+    },
     sbAuction: "مزاد",
     sbSearch: "بحث",
     sbSearchAll: (q: string) => `بحث عن «${q}» في كل الإعلانات`,
@@ -468,17 +482,19 @@ const ar = {
   },
   proPage: {
     title: "حساب برو للتجار",
-    sub: "ضاعف مبيعاتك مع إعلانات غير محدودة وأولوية في الظهور. الدفع عبر مدى، Apple Pay، أو STC Pay.",
+    sub: "اختر الباقة المناسبة لإعلاناتك ومتجرك. تفعيل العضوية حاليًا يتم بطلب من فريق الدعم.",
+    requestChange: "طلب تغيير العضوية",
     promo: (days: number) => `عرض الإطلاق: عضوية برو مجانية لمدة ${days} يوم لكل حساب جديد!`,
     registerNow: "سجّل الآن",
     current: "خطتك الحالية",
     popular: "الأكثر شيوعاً",
     sar: "ر.س",
     startFree: "ابدأ مجاناً",
-    registerToSub: "أنشئ حساباً للاشتراك",
+    registerToSub: "أنشئ حسابًا لطلب التفعيل",
     backToFree: "الرجوع للمجاني",
     subscribe: "اشترك الآن",
-    payNote: "بوابة الدفع (Moyasar / Tap) قيد الربط — الاشتراكات ستتاح مع الإطلاق الرسمي. حراج ستيشن لا تفرض أي عمولة على معاملات البيع بين المستخدمين.",
+    payNote:
+      "الدفع المباشر للعضويات غير متاح حاليًا. تواصل مع الدعم لطلب التفعيل وتأكيد السعر والمدة قبل السداد. لا نفرض عمولة على البيع بين المستخدمين.",
     priceNote: "الباقات والأسعار قابلة للتغيير من إدارة حراج ستيشن في أي وقت.",
   },
   sellForm: {
@@ -528,7 +544,8 @@ const ar = {
     buyNowPh: "اتركه فارغاً لتعطيله",
     terms: "شروط المزاد",
     termsPh: "مثال: المعاينة قبل الاستلام، البيع نهائي...",
-    aucProtect: "حماية المزاد: هويات المزايدين تُخفى تلقائياً، ولا يمكنك المزايدة على مزادك، وأي مزايدة في آخر دقيقتين تمدد المزاد دقيقتين.",
+    aucProtect:
+      "حماية المزاد: هويات المزايدين تُخفى تلقائياً، ولا يمكنك المزايدة على مزادك، وأي مزايدة في آخر دقيقتين تمدد المزاد دقيقتين.",
     store: "المتجر",
     storeL: "انشر ضمن أحد متاجرك",
     noStore: "بدون متجر (حسابك الشخصي)",
@@ -564,7 +581,8 @@ const ar = {
     rejected: (n: number) => `استُبعدت ${n} صورة لتجاوزها الحد`,
     publishFail: "تعذّر نشر الإعلان",
     disclaimerB: "إخلاء مسؤولية:",
-    disclaimer: "حراج ستيشن منصة وسيطة بين المستخدمين فقط — لا تستلم المنتجات ولا الأموال، وغير مسؤولة عن جودة المنتج أو سلامة الصفقة. يتحمل المستخدم مسؤولية صحة إعلانه والالتزام بأنظمة المملكة.",
+    disclaimer:
+      "حراج ستيشن منصة وسيطة بين المستخدمين فقط — لا تستلم المنتجات ولا الأموال، وغير مسؤولة عن جودة المنتج أو سلامة الصفقة. يتحمل المستخدم مسؤولية صحة إعلانه والالتزام بأنظمة المملكة.",
     ack: "أقر بأنني قرأت إخلاء المسؤولية وأن إعلاني متوافق مع الأنظمة المحلية",
     submitAuc: "إطلاق المزاد",
     submitAnn: "نشر الإعلان",
@@ -590,6 +608,7 @@ const ar = {
     listingStatus: {
       ACTIVE: "نشط",
       PENDING: "قيد المراجعة",
+      AWAITING_INFO: "مطلوب منك معلومات",
       SOLD: "تم البيع",
       EXPIRED: "منتهي",
       REMOVED: "محذوف",
@@ -761,6 +780,10 @@ const ar = {
       pwDev: "وضع التطوير (بدون بريد):",
       pwBtn: "إرسال رابط التغيير إلى بريدي",
       genericError: "حدث خطأ — حاول مجدداً",
+      signOutAllTitle: "تسجيل الخروج من كل الأجهزة",
+      signOutAllDesc:
+        "ينهي كل الجلسات المفتوحة لحسابك على أي جهاز آخر — استخدمه إن فقدت جهازاً أو شككت في دخول غيرك.",
+      signOutAllBtn: "إنهاء كل الجلسات",
       // 2FA card
       tfaTitle: "التحقق بخطوتين (2FA)",
       tfaOn: "مفعّل",
@@ -793,7 +816,8 @@ const ar = {
     confirmCard: {
       confirmDeliver: "تأكيد التسليم",
       confirmReceive: "تأكيد الاستلام",
-      confirmQ: (q: string, ans: string) => `${q}: هل أنت متأكد من إجابتك «${ans}»؟ لا يمكن التراجع.`,
+      confirmQ: (q: string, ans: string) =>
+        `${q}: هل أنت متأكد من إجابتك «${ans}»؟ لا يمكن التراجع.`,
       yes: "نعم",
       no: "لا",
       err: "حدث خطأ",
@@ -814,12 +838,14 @@ const ar = {
       noDelivered: "لا، لم يتم التسليم",
       noReceived: "لا، لم أستلم",
       deadline: "المهلة المتبقية للرد:",
-      answered: (ans: string) => `سجّلنا إجابتك (${ans}) — بانتظار رد الطرف الآخر قبل انتهاء المهلة.`,
+      answered: (ans: string) =>
+        `سجّلنا إجابتك (${ans}) — بانتظار رد الطرف الآخر قبل انتهاء المهلة.`,
       disputeBody:
         "تعارضت الإجابتان حول هذه المعاملة. فريق الدعم سيراجع الحالة — أرفق ما يدعم موقفك (وصف ما حدث، تفاصيل الموعد، أي إثبات).",
       evidenceOk: "تم استلام إفادتك — يمكنك إضافة المزيد",
       evidencePh: "اشرح ما حدث بالتفصيل...",
       evidenceBtn: "إرسال الإفادة لفريق الدعم",
+      evidencePhoto: "إرفاق صورة داعمة (اختياري) — إيصال، صورة السلعة، لقطة محادثة",
       extAsk: "طلب تمديد المهلة",
       extHint: "تحتاج وقتاً أطول؟ اطلب تمديداً واحداً — يصل البائع ليوافق أو يرفض.",
       extDays: "مدة التمديد",
@@ -827,10 +853,8 @@ const ar = {
       extNotePh: "سبب الطلب (اختياري) — مثلاً: الشحن يستغرق أسبوعاً",
       extSend: "إرسال الطلب للبائع",
       extCancel: "إلغاء",
-      extPendingBuyer: (n: number) =>
-        `طلبت تمديد المهلة ${n} أيام — بانتظار موافقة البائع.`,
-      extPendingSeller: (n: number) =>
-        `طلب المشتري تمديد مهلة التأكيد ${n} أيام إضافية.`,
+      extPendingBuyer: (n: number) => `طلبت تمديد المهلة ${n} أيام — بانتظار موافقة البائع.`,
+      extPendingSeller: (n: number) => `طلب المشتري تمديد مهلة التأكيد ${n} أيام إضافية.`,
       extNoteLabel: "سبب المشتري:",
       extApprove: "موافقة",
       extReject: "رفض",
@@ -919,8 +943,7 @@ const ar = {
       optional: "(اختياري)",
       allCities: "كل المدن (تغطية أوسع)",
       adCity: " — مدينة الإعلان",
-      cityFocus: (city: string, n: string) =>
-        `الحملة ستركّز على ${city} — ${n} مستخدم مسجّل هناك.`,
+      cityFocus: (city: string, n: string) => `الحملة ستركّز على ${city} — ${n} مستخدم مسجّل هناك.`,
       noCity: "بدون تحديد، يظهر إعلانك لكل زوار المنصة.",
       reachLabel: "المشاهدات المتوقعة للحملة (تقديري)",
       reachUnit: " ظهور",
@@ -1006,7 +1029,8 @@ const ar = {
       encrypted: "الرسائل مشفّرة — لا يطّلع عليها أحد غيرك أنت والطرف الآخر",
       unmute: "تشغيل صوت الرسائل",
       mute: "كتم صوت الرسائل",
-      safety: "لأمانك: لا تشارك بياناتك البنكية أو أي أكواد تحقق، وقابل الطرف الآخر في مكان عام، وألغِ الصفقة فوراً عند أي طلب مريب.",
+      safety:
+        "لأمانك: لا تشارك بياناتك البنكية أو أي أكواد تحقق، وقابل الطرف الآخر في مكان عام، وألغِ الصفقة فوراً عند أي طلب مريب.",
       start: "ابدأ المحادثة — اسأل عن التفاصيل قبل الشراء",
       attachedAlt: "صورة مرفقة",
       removeImage: "إزالة الصورة",
@@ -1019,12 +1043,7 @@ const ar = {
         "آخر سعر مكتوب في الإعلان",
         "أرسل رقمك وأتواصل معك",
       ],
-      quickBuyer: [
-        "هل ما زال متوفراً؟",
-        "كم آخر سعر؟",
-        "أين ومتى المعاينة؟",
-        "هل يوجد توصيل؟",
-      ],
+      quickBuyer: ["هل ما زال متوفراً؟", "كم آخر سعر؟", "أين ومتى المعاينة؟", "هل يوجد توصيل؟"],
     },
     reportBtn: {
       report: "إبلاغ",
@@ -1037,7 +1056,8 @@ const ar = {
     push: {
       iosTitle: "فعّل الإشعارات على آيفون",
       iosHint1: "اضغط زر المشاركة",
-      iosHint2: "في سفاري ثم «إضافة إلى الشاشة الرئيسية» — بعدها افتح التطبيق وفعّل الإشعارات من هنا.",
+      iosHint2:
+        "في سفاري ثم «إضافة إلى الشاشة الرئيسية» — بعدها افتح التطبيق وفعّل الإشعارات من هنا.",
       title: "إشعارات المتصفح",
       onHint: "مفعّلة على هذا الجهاز — تصلك المزايدات والرسائل حتى والموقع مغلق",
       offHint: "فعّلها ليصلك إشعار فوري: مزايدة جديدة، رسالة، إعلان يطابق بحثك المحفوظ",
@@ -1147,6 +1167,7 @@ const ar = {
   },
 };
 
+export type Dictionary = typeof ar;
 const en: typeof ar = {
   nav: {
     postAd: "Post Ad",
@@ -1282,8 +1303,13 @@ const en: typeof ar = {
       "Never share bank details, verification codes, or sensitive info with anyone.",
       "Cancel the deal immediately if anything feels suspicious.",
     ],
-    safetyFooter: "Haraj Station is a marketplace only and bears no responsibility for product quality or deal safety.",
-    delivery: { PICKUP: "Local pickup", SHIPPING: "Shipping", DELIVERY: "Delivery" },
+    safetyFooter:
+      "Haraj Station is a marketplace only and bears no responsibility for product quality or deal safety.",
+    delivery: {
+      PICKUP: "Local pickup",
+      SHIPPING: "Shipping",
+      DELIVERY: "Delivery",
+    },
     privacyNote:
       "Bidder privacy: names are shown masked. Real bidder data is stored securely and accessible only under authorized permissions.",
   },
@@ -1295,6 +1321,7 @@ const en: typeof ar = {
     call: "Call",
     fastReply: "Replies fast",
     fastReplyTip: "Replies to messages within an hour on average",
+    verifiedTip: "Identity verified by platform admins",
     waPrefill: (title: string, ref: string) =>
       `Hi, about your listing "${title}"${ref ? ` (${ref})` : ""} on Haraj Station`,
   },
@@ -1316,7 +1343,8 @@ const en: typeof ar = {
     withdraw: "Withdraw",
     withdrawConfirm: "Withdraw this offer?",
     accept: "Accept",
-    acceptConfirm: (amount: string) => `Accept and agree on ${amount}? A chat opens with the other party to finish the details.`,
+    acceptConfirm: (amount: string) =>
+      `Accept and agree on ${amount}? A chat opens with the other party to finish the details.`,
     reject: "Reject",
     rejectConfirm: "Reject this offer?",
     counter: "Counter",
@@ -1325,7 +1353,8 @@ const en: typeof ar = {
     counterIs: "Counter price:",
     listedAt: "Listed at:",
     emptyReceived: "No offers on your listings yet",
-    emptyReceivedHint: "When a buyer makes a price offer on one of your listings it shows up here with instant notifications.",
+    emptyReceivedHint:
+      "When a buyer makes a price offer on one of your listings it shows up here with instant notifications.",
     emptySent: "You haven't made any offers yet",
     emptySentHint: "Open any listing and tap “Make an offer” to negotiate with your price.",
     status: {
@@ -1340,8 +1369,7 @@ const en: typeof ar = {
     title: "Sold — who bought it?",
     back: "Back to my listings",
     pickBuyer: "Pick the buyer",
-    whyPick:
-      `Picking the buyer opens a ${CONFIRM_WINDOW_DAYS}-day mutual confirmation, boosts both credibility scores and unlocks reviews — real reviews sell your next listing faster.`,
+    whyPick: `Picking the buyer opens a ${CONFIRM_WINDOW_DAYS}-day mutual confirmation, boosts both credibility scores and unlocks reviews — real reviews sell your next listing faster.`,
     viaChat: "Messaged you",
     offered: "Offered",
     acceptedOffer: "Agreed on",
@@ -1376,7 +1404,8 @@ const en: typeof ar = {
     failed: "Bid failed, try again",
     buyNowConfirm: (price: string) => `Buy now for ${price}? The auction will close immediately.`,
     proxyTitle: "Proxy Bidding",
-    proxyHint: "Set your maximum and the system bids for you with the smallest possible increments — your ceiling stays private",
+    proxyHint:
+      "Set your maximum and the system bids for you with the smallest possible increments — your ceiling stays private",
     proxyPlaceholder: "Your maximum",
     proxySet: "Enable proxy",
     proxyUpdate: "Update maximum",
@@ -1400,6 +1429,7 @@ const en: typeof ar = {
     blockConfirm:
       "Block this bidder from your auction? All their bids in this auction will be removed and they won't be able to bid again.",
     blockedOk: "Bidder blocked and their bids removed from this auction",
+    amountLabel: "Bid amount",
   },
   comments: {
     title: "Questions & Comments",
@@ -1430,12 +1460,13 @@ const en: typeof ar = {
     contact: "Contact Us",
     safety: "Stay safe: meet in public, inspect before paying, never share bank details",
     rights: "All rights reserved",
-    disclaimer: "Haraj Station is a classifieds & auctions platform only and is not involved in payments between buyers and sellers.",
+    disclaimer:
+      "Haraj Station is a classifieds & auctions platform only and is not involved in payments between buyers and sellers.",
   },
   auth: {
     loginTitle: "Log in",
     loginSub: "Welcome back to Haraj Station",
-    identifier: "Email or phone number",
+    identifier: "Email or verified phone number",
     password: "Password",
     forgot: "Forgot password?",
     loginBtn: "Log in",
@@ -1452,7 +1483,8 @@ const en: typeof ar = {
     passwordHint: "At least 8 characters",
     termsAgree: "I agree to the",
     termsLink: "Terms & Conditions",
-    termsRest: "and acknowledge Haraj Station is an intermediary platform not responsible for user transactions",
+    termsRest:
+      "and acknowledge Haraj Station is an intermediary platform not responsible for user transactions",
     phoneNote:
       "You can add your phone number later in account settings — it will be used for verification of sensitive actions.",
     referralLabel: "Referral code (optional)",
@@ -1515,7 +1547,8 @@ const en: typeof ar = {
     back: "Back",
     resetPw: "Reset password",
     resendActivation: "Resend activation link",
-    resentTo: (email: string) => `We sent a new link to ${email} — check your inbox and spam folder.`,
+    resentTo: (email: string) =>
+      `We sent a new link to ${email} — check your inbox and spam folder.`,
     verifyOkTitle: "Email confirmed ✅",
     verifyOkBody: "Thank you — your account's email is confirmed and fully ready.",
     startBrowsing: "Start browsing",
@@ -1526,9 +1559,11 @@ const en: typeof ar = {
     regVerify1: "We created your account and sent an activation link to",
     regVerify2: "Click the link then log in — it's valid for 48 hours.",
     regVerifySpam: "Can't find it? Check your spam folder.",
-    wonTitle: "Congratulations! You won this auction — the seller's contact details are revealed below, pending receipt confirmation in",
+    wonTitle:
+      "Congratulations! You won this auction — the seller's contact details are revealed below, pending receipt confirmation in",
     verificationsPage: "the verifications page",
-    auctionContactNote: "For auction fairness, contact details are revealed only to the winner after the auction ends.",
+    auctionContactNote:
+      "For auction fairness, contact details are revealed only to the winner after the auction ends.",
     listingContactNote: "The seller prefers not to share direct contact details.",
     verifiedStore: "Verified store",
     since: "Since",
@@ -1539,7 +1574,8 @@ const en: typeof ar = {
     storeEmptyTitle: "No products on display right now",
     storeEmptyHint: "The store owner hasn't assigned any listings to this store yet",
     nfTitle: "We couldn't find the page you're looking for",
-    nfBody: "The listing may have been sold or removed, or the link has a typo. Try searching — or start from the categories below.",
+    nfBody:
+      "The listing may have been sold or removed, or the link has a typo. Try searching — or start from the categories below.",
     nfBrowse: "Browse listings",
     nfAuctions: "Live auctions",
     nfCategories: "All categories",
@@ -1561,7 +1597,12 @@ const en: typeof ar = {
     shShare: "Share",
     shQrAlt: "Listing QR",
     shQrHint: "Scan with your phone camera to open the listing directly",
-    sbSections: { category: "Categories", store: "Stores", user: "Users", listing: "Listings & Auctions" },
+    sbSections: {
+      category: "Categories",
+      store: "Stores",
+      user: "Users",
+      listing: "Listings & Auctions",
+    },
     sbAuction: "Auction",
     sbSearch: "Search",
     sbSearchAll: (q: string) => `Search all listings for “${q}”`,
@@ -1605,21 +1646,25 @@ const en: typeof ar = {
     dispute2: ", the violator loses ",
     dispute3: " and may be banned on repeat.",
     levelsTitle: "Trust levels",
-    startNote: "Every new account starts at 50 points. Scores are public on your profile and all your listings.",
+    startNote:
+      "Every new account starts at 50 points. Scores are public on your profile and all your listings.",
   },
   proPage: {
     title: "PRO Account for Sellers",
-    sub: "Multiply your sales with unlimited listings and priority placement. Pay via mada, Apple Pay, or STC Pay.",
-    promo: (days: number) => `Launch offer: free PRO membership for ${days} days on every new account!`,
+    sub: "Choose a plan for your listings and store. Membership activation is currently handled by our support team.",
+    requestChange: "Request a membership change",
+    promo: (days: number) =>
+      `Launch offer: free PRO membership for ${days} days on every new account!`,
     registerNow: "Sign up now",
     current: "Your current plan",
     popular: "Most popular",
     sar: "SAR",
     startFree: "Start free",
-    registerToSub: "Create an account to subscribe",
+    registerToSub: "Create an account to request activation",
     backToFree: "Back to free",
     subscribe: "Subscribe now",
-    payNote: "The payment gateway (Moyasar / Tap) is being connected — subscriptions open with the official launch. Haraj Station takes no commission on sales between users.",
+    payNote:
+      "Direct membership checkout is currently unavailable. Contact support to request activation and confirm the price and duration before paying. We take no commission on sales between users.",
     priceNote: "Packages and prices may change at any time by Haraj Station administration.",
   },
   sellForm: {
@@ -1645,7 +1690,8 @@ const en: typeof ar = {
     descL: "Description",
     descMin: "(at least 20 characters)",
     descLeft: (n: number) => ` — ${n} more to go`,
-    descPh: "Write an accurate description: condition, features, reason for selling, what's included...",
+    descPh:
+      "Write an accurate description: condition, features, reason for selling, what's included...",
     condition: "Condition",
     city: "City",
     neighborhood: "Neighborhood",
@@ -1669,7 +1715,8 @@ const en: typeof ar = {
     buyNowPh: "Leave empty to disable",
     terms: "Auction terms",
     termsPh: "Example: inspection before pickup, sale is final...",
-    aucProtect: "Auction protection: bidder identities are masked automatically, you can't bid on your own auction, and any last-two-minute bid extends the auction by two minutes.",
+    aucProtect:
+      "Auction protection: bidder identities are masked automatically, you can't bid on your own auction, and any last-two-minute bid extends the auction by two minutes.",
     store: "Store",
     storeL: "Publish under one of your stores",
     noStore: "No store (personal account)",
@@ -1691,7 +1738,8 @@ const en: typeof ar = {
     qStrong: "Excellent",
     qHintPhotos: "Add photos — listings with photos get far more contacts",
     qHintMorePhotos: "Add 3+ photos from different angles",
-    qHintDesc: "Expand the description (at least 80 chars): condition, reason for selling, accessories",
+    qHintDesc:
+      "Expand the description (at least 80 chars): condition, reason for selling, accessories",
     qHintTitle: "Sharpen the title — brand, model, year",
     qHintSpecs: "Complete the spec fields — they power search and filters",
     qHintNeighborhood: "Add the neighborhood so buyers can judge the distance",
@@ -1705,7 +1753,8 @@ const en: typeof ar = {
     rejected: (n: number) => `${n} photo${n === 1 ? "" : "s"} excluded for exceeding the limit`,
     publishFail: "Couldn't publish the listing",
     disclaimerB: "Disclaimer:",
-    disclaimer: "Haraj Station is an intermediary platform only — it doesn't handle products or money and isn't responsible for product quality or deal safety. Users are responsible for their listings' accuracy and compliance with Saudi regulations.",
+    disclaimer:
+      "Haraj Station is an intermediary platform only — it doesn't handle products or money and isn't responsible for product quality or deal safety. Users are responsible for their listings' accuracy and compliance with Saudi regulations.",
     ack: "I confirm I've read the disclaimer and my listing complies with local regulations",
     submitAuc: "Launch auction",
     submitAnn: "Publish announcement",
@@ -1731,6 +1780,7 @@ const en: typeof ar = {
     listingStatus: {
       ACTIVE: "Active",
       PENDING: "Under review",
+      AWAITING_INFO: "Information requested",
       SOLD: "Sold",
       EXPIRED: "Expired",
       REMOVED: "Removed",
@@ -1744,7 +1794,8 @@ const en: typeof ar = {
       addListing: "Post a listing",
       promote: "Promote your ad",
       dailyTitle: "Your free daily points",
-      dailyClaimHint: (n: number) => `Claim ${n} points today — use them for featuring and campaigns`,
+      dailyClaimHint: (n: number) =>
+        `Claim ${n} points today — use them for featuring and campaigns`,
       dailyDone: "Today's points claimed — come back tomorrow for more",
       dailyClaim: (n: number) => `Claim ${n}`,
       dailyClaimed: "Claimed today",
@@ -1753,7 +1804,8 @@ const en: typeof ar = {
       statParticipated: "Auctions joined",
       statDeals: "Successful deals",
       statPoints: "My points",
-      pendingTitle: (n: number) => `You have ${n} transaction${n === 1 ? "" : "s"} awaiting confirmation`,
+      pendingTitle: (n: number) =>
+        `You have ${n} transaction${n === 1 ? "" : "s"} awaiting confirmation`,
       pendingHint: "Confirm delivery/receipt within the deadline to protect your credibility score",
       pendingBtn: "Verifications",
       credTitle: "Credibility Score",
@@ -1786,7 +1838,8 @@ const en: typeof ar = {
       emptyFilteredHint: "Try another filter or show all",
       showAll: "Show all",
       emptyTitle: "You haven't posted any listings yet",
-      emptyHint: "Start selling what you don't need — or launch an auction and let the market set the price",
+      emptyHint:
+        "Start selling what you don't need — or launch an auction and let the market set the price",
       addFirst: "Post your first ad",
       badgeSale: "Standard sale",
       badgeAuction: "Auction",
@@ -1835,7 +1888,8 @@ const en: typeof ar = {
       how3s: "Mutual confirmation gives both +5 points; ignoring it costs -3",
       openTitle: "Awaiting your action",
       openEmpty: "No transactions awaiting verification",
-      openEmptyHint: "When you win an auction or sell an item, the confirmation prompt appears here",
+      openEmptyHint:
+        "When you win an auction or sell an item, the confirmation prompt appears here",
       historyTitle: "Transaction history",
       soldTo: "Sold to",
       boughtFrom: "Bought from",
@@ -1862,7 +1916,8 @@ const en: typeof ar = {
       paidBody: (pts: string) =>
         `${pts} points were added to your balance — use them to feature listings or launch a campaign.`,
       pendingTitle: "Payment processing",
-      pendingBody: "Not confirmed yet — your balance is credited automatically on confirmation. Refresh in a moment.",
+      pendingBody:
+        "Not confirmed yet — your balance is credited automatically on confirmation. Refresh in a moment.",
       failedTitle: "Payment incomplete",
       failedBody: "The operation was cancelled or failed — nothing was charged. Try again.",
       notFoundTitle: "Unknown operation",
@@ -1896,10 +1951,15 @@ const en: typeof ar = {
       pwTitle: "Change Password",
       pwBody: (email: string) =>
         `To protect your account, changes happen via a link sent to your registered email ${email} — valid for 30 minutes, single use.`,
-      pwSent: "We sent a password-change link to your email — open the message and follow the link.",
+      pwSent:
+        "We sent a password-change link to your email — open the message and follow the link.",
       pwDev: "Dev mode (no mail):",
       pwBtn: "Email me the change link",
       genericError: "Something went wrong — try again",
+      signOutAllTitle: "Sign out of all devices",
+      signOutAllDesc:
+        "Ends every open session of your account on any device — use it if you lost a device or suspect someone else signed in.",
+      signOutAllBtn: "End all sessions",
       tfaTitle: "Two-Factor Authentication (2FA)",
       tfaOn: "Enabled",
       tfaBody: (email: string) =>
@@ -1910,7 +1970,8 @@ const en: typeof ar = {
       idVerified: "Verified",
       idVerifiedBody:
         "Your account is verified — the “Verified” badge shows on your listings and profile and raises buyer trust.",
-      idPending: "Your request is under review — usually within 24 hours; you'll be notified when done.",
+      idPending:
+        "Your request is under review — usually within 24 hours; you'll be notified when done.",
       idBody:
         "Upload a clear photo of your national ID or iqama (sensitive numbers may be masked). Once approved you get the “Verified” badge shown to buyers. The photo is stored privately and seen only by the review team.",
       idRejected: (note: string) =>
@@ -1929,7 +1990,8 @@ const en: typeof ar = {
     confirmCard: {
       confirmDeliver: "Confirm delivery",
       confirmReceive: "Confirm receipt",
-      confirmQ: (q: string, ans: string) => `${q}: are you sure your answer is “${ans}”? This cannot be undone.`,
+      confirmQ: (q: string, ans: string) =>
+        `${q}: are you sure your answer is “${ans}”? This cannot be undone.`,
       yes: "Yes",
       no: "No",
       err: "Something went wrong",
@@ -1950,12 +2012,14 @@ const en: typeof ar = {
       noDelivered: "No, not delivered",
       noReceived: "No, not received",
       deadline: "Time left to answer:",
-      answered: (ans: string) => `Your answer (${ans}) is recorded — waiting for the other side before the deadline.`,
+      answered: (ans: string) =>
+        `Your answer (${ans}) is recorded — waiting for the other side before the deadline.`,
       disputeBody:
         "The answers conflict. Support will review the case — attach anything supporting your side (what happened, meeting details, any proof).",
       evidenceOk: "Your statement was received — you can add more",
       evidencePh: "Explain what happened in detail...",
       evidenceBtn: "Send statement to support",
+      evidencePhoto: "Attach a supporting photo (optional) — receipt, the item, a chat screenshot",
       extAsk: "Request more time",
       extHint: "Need longer? Ask for one extension — the seller approves or declines it.",
       extDays: "Extra days",
@@ -1976,7 +2040,8 @@ const en: typeof ar = {
       extApprovedSeller: (n: number) => `You granted ${n} extra days.`,
       extRejectedBuyer: "The seller declined the extension — the current deadline stands.",
       extRejectedSeller: "You declined the extension request.",
-      extAutoNote: "If the seller doesn't answer before the deadline, the extension is granted automatically.",
+      extAutoNote:
+        "If the seller doesn't answer before the deadline, the extension is granted automatically.",
     },
     thread: {
       all: "All messages",
@@ -1996,7 +2061,8 @@ const en: typeof ar = {
       desc: "Store description",
       descPh: "What do you sell? What makes your store special?",
       socialTitle: "Social media accounts",
-      socialHint: "Optional — shown as icons at the top of your store page; they raise visitor trust.",
+      socialHint:
+        "Optional — shown as icons at the top of your store page; they raise visitor trust.",
       logoLabel: "Store logo",
       logoHint: "Square, shown next to the store name",
       bannerLabel: "Store banner",
@@ -2032,7 +2098,8 @@ const en: typeof ar = {
       badge: "Verified store",
       verifiedBody:
         "Your store is verified — the “Verified store” badge shows to visitors on your store page and in search results, raising buyer trust.",
-      pending: "Verification request under review — usually within 24 hours; you'll be notified when done.",
+      pending:
+        "Verification request under review — usually within 24 hours; you'll be notified when done.",
       body: "Upload a clear photo of your commercial registration or freelance certificate in your name. Once approved, your store gets the “Verified store” badge shown to visitors. The document is stored privately and seen only by the review team.",
       rejected: (note: string) =>
         `Your previous request was rejected${note ? `: ${note}` : ""} — try again with a clearer document.`,
@@ -2066,7 +2133,8 @@ const en: typeof ar = {
       costLine: (d: number, rate: number) => `${d} day${d === 1 ? "" : "s"} × ${rate} pts`,
       balanceLine: (n: string) => `Your balance: ${n} pts`,
       topup: "Top up points",
-      priceNote: "Prices and available durations may change at any time by Haraj Station administration.",
+      priceNote:
+        "Prices and available durations may change at any time by Haraj Station administration.",
       launch: (cost: string) => `Launch campaign (${cost} pts)`,
     },
     campaignDetail: {
@@ -2100,9 +2168,11 @@ const en: typeof ar = {
     newCampaign: {
       title: "New Ad Campaign",
       pickTitle: "Pick a listing to promote",
-      pickSub: "Choose the listing to fund — it appears pinned at the top of its category with a “Sponsored” frame",
+      pickSub:
+        "Choose the listing to fund — it appears pinned at the top of its category with a “Sponsored” frame",
       emptyTitle: "No listings available to promote",
-      emptyHint: "All your active listings are already in a campaign, or you have no active listings",
+      emptyHint:
+        "All your active listings are already in a campaign, or you have no active listings",
       addNew: "Post a new listing",
       auction: "Auction",
       featured: "Featured",
@@ -2142,7 +2212,8 @@ const en: typeof ar = {
       encrypted: "Messages are encrypted — nobody but you and the other party can read them",
       unmute: "Unmute message sound",
       mute: "Mute message sound",
-      safety: "For your safety: never share bank details or verification codes, meet in a public place, and cancel the deal at any suspicious request.",
+      safety:
+        "For your safety: never share bank details or verification codes, meet in a public place, and cancel the deal at any suspicious request.",
       start: "Start the conversation — ask for details before buying",
       attachedAlt: "Attached image",
       removeImage: "Remove image",
@@ -2173,10 +2244,12 @@ const en: typeof ar = {
     push: {
       iosTitle: "Enable notifications on iPhone",
       iosHint1: "Tap the share button",
-      iosHint2: "in Safari, then “Add to Home Screen” — then open the app and enable notifications here.",
+      iosHint2:
+        "in Safari, then “Add to Home Screen” — then open the app and enable notifications here.",
       title: "Browser notifications",
       onHint: "Enabled on this device — bids and messages reach you even with the site closed",
-      offHint: "Enable for instant alerts: new bid, message, or a listing matching your saved search",
+      offHint:
+        "Enable for instant alerts: new bid, message, or a listing matching your saved search",
       denied: "Notification permission denied — enable it in browser settings and retry",
       failed: "Couldn't enable notifications — try another browser",
       stop: "Turn off",
@@ -2223,7 +2296,8 @@ const en: typeof ar = {
       allCities: "All cities",
       impressions: "Impressions",
       clicks: "Clicks",
-      daysLeft: (left: number, total: number) => `${left} of ${total} day${total === 1 ? "" : "s"} left`,
+      daysLeft: (left: number, total: number) =>
+        `${left} of ${total} day${total === 1 ? "" : "s"} left`,
       duration: (d: number) => `Campaign length: ${d} day${d === 1 ? "" : "s"}`,
       honestNote: "Numbers count one visitor per network — page reloads don't inflate results.",
     },
@@ -2254,7 +2328,8 @@ const en: typeof ar = {
       heroTitle: "Invite friends, earn points",
       heroOn: (p: number) =>
         `Share your code — whenever a friend signs up with it and tops up points, you automatically earn ${p}% of their top-up as points. No cap!`,
-      heroOff: "The referral program is paused — your code is saved and rewards resume when it's back.",
+      heroOff:
+        "The referral program is paused — your code is saved and rewards resume when it's back.",
       codeLabel: "Your referral code",
       linkLabel: "Direct invite link (fills the code automatically)",
       statFriends: "Friends joined with your code",
@@ -2277,7 +2352,8 @@ const en: typeof ar = {
       typeStandard: "Standard sales only",
       typeAuction: "Auctions only",
       typeAnnounce: "Announcements only",
-      pushHint: "Enable browser notifications from the Notifications page to get alerts even with the site closed.",
+      pushHint:
+        "Enable browser notifications from the Notifications page to get alerts even with the site closed.",
     },
   },
 };

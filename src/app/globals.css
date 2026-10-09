@@ -34,8 +34,7 @@
 
   /* Shadows */
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-card-hover:
-    0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --shadow-card-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
 
   /* Animations */
   --animate-fade-up: fade-up 0.4s ease both;
@@ -90,11 +89,9 @@
 
 @theme inline {
   --font-sans:
-    var(--font-ibm-arabic), var(--font-cairo), ui-sans-serif, system-ui,
-    -apple-system, "Segoe UI", sans-serif;
-  --font-display:
-    var(--font-cairo), var(--font-ibm-arabic), ui-sans-serif, system-ui,
+    var(--font-ibm-arabic), var(--font-cairo), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     sans-serif;
+  --font-display: var(--font-cairo), var(--font-ibm-arabic), ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
@@ -200,4 +197,19 @@
 /* header search input — rectangular */
 @utility input-pill {
   @apply w-full rounded-lg border border-transparent bg-neutral-100 px-4 min-h-10 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:bg-white focus:border-neutral-300;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  html {
+    scroll-behavior: auto !important;
+  }
 }

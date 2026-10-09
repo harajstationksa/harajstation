@@ -33,10 +33,7 @@ function shouldWrite(key: string): boolean {
  */
 export async function recordPresence(): Promise<void> {
   const [h, session] = await Promise.all([headers(), getSession()]);
-  const ip =
-    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    h.get("x-real-ip") ||
-    "local";
+  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "local";
   const ua = (h.get("user-agent") ?? "").slice(0, 40);
   const key = createHash("sha256").update(`${ip}|${ua}`).digest("hex").slice(0, 32);
 

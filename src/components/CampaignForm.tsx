@@ -2,15 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import {
-  CalendarDays,
-  Eye,
-  Info,
-  Loader2,
-  MapPin,
-  Megaphone,
-  Wallet,
-} from "lucide-react";
+import { CalendarDays, Eye, Info, Loader2, MapPin, Megaphone, Wallet } from "lucide-react";
 import { createCampaignAction } from "@/app/(site)/dashboard/campaigns/actions";
 import { CITIES } from "@/lib/constants";
 import { useLang } from "@/components/LangProvider";
@@ -107,7 +99,9 @@ export function CampaignForm({
           <h2 className="font-bold text-neutral-900">{d.title}</h2>
         </div>
         <p className="text-sm text-neutral-500 leading-relaxed">
-          {d.intro1}<b>{d.introBold}</b>{d.intro2}
+          {d.intro1}
+          <b>{d.introBold}</b>
+          {d.intro2}
         </p>
 
         <div className="rounded-lg bg-neutral-50 border border-neutral-100 p-3">
@@ -149,21 +143,24 @@ export function CampaignForm({
               aria-label={t.dash.campaignForm.customAria}
             />
           </div>
-          <p className="text-xs text-neutral-400 mt-1.5">
-            {t.dash.campaignForm.daysHint}
-          </p>
+          <p className="text-xs text-neutral-400 mt-1.5">{t.dash.campaignForm.daysHint}</p>
         </div>
 
         {/* geo targeting */}
         <div>
-          <label className="text-sm font-medium mb-2 flex items-center gap-1.5">
+          <label
+            className="text-sm font-medium mb-2 flex items-center gap-1.5"
+            htmlFor="a11y-campaignform-1"
+          >
             <MapPin className="size-4 text-neutral-400" />
-            {t.dash.campaignForm.cityLabel} <span className="text-neutral-400 font-normal">{t.dash.campaignForm.optional}</span>
+            {t.dash.campaignForm.cityLabel}{" "}
+            <span className="text-neutral-400 font-normal">{t.dash.campaignForm.optional}</span>
           </label>
           <select
             className="input"
             value={targetCity}
             onChange={(e) => setTargetCity(e.target.value)}
+            id="a11y-campaignform-1"
           >
             <option value="">{t.dash.campaignForm.allCities}</option>
             {CITIES.map((c) => (
@@ -189,13 +186,16 @@ export function CampaignForm({
             <p className="text-xs text-neutral-500">{t.dash.campaignForm.reachLabel}</p>
             <p className="font-display font-extrabold text-xl tabular-nums text-neutral-900">
               {reach.low.toLocaleString("en-US")} – {reach.high.toLocaleString("en-US")}
-              <span className="text-xs font-normal text-neutral-400">{t.dash.campaignForm.reachUnit}</span>
+              <span className="text-xs font-normal text-neutral-400">
+                {t.dash.campaignForm.reachUnit}
+              </span>
             </p>
           </div>
         </div>
         <p className="text-[11px] text-neutral-400 -mt-2">
           {t.dash.campaignForm.reachNote1}
-          {targetCity ? t.dash.campaignForm.reachNoteCity(targetCity) : ""}{t.dash.campaignForm.reachNote2}
+          {targetCity ? t.dash.campaignForm.reachNoteCity(targetCity) : ""}
+          {t.dash.campaignForm.reachNote2}
         </p>
 
         {/* cost summary */}
@@ -215,7 +215,10 @@ export function CampaignForm({
               {t.dash.campaignForm.balanceLine(balance.toLocaleString("en-US"))}
             </span>
             {!affordable && (
-              <a href="/dashboard/wallet" className="text-primary-600 font-semibold hover:underline">
+              <a
+                href="/dashboard/wallet"
+                className="text-primary-600 font-semibold hover:underline"
+              >
                 {t.dash.campaignForm.topup}
               </a>
             )}
@@ -229,10 +232,15 @@ export function CampaignForm({
       </div>
 
       {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
+        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+          {error}
+        </p>
       )}
 
-      <button className="btn-primary w-full text-base" disabled={loading || !affordable || days < 1}>
+      <button
+        className="btn-primary w-full text-base"
+        disabled={loading || !affordable || days < 1}
+      >
         {loading && <Loader2 className="size-4 animate-spin" />}
         <Megaphone className="size-4" />
         {t.dash.campaignForm.launch(cost.toLocaleString("en-US"))}

@@ -1,5 +1,20 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+async function resilientFetch(input: RequestInfo | URL, init?: RequestInit) {
+  try {
+    return await clientFetch(input, {
+      ...init,
+      signal: AbortSignal.timeout(20000),
+    });
+  } catch {
+    return new Response(JSON.stringify({ error: "تعذّر الاتصال. حاول مجددًا" }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+}
+
 import { useRef, useState } from "react";
 import { ImageUp, Loader2, X } from "lucide-react";
 
@@ -23,6 +38,7 @@ export function BannerImageField({
   ratio = 4,
   recommended = "1600 × 400",
   hint,
+  defaultUrl = "",
 }: {
   name?: string;
   label?: string;
@@ -31,9 +47,10 @@ export function BannerImageField({
   recommended?: string;
   /** Extra line under the field, e.g. that the phone image is optional. */
   hint?: string;
+  defaultUrl?: string;
 } = {}) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState(defaultUrl);
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -43,7 +60,10 @@ export function BannerImageField({
     setBusy(true);
     const fd = new FormData();
     fd.append("image", file);
-    const res = await fetch("/api/admin/banner-image", { method: "POST", body: fd });
+    const res = await resilientFetch("/api/admin/banner-image", {
+      method: "POST",
+      body: fd,
+    });
     const data = await res.json().catch(() => ({}));
     setBusy(false);
     if (!res.ok) {
@@ -66,7 +86,9 @@ export function BannerImageField({
 
   return (
     <div className="sm:col-span-2 space-y-2">
-      <label className="block text-sm font-medium">{label}</label>
+      <label className="block text-sm font-medium" htmlFor="a11y-bannerimagefield-1">
+        {label}
+      </label>
 
       {/* the URL the action reads — editable, so an existing path still works */}
       <div className="flex gap-2">
@@ -101,6 +123,7 @@ export function BannerImageField({
           const file = e.target.files?.[0];
           if (file) upload(file);
         }}
+        id="a11y-bannerimagefield-1"
       />
 
       {error && (
@@ -118,7 +141,11 @@ export function BannerImageField({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={url}
+              src={
+                url.startsWith("/")
+                  ? `${process.env.NEXT_PUBLIC_SITE_URL || "https://harajstation.com"}${url}`
+                  : url
+              }
               alt="معاينة البانر"
               className="size-full object-cover"
               onLoad={(e) =>

@@ -5,10 +5,7 @@ import { db } from "./db";
 /** Visitor key from request headers (server component context). */
 async function keyFromHeaders(): Promise<string> {
   const h = await headers();
-  const ip =
-    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    h.get("x-real-ip") ||
-    "local";
+  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "local";
   const ua = (h.get("user-agent") ?? "").slice(0, 40);
   return createHash("sha256").update(`${ip}|${ua}`).digest("hex").slice(0, 32);
 }

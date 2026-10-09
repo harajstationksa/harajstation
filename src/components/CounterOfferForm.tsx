@@ -50,9 +50,13 @@ export function CounterOfferForm({ offerId }: { offerId: string }) {
             const fd = new FormData();
             fd.set("offerId", offerId);
             fd.set("counterAmount", amount);
-            const res = await counterOfferAction(fd);
-            if ("error" in res && res.error) setError(res.error);
-            else router.refresh();
+            try {
+              const res = await counterOfferAction(fd);
+              if ("error" in res && res.error) setError(res.error);
+              else router.refresh();
+            } catch {
+              setError(t.dash.settings.genericError);
+            }
           });
         }}
       >

@@ -1,3 +1,5 @@
+import { Pagination } from "@/components/Pagination";
+import { pageNumber } from "@/lib/pagination";
 import Link from "next/link";
 import { Check, HandCoins, RotateCcw, X } from "lucide-react";
 import { db } from "@/lib/db";
@@ -7,12 +9,7 @@ import { cn, formatSAR, parseImages, timeAgo } from "@/lib/utils";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
 import { EmptyState } from "@/components/EmptyState";
 import { CounterOfferForm } from "@/components/CounterOfferForm";
-import {
-  acceptCounterForm,
-  acceptOfferForm,
-  rejectOfferForm,
-  withdrawOfferForm,
-} from "./actions";
+import { acceptCounterForm, acceptOfferForm, rejectOfferForm, withdrawOfferForm } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -32,38 +29,50 @@ const STATUS_CLS: Record<string, string> = {
 export default async function OffersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; page?: string }>;
 }) {
   const user = await requireUser();
   const { lang, t } = await getT();
   const o = t.offers;
-  const { tab } = await searchParams;
+  const { tab, page: rawPage } = await searchParams;
+  const page = pageNumber(rawPage);
   const activeTab = tab === "sent" ? "sent" : "received";
 
   const [received, sent] = await Promise.all([
     db.offer.findMany({
       where: { listing: { sellerId: user.id } },
       include: {
-        listing: { select: { id: true, title: true, images: true, price: true } },
+        listing: {
+          select: { id: true, title: true, images: true, price: true },
+        },
         buyer: { select: { id: true, name: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 50,
+      skip: (page - 1) * 50,
     }),
     db.offer.findMany({
       where: { buyerId: user.id },
       include: {
-        listing: { select: { id: true, title: true, images: true, price: true } },
+        listing: {
+          select: { id: true, title: true, images: true, price: true },
+        },
         buyer: { select: { id: true, name: true } },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 50,
+      skip: (page - 1) * 50,
     }),
   ]);
 
   const rows = activeTab === "received" ? received : sent;
-  const pendingReceived = received.filter((r) => r.status === "PENDING").length;
+  const pendingReceived = await db.offer.count({
+    where: { listing: { sellerId: user.id }, status: "PENDING" },
+  });
 
+  const total = await db.offer.count({
+    where: activeTab === "received" ? { listing: { sellerId: user.id } } : { buyerId: user.id },
+  });
   return (
     <div className="space-y-5">
       <h1 className="section-title flex items-center gap-2">
@@ -86,7 +95,7 @@ export default async function OffersPage({
               "flex-1 text-center rounded-lg px-3 py-2 text-sm font-semibold transition-colors",
               activeTab === key
                 ? "bg-neutral-900 text-white"
-                : "text-neutral-600 hover:bg-neutral-50"
+                : "text-neutral-600 hover:bg-neutral-50",
             )}
           >
             {label}
@@ -224,6 +233,14 @@ export default async function OffersPage({
           })}
         </div>
       )}
+      <Pagination
+        page={page}
+        total={total}
+        size={50}
+        path="/dashboard/offers"
+        lang={lang}
+        params={{ tab: activeTab }}
+      />
     </div>
   );
 }

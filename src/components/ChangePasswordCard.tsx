@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { useState } from "react";
 import { CheckCircle2, KeyRound, Loader2, Send } from "lucide-react";
 import { useLang } from "@/components/LangProvider";
@@ -21,7 +23,7 @@ export function ChangePasswordCard({ email }: { email: string }) {
   async function requestLink() {
     setLoading(true);
     setError("");
-    const res = await fetch("/api/auth/forgot", {
+    const res = await clientFetch("/api/auth/forgot", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
@@ -66,12 +68,7 @@ export function ChangePasswordCard({ email }: { email: string }) {
               {error}
             </p>
           )}
-          <button
-            type="button"
-            onClick={requestLink}
-            disabled={loading}
-            className="btn-secondary"
-          >
+          <button type="button" onClick={requestLink} disabled={loading} className="btn-secondary">
             {loading ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
             {d.pwBtn}
           </button>

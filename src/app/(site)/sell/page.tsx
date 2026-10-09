@@ -24,8 +24,12 @@ export default async function SellPage() {
         <h1 className="section-title">{t.pub.sellLoginTitle}</h1>
         <p className="text-neutral-500">{t.pub.sellLoginSub}</p>
         <div className="flex items-center justify-center gap-3">
-          <Link href="/login" className="btn-primary">{t.pub.login}</Link>
-          <Link href="/register" className="btn-secondary">{t.pub.register}</Link>
+          <Link href="/login" className="btn-primary">
+            {t.pub.login}
+          </Link>
+          <Link href="/register" className="btn-secondary">
+            {t.pub.register}
+          </Link>
         </div>
       </div>
     );
@@ -55,8 +59,11 @@ export default async function SellPage() {
       <h1 className="section-title mb-1">{t.pub.sellTitle}</h1>
       <p className="text-sm text-neutral-500 mb-6">
         {t.pub.sellQuota(
-          t.pub.sellActive(activeListings, user.isPro ? t.pub.sellUnlimited : t.pub.sellOf(maxListings)),
-          t.pub.sellAuctions(activeAuctions, maxAuctions)
+          t.pub.sellActive(
+            activeListings,
+            user.isPro ? t.pub.sellUnlimited : t.pub.sellOf(maxListings),
+          ),
+          t.pub.sellAuctions(activeAuctions, maxAuctions),
         )}
       </p>
       <SellForm
@@ -71,6 +78,7 @@ export default async function SellPage() {
         canListing={activeListings < maxListings}
         canAuction={activeAuctions < maxAuctions}
         isPro={user.isPro}
+        aiEnabled={!!process.env.ANTHROPIC_API_KEY}
       />
     </div>
   );

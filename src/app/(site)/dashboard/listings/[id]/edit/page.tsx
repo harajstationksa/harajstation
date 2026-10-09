@@ -12,16 +12,15 @@ export async function generateMetadata() {
   return { title: t.dash.editListing.title };
 }
 
-export default async function EditListingPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function EditListingPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { t } = await getT();
   const { id } = await params;
 
-  const listing = await db.listing.findUnique({ where: { id } });
+  const listing = await db.listing.findUnique({
+    where: { id },
+    include: { category: { include: { parent: true } } },
+  });
   if (!listing) notFound();
   if (listing.sellerId !== user.id) redirect("/dashboard/listings");
 
@@ -30,9 +29,16 @@ export default async function EditListingPage({
       <div>
         <h1 className="section-title">{t.dash.editListing.title}</h1>
         <p className="text-sm text-neutral-500 mt-1 line-clamp-1">{listing.title}</p>
+        {listing.requestMessage && (
+          <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+            مطلوب قبل النشر: {listing.requestMessage}
+          </p>
+        )}
       </div>
       <EditListingForm
         listing={{
+          categorySlug: listing.category.parent?.slug ?? listing.category.slug,
+          attributes: listing.attributes,
           id: listing.id,
           type: listing.type,
           title: listing.title,

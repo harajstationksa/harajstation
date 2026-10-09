@@ -1,3 +1,4 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
 import { getAdminCurrentUser } from "@/lib/auth";
 import { saveImages, MAX_FILE } from "@/lib/uploads";
@@ -8,24 +9,24 @@ export async function POST(req: Request) {
   const limited = await rateLimitGuard(req, "banner-image", 20, 10 * 60_000);
   if (limited) return limited;
 
-  const user = await getAdminCurrentUser(["ADMIN"]);
+  const user = await getAdminCurrentUser(["ADMIN"], "banners.manage");
   if (!user) {
-    return NextResponse.json({ error: "غير مصرح" }, { status: 403 });
+    return NextResponse.json({ error: apiMessage(req, "غير مصرح") }, { status: 403 });
   }
 
   const fd = await req.formData().catch(() => null);
   const file = fd?.get("image");
 
   if (!(file instanceof File) || file.size === 0) {
-    return NextResponse.json({ error: "اختر صورة" }, { status: 400 });
+    return NextResponse.json({ error: apiMessage(req, "اختر صورة") }, { status: 400 });
   }
   if (file.size > MAX_FILE) {
-    return NextResponse.json({ error: "حجم الصورة يتجاوز 5MB" }, { status: 400 });
+    return NextResponse.json({ error: apiMessage(req, "حجم الصورة يتجاوز 5MB") }, { status: 400 });
   }
 
   const saved = await saveImages([file], "banners");
   if (!saved.ok) {
-    return NextResponse.json({ error: saved.error }, { status: 400 });
+    return NextResponse.json({ error: apiMessage(req, saved.error) }, { status: 400 });
   }
 
   return NextResponse.json({ ok: true, url: saved.urls[0] });

@@ -5,13 +5,7 @@ import { configForMain } from "@/lib/category-fields";
  * Render a listing's category-specific attributes as a clean spec grid,
  * labeled via the category field config (keys → Arabic labels + suffix).
  */
-export function SpecList({
-  attributes,
-  mainSlug,
-}: {
-  attributes: string;
-  mainSlug: string;
-}) {
+export function SpecList({ attributes, mainSlug }: { attributes: string; mainSlug: string }) {
   let attrs: Record<string, string> = {};
   try {
     const parsed = JSON.parse(attributes);
@@ -27,7 +21,8 @@ export function SpecList({
       if (f.suffix) value = `${value} ${f.suffix}`;
       if (f.key === "mileage" || f.key === "area") {
         const n = Number(attrs[f.key]);
-        if (Number.isFinite(n)) value = `${n.toLocaleString("en-US")}${f.suffix ? ` ${f.suffix}` : ""}`;
+        if (Number.isFinite(n))
+          value = `${n.toLocaleString("en-US")}${f.suffix ? ` ${f.suffix}` : ""}`;
       }
       return { label: f.label, value };
     });
@@ -42,7 +37,10 @@ export function SpecList({
       </h2>
       <dl className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {rows.map((r) => (
-          <div key={r.label} className="rounded-lg bg-neutral-50 border border-neutral-100 px-3 py-2">
+          <div
+            key={r.label}
+            className="rounded-lg bg-neutral-50 border border-neutral-100 px-3 py-2"
+          >
             <dt className="text-xs text-neutral-400">{r.label}</dt>
             <dd className="text-sm font-semibold text-neutral-800 mt-0.5">{r.value}</dd>
           </div>

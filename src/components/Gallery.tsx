@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLang } from "@/components/LangProvider";
-import { createPortal } from "react-dom";
+import { AccessibleDialog } from "./AccessibleDialog";
 import { ChevronLeft, ChevronRight, Maximize2, Minus, Plus, X } from "lucide-react";
+import { ProgressiveImage } from "./ProgressiveImage";
+import type { ImagePreview } from "@/lib/image-placeholders";
 import { cn } from "@/lib/utils";
 
 const MIN_ZOOM = 1;
@@ -15,7 +17,15 @@ const ZOOM_STEP = 0.5;
  * mouse wheel, double-click), drag-to-pan while zoomed, swipe / arrow-key
  * navigation, and a thumbnail strip. The inline image supports touch swipe.
  */
-export function Gallery({ images, title }: { images: string[]; title: string }) {
+export function Gallery({
+  images,
+  previews = {},
+  title,
+}: {
+  images: string[];
+  previews?: Record<string, ImagePreview | null>;
+  title: string;
+}) {
   const { t } = useLang();
   const list = images.length > 0 ? images : ["/images/ph/chair1.svg"];
   const [active, setActive] = useState(0);
@@ -26,7 +36,12 @@ export function Gallery({ images, title }: { images: string[]; title: string }) 
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ x: number; y: number; baseX: number; baseY: number } | null>(null);
+  const drag = useRef<{
+    x: number;
+    y: number;
+    baseX: number;
+    baseY: number;
+  } | null>(null);
   // inline (page) image swipe tracking
   const swipe = useRef<{ x: number; fired: boolean }>({ x: 0, fired: false });
 
@@ -40,15 +55,12 @@ export function Gallery({ images, title }: { images: string[]; title: string }) 
       setActive(i);
       resetView();
     },
-    [resetView]
+    [resetView],
   );
-  const next = useCallback(
-    () => goTo((active + 1) % list.length),
-    [goTo, active, list.length]
-  );
+  const next = useCallback(() => goTo((active + 1) % list.length), [goTo, active, list.length]);
   const prev = useCallback(
     () => goTo((active - 1 + list.length) % list.length),
-    [goTo, active, list.length]
+    [goTo, active, list.length],
   );
 
   /** Clamp the pan offset so the image never drifts fully off-stage. */
@@ -71,7 +83,7 @@ export function Gallery({ images, title }: { images: string[]; title: string }) 
         return nz;
       });
     },
-    [clampOffset]
+    [clampOffset],
   );
 
   // lightbox keyboard controls: Escape closes, arrows flip (RTL-aware), +/- zoom
@@ -85,16 +97,20 @@ export function Gallery({ images, title }: { images: string[]; title: string }) 
       if (e.key === "-") zoomBy(-ZOOM_STEP);
     }
     document.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
+
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
     };
   }, [open, next, prev, zoomBy]);
 
   // ── lightbox pointer handling: pan while zoomed, swipe-to-flip otherwise ──
   function onStagePointerDown(e: React.PointerEvent) {
-    drag.current = { x: e.clientX, y: e.clientY, baseX: offset.x, baseY: offset.y };
+    drag.current = {
+      x: e.clientX,
+      y: e.clientY,
+      baseX: offset.x,
+      baseY: offset.y,
+    };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     if (zoom > 1) setDragging(true);
   }
@@ -148,9 +164,9 @@ export function Gallery({ images, title }: { images: string[]; title: string }) 
           className="block w-full cursor-zoom-in touch-pan-y"
           aria-label={t.pub.gOpen}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <ProgressiveImage
             src={list[active]}
+            preview={previews[list[active]]}
             alt={title}
             className="w-full aspect-4/3 object-cover"
           />
@@ -173,12 +189,16 @@ export function Gallery({ images, title }: { images: string[]; title: string }) 
               onClick={() => goTo(i)}
               className={cn(
                 "w-20 aspect-4/3 rounded-lg overflow-hidden border-2 shrink-0 transition-colors cursor-pointer",
-                i === active ? "border-primary-500" : "border-transparent hover:border-neutral-300"
+                i === active ? "border-primary-500" : "border-transparent hover:border-neutral-300",
               )}
               aria-label={t.pub.gImageN(i + 1)}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt="" className="size-full object-cover" />
+              <ProgressiveImage
+                src={src}
+                preview={previews[src]}
+                alt=""
+                className="size-full object-cover"
+              />
             </button>
           ))}
         </div>
@@ -187,127 +207,134 @@ export function Gallery({ images, title }: { images: string[]; title: string }) 
       {/* ── fullscreen lightbox ──
           portaled to <body>: the page's sticky columns create their own
           stacking contexts that would otherwise paint above the overlay */}
-      {open && createPortal(
-        <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col">
-          {/* top bar: close + zoom controls + counter */}
-          <div className="flex items-center justify-between gap-3 p-3 sm:p-4 text-white shrink-0">
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="size-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
-              aria-label={t.pub.gClose}
-            >
-              <X className="size-5" />
-            </button>
-
-            <div className="flex items-center gap-1.5 rounded-full bg-white/10 p-1">
+      {open && (
+        <AccessibleDialog label={title} onClose={() => setOpen(false)}>
+          <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col">
+            {/* top bar: close + zoom controls + counter */}
+            <div className="flex items-center justify-between gap-3 p-3 sm:p-4 text-white shrink-0">
               <button
                 type="button"
-                onClick={() => zoomBy(-ZOOM_STEP)}
-                disabled={zoom <= MIN_ZOOM}
-                className="size-8 rounded-full hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent flex items-center justify-center transition-colors cursor-pointer disabled:cursor-default"
-                aria-label={t.pub.gZoomOut}
+                onClick={() => setOpen(false)}
+                className="size-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
+                aria-label={t.pub.gClose}
               >
-                <Minus className="size-4" />
+                <X className="size-5" />
               </button>
-              <button
-                type="button"
-                onClick={() => (zoom > 1 ? resetView() : zoomBy(1.5))}
-                className="min-w-14 text-center text-xs font-semibold tabular-nums cursor-pointer select-none"
-                title={zoom > 1 ? t.pub.gResetZoom : t.pub.gZoomIn}
-              >
-                {Math.round(zoom * 100)}%
-              </button>
-              <button
-                type="button"
-                onClick={() => zoomBy(ZOOM_STEP)}
-                disabled={zoom >= MAX_ZOOM}
-                className="size-8 rounded-full hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent flex items-center justify-center transition-colors cursor-pointer disabled:cursor-default"
-                aria-label={t.pub.gZoomIn}
-              >
-                <Plus className="size-4" />
-              </button>
-            </div>
 
-            {list.length > 1 ? (
-              <span className="text-sm tabular-nums text-white/80 min-w-12 text-left">
-                {active + 1} / {list.length}
-              </span>
-            ) : (
-              <span className="min-w-12" />
-            )}
-          </div>
+              <div className="flex items-center gap-1.5 rounded-full bg-white/10 p-1">
+                <button
+                  type="button"
+                  onClick={() => zoomBy(-ZOOM_STEP)}
+                  disabled={zoom <= MIN_ZOOM}
+                  className="size-8 rounded-full hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent flex items-center justify-center transition-colors cursor-pointer disabled:cursor-default"
+                  aria-label={t.pub.gZoomOut}
+                >
+                  <Minus className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => (zoom > 1 ? resetView() : zoomBy(1.5))}
+                  className="min-w-14 text-center text-xs font-semibold tabular-nums cursor-pointer select-none"
+                  title={zoom > 1 ? t.pub.gResetZoom : t.pub.gZoomIn}
+                >
+                  {Math.round(zoom * 100)}%
+                </button>
+                <button
+                  type="button"
+                  onClick={() => zoomBy(ZOOM_STEP)}
+                  disabled={zoom >= MAX_ZOOM}
+                  className="size-8 rounded-full hover:bg-white/20 disabled:opacity-30 disabled:hover:bg-transparent flex items-center justify-center transition-colors cursor-pointer disabled:cursor-default"
+                  aria-label={t.pub.gZoomIn}
+                >
+                  <Plus className="size-4" />
+                </button>
+              </div>
 
-          {/* stage: wheel zoom, drag to pan, double-click toggle, swipe to flip */}
-          <div
-            ref={stageRef}
-            className="flex-1 flex items-center justify-center min-h-0 overflow-hidden px-2 sm:px-16 relative touch-none select-none"
-            onPointerDown={onStagePointerDown}
-            onPointerMove={onStagePointerMove}
-            onPointerUp={onStagePointerUp}
-            onPointerCancel={onStagePointerUp}
-            onWheel={(e) => zoomBy(e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP)}
-            onDoubleClick={() => (zoom > 1 ? resetView() : zoomBy(1.5))}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={list[active]}
-              alt={title}
-              draggable={false}
-              style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})` }}
-              className={cn(
-                "max-h-full max-w-full object-contain rounded-lg",
-                !dragging && "transition-transform duration-150",
-                zoom > 1 ? (dragging ? "cursor-grabbing" : "cursor-grab") : "cursor-zoom-in"
+              {list.length > 1 ? (
+                <span className="text-sm tabular-nums text-white/80 min-w-12 text-left">
+                  {active + 1} / {list.length}
+                </span>
+              ) : (
+                <span className="min-w-12" />
               )}
-            />
+            </div>
+
+            {/* stage: wheel zoom, drag to pan, double-click toggle, swipe to flip */}
+            <div
+              ref={stageRef}
+              className="flex-1 flex items-center justify-center min-h-0 overflow-hidden px-2 sm:px-16 relative touch-none select-none"
+              onPointerDown={onStagePointerDown}
+              onPointerMove={onStagePointerMove}
+              onPointerUp={onStagePointerUp}
+              onPointerCancel={onStagePointerUp}
+              onWheel={(e) => zoomBy(e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP)}
+              onDoubleClick={() => (zoom > 1 ? resetView() : zoomBy(1.5))}
+            >
+              <ProgressiveImage
+                src={list[active]}
+                preview={previews[list[active]]}
+                alt={title}
+                draggable={false}
+                style={{
+                  transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+                }}
+                className={cn(
+                  "max-h-full max-w-full object-contain rounded-lg",
+                  !dragging && "transition-transform duration-150",
+                  zoom > 1 ? (dragging ? "cursor-grabbing" : "cursor-grab") : "cursor-zoom-in",
+                )}
+              />
+              {list.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={next}
+                    className="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 size-10 sm:size-11 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-colors cursor-pointer"
+                    aria-label={t.pub.gNext}
+                  >
+                    <ChevronLeft className="size-6" />
+                  </button>
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={prev}
+                    className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 size-10 sm:size-11 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-colors cursor-pointer"
+                    aria-label={t.pub.gPrev}
+                  >
+                    <ChevronRight className="size-6" />
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* thumbnail strip */}
             {list.length > 1 && (
-              <>
-                <button
-                  type="button"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={next}
-                  className="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 size-10 sm:size-11 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-colors cursor-pointer"
-                  aria-label={t.pub.gNext}
-                >
-                  <ChevronLeft className="size-6" />
-                </button>
-                <button
-                  type="button"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={prev}
-                  className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 size-10 sm:size-11 rounded-full bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-colors cursor-pointer"
-                  aria-label={t.pub.gPrev}
-                >
-                  <ChevronRight className="size-6" />
-                </button>
-              </>
+              <div className="flex gap-2 justify-center p-3 sm:p-4 overflow-x-auto no-scrollbar shrink-0">
+                {list.map((src, i) => (
+                  <button
+                    key={src + i}
+                    onClick={() => goTo(i)}
+                    className={cn(
+                      "w-14 sm:w-16 aspect-4/3 rounded-md overflow-hidden border-2 shrink-0 transition-all cursor-pointer",
+                      i === active
+                        ? "border-primary-500 opacity-100"
+                        : "border-transparent opacity-50 hover:opacity-80",
+                    )}
+                    aria-label={t.pub.gImageN(i + 1)}
+                  >
+                    <ProgressiveImage
+                      src={src}
+                      preview={previews[src]}
+                      alt=""
+                      className="size-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
             )}
           </div>
-
-          {/* thumbnail strip */}
-          {list.length > 1 && (
-            <div className="flex gap-2 justify-center p-3 sm:p-4 overflow-x-auto no-scrollbar shrink-0">
-              {list.map((src, i) => (
-                <button
-                  key={src + i}
-                  onClick={() => goTo(i)}
-                  className={cn(
-                    "w-14 sm:w-16 aspect-4/3 rounded-md overflow-hidden border-2 shrink-0 transition-all cursor-pointer",
-                    i === active
-                      ? "border-primary-500 opacity-100"
-                      : "border-transparent opacity-50 hover:opacity-80"
-                  )}
-                  aria-label={t.pub.gImageN(i + 1)}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={src} alt="" className="size-full object-cover" />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>,
-        document.body
+        </AccessibleDialog>
       )}
     </div>
   );

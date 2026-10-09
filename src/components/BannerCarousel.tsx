@@ -1,5 +1,7 @@
 "use client";
 
+import { ProgressiveImage } from "./ProgressiveImage";
+import type { ImagePreview } from "@/lib/image-placeholders";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -17,9 +19,11 @@ type Banner = {
 
 export function BannerCarousel({
   banners,
+  previews = {},
   hero = false,
 }: {
   banners: Banner[];
+  previews?: Record<string, ImagePreview | null>;
   hero?: boolean;
 }) {
   const [index, setIndex] = useState(0);
@@ -40,9 +44,7 @@ export function BannerCarousel({
     fetch(`/api/showcase/${id}/open`, { method: "POST" }).catch(() => {});
   }
 
-  const aspect = hero
-    ? "aspect-4/1 max-sm:aspect-2/1"
-    : "aspect-4/1 max-sm:aspect-5/2";
+  const aspect = hero ? "aspect-4/1 max-sm:aspect-2/1" : "aspect-4/1 max-sm:aspect-5/2";
 
   return (
     <div className={cn("relative overflow-hidden rounded-2xl", hero ? "shadow-lg" : "shadow-card")}>
@@ -56,7 +58,10 @@ export function BannerCarousel({
             return (
               <div
                 key={b.id}
-                className={cn("w-full shrink-0 bg-neutral-100 [&_iframe]:w-full [&_iframe]:h-full", aspect)}
+                className={cn(
+                  "w-full shrink-0 bg-neutral-100 [&_iframe]:w-full [&_iframe]:h-full",
+                  aspect,
+                )}
               >
                 <iframe
                   src={embedUrl}
@@ -75,10 +80,10 @@ export function BannerCarousel({
             // phones (< sm, where the frame narrows to 2:1) get the taller
             // artwork when it exists; every wider screen keeps imageUrl
             <picture>
-              {b.mobileImageUrl && (
-                <source media="(max-width: 639px)" srcSet={b.mobileImageUrl} />
-              )}
-              <img
+              {b.mobileImageUrl && <source media="(max-width: 639px)" srcSet={b.mobileImageUrl} />}
+              <ProgressiveImage
+                preview={previews[b.imageUrl ?? ""]}
+                mobilePreview={previews[b.mobileImageUrl ?? ""]}
                 src={b.imageUrl ?? ""}
                 alt={b.title}
                 className={cn("w-full object-cover", aspect)}
@@ -112,7 +117,7 @@ export function BannerCarousel({
               aria-label={`بانر ${i + 1}`}
               className={cn(
                 "h-1.5 rounded-full transition-all cursor-pointer",
-                i === index ? "w-6 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80"
+                i === index ? "w-6 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80",
               )}
             />
           ))}

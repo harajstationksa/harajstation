@@ -8,7 +8,11 @@ export default function GlobalError({ reset }: { reset: () => void }) {
           <div className="w-full rounded-2xl bg-white p-8 shadow-sm">
             <h1 className="text-xl font-bold">تعذّر تحميل حراج ستيشن</h1>
             <p className="mt-2 text-sm text-neutral-500">المشكلة مؤقتة غالبًا. حاول مرة أخرى.</p>
-            <button type="button" onClick={reset} className="mt-5 rounded-xl bg-black px-5 py-3 text-white">
+            <button
+              type="button"
+              onClick={reset}
+              className="mt-5 rounded-xl bg-black px-5 py-3 text-white"
+            >
               إعادة المحاولة
             </button>
           </div>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { pageNumber } from "@/lib/pagination";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { db } from "@/lib/db";
@@ -7,11 +8,7 @@ import { BRAND, breadcrumbLd, isFiltered, itemListLd, pageMeta } from "@/lib/seo
 import { JsonLd } from "@/components/JsonLd";
 import { cardInclude } from "@/lib/types";
 import { getT } from "@/lib/i18n";
-import {
-  recordImpressions,
-  shuffle,
-  sponsoredInclude,
-} from "@/lib/campaigns";
+import { recordImpressions, shuffle, sponsoredInclude } from "@/lib/campaigns";
 import { buildListingWhere, listingOrderBy, str, type SP } from "@/lib/listing-query";
 import { cache, Suspense } from "react";
 import { AuctionCard } from "@/components/AuctionCard";
@@ -32,7 +29,7 @@ const PAGE_SIZE = 24;
  * the two streamed sections run the queries once between them.
  */
 const loadAds = cache(async (slug: string, sp: SP) => {
-  const page = Math.max(1, Number(str(sp.page)) || 1);
+  const page = pageNumber(str(sp.page));
 
   // the shared builder, not a local copy — a second copy of the filter logic is
   // how this page kept its own (broken) price clause after the real one was fixed
@@ -72,7 +69,7 @@ const loadCategory = cache(async (slug: string) =>
   db.category.findUnique({
     where: { slug: decodeURIComponent(slug) },
     include: { parent: true, children: { orderBy: { sortOrder: "asc" } } },
-  })
+  }),
 );
 
 export async function generateMetadata({
@@ -119,7 +116,12 @@ export default async function CategoryPage({
     { name: "الرئيسية", path: "/" },
     { name: "الفئات", path: "/categories" },
     ...(category.parent
-      ? [{ name: category.parent.nameAr, path: `/category/${category.parent.slug}` }]
+      ? [
+          {
+            name: category.parent.nameAr,
+            path: `/category/${category.parent.slug}`,
+          },
+        ]
       : []),
     { name: category.nameAr, path: `/category/${category.slug}` },
   ];
@@ -129,9 +131,13 @@ export default async function CategoryPage({
       {/* the trail Google prints under the result, from the crumbs we already draw */}
       <JsonLd data={breadcrumbLd(crumbs)} />
       <nav className="flex items-center gap-1 text-sm text-neutral-500">
-        <Link href="/" className="hover:text-primary-600">{t.categoryPage.home}</Link>
+        <Link href="/" className="hover:text-primary-600">
+          {t.categoryPage.home}
+        </Link>
         <ChevronLeft className="size-3.5 ltr:rotate-180" />
-        <Link href="/categories" className="hover:text-primary-600">{t.categoryPage.categories}</Link>
+        <Link href="/categories" className="hover:text-primary-600">
+          {t.categoryPage.categories}
+        </Link>
         {category.parent && (
           <>
             <ChevronLeft className="size-3.5 ltr:rotate-180" />
@@ -151,9 +157,7 @@ export default async function CategoryPage({
           <CategoryIcon name={category.icon} className="size-6" />
         </span>
         <div>
-          <h1 className="section-title">
-            {lang === "en" ? category.nameEn : category.nameAr}
-          </h1>
+          <h1 className="section-title">{lang === "en" ? category.nameEn : category.nameAr}</h1>
           <Suspense
             fallback={<div className="h-5 w-24 mt-1 rounded-md bg-neutral-200/80 animate-pulse" />}
           >
@@ -245,23 +249,19 @@ async function Ads({ slug, sp }: { slug: string; sp: SP }) {
           [...pinned, ...rest].map((l) => ({
             name: l.title,
             path: l.auction ? `/auctions/${l.auction.id}` : `/listings/${l.id}`,
-          }))
+          })),
         )}
       />
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {pinned.map((listing) => (
-          <SponsoredCard
-            key={listing.id}
-            listing={listing}
-            campaignId={listing.campaigns[0]?.id}
-          />
+          <SponsoredCard key={listing.id} listing={listing} campaignId={listing.campaigns[0]?.id} />
         ))}
         {rest.map((listing) =>
           listing.type === "AUCTION" ? (
             <AuctionCard key={listing.id} listing={listing} />
           ) : (
             <ListingCard key={listing.id} listing={listing} />
-          )
+          ),
         )}
       </div>
 

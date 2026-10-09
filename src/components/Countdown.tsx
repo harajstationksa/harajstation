@@ -57,7 +57,7 @@ export function Countdown({
                 ? "bg-neutral-100 text-neutral-400"
                 : urgent && i >= 2
                   ? "bg-red-50 text-red-700"
-                  : "bg-neutral-900 text-white"
+                  : "bg-neutral-900 text-white",
             )}
           >
             <span suppressHydrationWarning className="text-2xl font-bold font-display">
@@ -75,14 +75,18 @@ export function Countdown({
       suppressHydrationWarning
       className={cn(
         "inline-flex items-center gap-1 tabular-nums font-semibold text-sm",
-        ended ? "text-neutral-400" : urgent ? "text-red-600" : "text-neutral-700"
+        ended ? "text-neutral-400" : urgent ? "text-red-600" : "text-neutral-700",
       )}
     >
       {ended ? (
         u.ended
       ) : (
         <>
-          {days > 0 && <span suppressHydrationWarning>{days} {u.d}</span>}
+          {days > 0 && (
+            <span suppressHydrationWarning>
+              {days} {u.d}
+            </span>
+          )}
           <span dir="ltr" suppressHydrationWarning>
             {`${two(hours)}:${two(minutes)}:${two(seconds)}`}
           </span>

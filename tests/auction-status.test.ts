@@ -115,10 +115,10 @@ describe("displayListingStatus", () => {
   it("keeps moderation and non-auction statuses untouched", () => {
     const past = new Date(now - 1000);
     expect(
-      displayListingStatus({ status: "REMOVED", type: "AUCTION" }, auction("ENDED", past), now)
+      displayListingStatus({ status: "REMOVED", type: "AUCTION" }, auction("ENDED", past), now),
     ).toBe("REMOVED");
     expect(
-      displayListingStatus({ status: "PENDING", type: "AUCTION" }, auction("ENDED", past), now)
+      displayListingStatus({ status: "PENDING", type: "AUCTION" }, auction("ENDED", past), now),
     ).toBe("PENDING");
     expect(displayListingStatus({ status: "ACTIVE", type: "STANDARD" }, null, now)).toBe("ACTIVE");
     expect(displayListingStatus({ status: "SOLD", type: "STANDARD" }, null, now)).toBe("SOLD");

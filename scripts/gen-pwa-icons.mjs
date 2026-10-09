@@ -12,7 +12,8 @@ mkdirSync(OUT_DIR, { recursive: true });
 // ── minimal PNG decode (RGBA8, non-interlaced) ──
 function decodePng(buf) {
   let pos = 8; // skip signature
-  let width = 0, height = 0;
+  let width = 0,
+    height = 0;
   const idat = [];
   while (pos < buf.length) {
     const len = buf.readUInt32BE(pos);
@@ -48,7 +49,9 @@ function decodePng(buf) {
       else if (filter === 3) v = (v + ((a + b) >> 1)) & 0xff;
       else if (filter === 4) {
         const p = a + b - c;
-        const pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
+        const pa = Math.abs(p - a),
+          pb = Math.abs(p - b),
+          pc = Math.abs(p - c);
         v = (v + (pa <= pb && pa <= pc ? a : pb <= pc ? b : c)) & 0xff;
       }
       out[x] = v;
@@ -78,7 +81,7 @@ function resize(img, w) {
         const p10 = img.px[(y1 * img.width + x0) * 4 + c];
         const p11 = img.px[(y1 * img.width + x1) * 4 + c];
         out[(y * w + x) * 4 + c] = Math.round(
-          p00 * (1 - fx) * (1 - fy) + p01 * fx * (1 - fy) + p10 * (1 - fx) * fy + p11 * fx * fy
+          p00 * (1 - fx) * (1 - fy) + p01 * fx * (1 - fy) + p10 * (1 - fx) * fy + p11 * fx * fy,
         );
       }
     }
@@ -113,7 +116,8 @@ function encodePng(img) {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(img.width, 0);
   ihdr.writeUInt32BE(img.height, 4);
-  ihdr[8] = 8; ihdr[9] = 6; // RGBA8
+  ihdr[8] = 8;
+  ihdr[9] = 6; // RGBA8
   const stride = img.width * 4;
   const raw = Buffer.alloc((stride + 1) * img.height);
   for (let y = 0; y < img.height; y++) {

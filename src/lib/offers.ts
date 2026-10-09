@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { encryptText } from "./crypto";
-import { notify } from "./notify";
+import { notifyWithClient } from "./notify";
 import { formatSAR } from "./utils";
 
 /**
@@ -11,15 +11,15 @@ import { formatSAR } from "./utils";
  */
 export const OPEN_OFFER_STATUSES = ["PENDING", "COUNTERED"] as const;
 
-export type OfferWithParties = NonNullable<
-  Awaited<ReturnType<typeof getOfferWithParties>>
->;
+export type OfferWithParties = NonNullable<Awaited<ReturnType<typeof getOfferWithParties>>>;
 
 export function getOfferWithParties(offerId: string) {
   return db.offer.findUnique({
     where: { id: offerId },
     include: {
-      listing: { select: { id: true, title: true, sellerId: true, status: true } },
+      listing: {
+        select: { id: true, title: true, sellerId: true, status: true },
+      },
       buyer: { select: { id: true, name: true } },
     },
   });
@@ -34,43 +34,67 @@ export function getOfferWithParties(offerId: string) {
 export async function settleAcceptedOffer(
   offer: OfferWithParties,
   actorId: string,
-  agreedAmount: number
-): Promise<string> {
-  await db.offer.update({
-    where: { id: offer.id },
-    data: { status: "ACCEPTED", decidedAt: new Date() },
+  agreedAmount: number,
+): Promise<string | null> {
+  return db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Listing" WHERE id=${offer.listingId} FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM "Offer" WHERE id=${offer.id} FOR UPDATE`;
+    const fresh = await tx.offer.findUnique({
+      where: { id: offer.id },
+      include: {
+        listing: { include: { seller: { select: { isBanned: true } } } },
+        buyer: { select: { isBanned: true } },
+      },
+    });
+    const expected = actorId === offer.buyerId ? "COUNTERED" : "PENDING";
+    if (
+      !fresh ||
+      fresh.status !== expected ||
+      fresh.listing.status !== "ACTIVE" ||
+      fresh.listing.seller.isBanned ||
+      fresh.buyer.isBanned ||
+      (expected === "PENDING"
+        ? fresh.listing.sellerId !== actorId || fresh.amount !== agreedAmount
+        : fresh.buyerId !== actorId || fresh.counterAmount !== agreedAmount)
+    )
+      return null;
+    await tx.offer.update({
+      where: { id: offer.id },
+      data: { status: "ACCEPTED", decidedAt: new Date() },
+    });
+    const conv = await tx.conversation.upsert({
+      where: {
+        listingId_buyerId: {
+          listingId: fresh.listingId,
+          buyerId: fresh.buyerId,
+        },
+      },
+      create: {
+        listingId: fresh.listingId,
+        buyerId: fresh.buyerId,
+        sellerId: fresh.listing.sellerId,
+      },
+      update: {},
+    });
+    await tx.message.create({
+      data: {
+        conversationId: conv.id,
+        senderId: actorId,
+        body: encryptText(
+          `تم قبول عرض السعر: ${formatSAR(agreedAmount)} — «${fresh.listing.title}». نكمل الاتفاق هنا؟`,
+        ),
+      },
+    });
+    const otherId = actorId === fresh.buyerId ? fresh.listing.sellerId : fresh.buyerId;
+    await notifyWithClient(
+      tx,
+      [otherId],
+      "OFFER",
+      "تم قبول عرض السعر 🎉",
+      `اتفقتما على ${formatSAR(agreedAmount)} لـ"${fresh.listing.title}" — أكملا التفاصيل في المحادثة.`,
+      `/dashboard/messages/${conv.id}`,
+      `offer-accepted:${fresh.id}`,
+    );
+    return conv.id;
   });
-
-  const conv = await db.conversation.upsert({
-    where: {
-      listingId_buyerId: { listingId: offer.listingId, buyerId: offer.buyerId },
-    },
-    create: {
-      listingId: offer.listingId,
-      buyerId: offer.buyerId,
-      sellerId: offer.listing.sellerId,
-    },
-    update: {},
-  });
-
-  await db.message.create({
-    data: {
-      conversationId: conv.id,
-      senderId: actorId,
-      body: encryptText(
-        `تم قبول عرض السعر: ${formatSAR(agreedAmount)} — «${offer.listing.title}». نكمل الاتفاق هنا؟`
-      ),
-    },
-  });
-
-  const otherId =
-    actorId === offer.buyerId ? offer.listing.sellerId : offer.buyerId;
-  await notify(
-    otherId,
-    "OFFER",
-    "تم قبول عرض السعر 🎉",
-    `اتفقتما على ${formatSAR(agreedAmount)} لـ"${offer.listing.title}" — أكملا التفاصيل في المحادثة.`,
-    `/dashboard/messages/${conv.id}`
-  );
-  return conv.id;
 }

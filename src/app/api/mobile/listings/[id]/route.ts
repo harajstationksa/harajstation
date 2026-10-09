@@ -1,3 +1,5 @@
+import { apiMessage } from "@/lib/api-messages";
+import { publicListingWhere } from "@/lib/listing-policy";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
@@ -11,15 +13,12 @@ import {
 } from "../../_lib/serialize";
 
 /** Full listing detail: gallery, seller, auction, comments, similar. */
-export async function GET(
-  _req: Request,
-  ctx: { params: Promise<{ id: string }> }
-) {
+export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const session = await getSession();
 
   const listing = await db.listing.findUnique({
-    where: { id },
+    where: { ...publicListingWhere, id },
     include: {
       ...listingCardInclude,
       seller: {
@@ -52,7 +51,7 @@ export async function GET(
   });
 
   if (!listing || listing.status === "REMOVED") {
-    return NextResponse.json({ error: "الإعلان غير موجود" }, { status: 404 });
+    return NextResponse.json({ error: apiMessage(_req, "الإعلان غير موجود") }, { status: 404 });
   }
 
   // fire-and-forget unique view (same rule as the web page)
@@ -65,6 +64,7 @@ export async function GET(
     db.listing.findMany({
       where: {
         status: "ACTIVE",
+        seller: { isBanned: false },
         id: { not: listing.id },
         categoryId: listing.categoryId,
       },

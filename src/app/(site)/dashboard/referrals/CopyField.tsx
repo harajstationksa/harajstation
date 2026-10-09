@@ -23,8 +23,19 @@ export function CopyField({ value, label }: { value: string; label?: string }) {
     <div>
       {label && <label className="block text-xs text-neutral-500 mb-1">{label}</label>}
       <div className="flex gap-2">
-        <input className="input flex-1 text-sm" dir="ltr" readOnly value={value} onFocus={(e) => e.target.select()} />
-        <button type="button" onClick={copy} className="btn-secondary shrink-0" title={t.dash.referrals.copy}>
+        <input
+          className="input flex-1 text-sm"
+          dir="ltr"
+          readOnly
+          value={value}
+          onFocus={(e) => e.target.select()}
+        />
+        <button
+          type="button"
+          onClick={copy}
+          className="btn-secondary shrink-0"
+          title={t.dash.referrals.copy}
+        >
           {copied ? <Check className="size-4 text-green-600" /> : <Copy className="size-4" />}
           {copied ? t.dash.referrals.copied : t.dash.referrals.copy}
         </button>

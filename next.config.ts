@@ -1,48 +1,46 @@
 import type { NextConfig } from "next";
+import { readFileSync } from "node:fs";
 
-// Lenient-but-real CSP: Next.js needs inline scripts for hydration; everything
-// else is locked to same-origin. Tighten with nonces later if needed.
-// unsafe-eval is a dev-only need (webpack eval sourcemaps) — production
-// bundles never eval, so don't hand that power to injected markup there.
-// Google Analytics (gtag.js) hosts: the tag itself is served from
-// googletagmanager.com and beacons go to the analytics domains, so both need a
-// hole in the policy or the tag silently never loads.
-const GA_SCRIPT_SRC = "https://*.googletagmanager.com";
-const GA_CONNECT_SRC =
-  "https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com";
-
-const CSP = [
-  "default-src 'self'",
-  process.env.NODE_ENV === "development"
-    ? `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${GA_SCRIPT_SRC}`
-    : `script-src 'self' 'unsafe-inline' ${GA_SCRIPT_SRC}`,
-  "style-src 'self' 'unsafe-inline'",
-  // https: so images served from the R2 CDN domain load
-  "img-src 'self' data: blob: https:",
-  "font-src 'self' data:",
-  `connect-src 'self' ${GA_CONNECT_SRC}`,
-  "frame-src https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://www.tiktok.com",
-  "object-src 'none'",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-].join("; ");
+/** deploy/deploy.sh writes the release commit here; build and `next start` must agree. */
+function deploymentId() {
+  if (process.env.NEXT_DEPLOYMENT_ID) return process.env.NEXT_DEPLOYMENT_ID;
+  try {
+    return readFileSync("DEPLOYMENT_ID", "utf8").trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: CSP },
   { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
+  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+  { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
   // HSTS is ignored over plain HTTP, so it is safe to always send
-  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
+  {
+    key: "Strict-Transport-Security",
+    value:
+      "max-age=63072000; includeSubDomains" +
+      (process.env.HSTS_PRELOAD === "true" ? "; preload" : ""),
+  },
 ];
 
 const nextConfig: NextConfig = {
-  // Derived from the server-only credential so there is one switch, not two:
-  // the Google button only renders when sign-in can actually work.
+  // no framework fingerprint in every response
+  poweredByHeader: false,
+  // Version-skew protection: each release carries its commit as the deployment
+  // id, so a browser holding a page from the previous release does a full
+  // reload instead of calling Server Actions the new build no longer has.
+  deploymentId: deploymentId(),
+  // The public switch is explicit; the server credential remains a fallback
+  // for older environment files.
   env: {
-    NEXT_PUBLIC_GOOGLE_ENABLED: process.env.GOOGLE_CLIENT_ID ? "1" : "",
+    // Explicit public switch; the server credential is only a fallback for older env files.
+    NEXT_PUBLIC_GOOGLE_ENABLED:
+      process.env.NEXT_PUBLIC_GOOGLE_ENABLED ?? (process.env.GOOGLE_CLIENT_ID ? "1" : ""),
   },
   experimental: {
     // Having a proxy.ts makes Next buffer every request body so it can be read

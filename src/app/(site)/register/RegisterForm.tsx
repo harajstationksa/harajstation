@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -39,7 +41,7 @@ export function RegisterForm({
     e.preventDefault();
     setLoading(true);
     setError("");
-    const res = await fetch("/api/auth/register", {
+    const res = await clientFetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, acceptTerms }),
@@ -68,13 +70,14 @@ export function RegisterForm({
           <h1 className="font-display font-bold text-2xl">{t.pub.regVerifyTitle}</h1>
           <p className="text-sm text-neutral-600 leading-loose">
             {t.pub.regVerify1}{" "}
-            <span className="font-semibold text-neutral-900" dir="ltr">{sentTo}</span>.
+            <span className="font-semibold text-neutral-900" dir="ltr">
+              {sentTo}
+            </span>
+            .
             <br />
             {t.pub.regVerify2}
           </p>
-          <p className="text-xs text-neutral-500">
-            {t.pub.regVerifySpam}
-          </p>
+          <p className="text-xs text-neutral-500">{t.pub.regVerifySpam}</p>
           <Link href="/login" className="btn-primary w-full">
             {a.loginBtn}
           </Link>
@@ -103,8 +106,11 @@ export function RegisterForm({
 
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1.5">{a.fullName}</label>
+            <label htmlFor="register-name" className="block text-sm font-medium mb-1.5">
+              {a.fullName}
+            </label>
             <input
+              id="register-name"
               className="input"
               value={form.name}
               onChange={(e) => set("name", e.target.value)}
@@ -113,8 +119,11 @@ export function RegisterForm({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">{a.email}</label>
+            <label htmlFor="register-email" className="block text-sm font-medium mb-1.5">
+              {a.email}
+            </label>
             <input
+              id="register-email"
               className="input"
               dir="ltr"
               type="email"
@@ -125,8 +134,11 @@ export function RegisterForm({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">{a.city}</label>
+            <label htmlFor="register-city" className="block text-sm font-medium mb-1.5">
+              {a.city}
+            </label>
             <select
+              id="register-city"
               className="input"
               value={form.city}
               onChange={(e) => set("city", e.target.value)}
@@ -139,8 +151,11 @@ export function RegisterForm({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">{a.password}</label>
+            <label htmlFor="register-password" className="block text-sm font-medium mb-1.5">
+              {a.password}
+            </label>
             <input
+              id="register-password"
               className="input"
               dir="ltr"
               type="password"
@@ -152,8 +167,11 @@ export function RegisterForm({
             <p className="text-xs text-neutral-400 mt-1">{a.passwordHint}</p>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">{a.referralLabel}</label>
+            <label htmlFor="register-ref" className="block text-sm font-medium mb-1.5">
+              {a.referralLabel}
+            </label>
             <input
+              id="register-ref"
               className="input"
               dir="ltr"
               value={form.refCode}
@@ -174,16 +192,18 @@ export function RegisterForm({
             />
             <span>
               {a.termsAgree}{" "}
-              <Link href="/terms" target="_blank" className="text-primary-600 font-semibold hover:underline">
+              <Link
+                href="/terms"
+                target="_blank"
+                className="text-primary-600 font-semibold hover:underline"
+              >
                 {a.termsLink}
               </Link>{" "}
               {a.termsRest}
             </span>
           </label>
 
-          <p className="text-xs text-neutral-400 bg-neutral-50 rounded-lg p-2.5">
-            {a.phoneNote}
-          </p>
+          <p className="text-xs text-neutral-400 bg-neutral-50 rounded-lg p-2.5">{a.phoneNote}</p>
 
           {error && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">

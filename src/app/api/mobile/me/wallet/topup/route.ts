@@ -1,13 +1,9 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import {
-  createInvoice,
-  paymentsConfigured,
-  totalWithVat,
-  VAT_RATE,
-} from "@/lib/payments";
+import { createInvoice, paymentsConfigured, totalWithVat, VAT_RATE } from "@/lib/payments";
 import { validatePromo } from "@/lib/promo";
 import { isRateLimited } from "@/lib/rate-limit";
 import { getTopupConfig } from "@/lib/settings";
@@ -24,31 +20,31 @@ const schema = z.object({
  */
 export async function POST(req: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "غير مسجل" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: apiMessage(req, "غير مسجل") }, { status: 401 });
 
   // admin pause switch — same gate as the web wallet
   const topup = await getTopupConfig();
   if (!topup.enabled) {
-    return NextResponse.json({ error: topup.message }, { status: 403 });
+    return NextResponse.json({ error: apiMessage(req, topup.message) }, { status: 403 });
   }
 
   if (await isRateLimited(`buy-points:${user.id}`, 8, 10 * 60_000)) {
     return NextResponse.json(
-      { error: "محاولات كثيرة — انتظر قليلاً ثم حاول مجدداً" },
-      { status: 429 }
+      { error: apiMessage(req, "محاولات كثيرة — انتظر قليلاً ثم حاول مجدداً") },
+      { status: 429 },
     );
   }
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: "طلب غير صالح" }, { status: 400 });
+    return NextResponse.json({ error: apiMessage(req, "طلب غير صالح") }, { status: 400 });
   }
 
   const pkg = await db.pointPackage.findUnique({
     where: { id: parsed.data.packageId },
   });
   if (!pkg || !pkg.isActive) {
-    return NextResponse.json({ error: "الباقة غير متاحة" }, { status: 404 });
+    return NextResponse.json({ error: apiMessage(req, "الباقة غير متاحة") }, { status: 404 });
   }
 
   let promoId: string | null = null;
@@ -57,7 +53,7 @@ export async function POST(req: Request) {
   if (promoInput) {
     const check = await validatePromo(promoInput, user.id);
     if (!check.ok) {
-      return NextResponse.json({ error: check.error }, { status: 400 });
+      return NextResponse.json({ error: apiMessage(req, check.error) }, { status: 400 });
     }
     promoId = check.promo.id;
     promoBonus = Math.floor(((pkg.points + pkg.bonus) * check.promo.percent) / 100);
@@ -67,8 +63,8 @@ export async function POST(req: Request) {
 
   if (!paymentsConfigured()) {
     return NextResponse.json(
-      { error: "شحن النقاط متوقف مؤقتًا" },
-      { status: 503 }
+      { error: apiMessage(req, "شحن النقاط متوقف مؤقتًا") },
+      { status: 503 },
     );
   }
 
@@ -94,7 +90,10 @@ export async function POST(req: Request) {
   });
   if (!invoice) {
     await db.payment.update({ where: { id: payment.id }, data: { status: "FAILED" } });
-    return NextResponse.json({ error: "تعذر إنشاء الفاتورة — حاول لاحقاً" }, { status: 502 });
+    return NextResponse.json(
+      { error: apiMessage(req, "تعذر إنشاء الفاتورة — حاول لاحقاً") },
+      { status: 502 },
+    );
   }
 
   await db.payment.update({

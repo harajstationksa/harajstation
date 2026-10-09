@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -51,13 +53,7 @@ const SOCIAL_FIELDS: { key: SocialKey; ph: "handle" | "channel" | string }[] = [
   { key: "website", ph: "https://example.com" },
 ];
 type SocialKey =
-  | "website"
-  | "twitter"
-  | "instagram"
-  | "tiktok"
-  | "snapchat"
-  | "youtube"
-  | "whatsapp";
+  "website" | "twitter" | "instagram" | "tiktok" | "snapchat" | "youtube" | "whatsapp";
 
 /** Upload/replace/remove one store image (logo or banner) — saves instantly. */
 function StoreImageField({
@@ -89,7 +85,10 @@ function StoreImageField({
     fd.set("storeId", storeId);
     fd.set("kind", kind);
     fd.set("image", file);
-    const res = await fetch("/api/store/images", { method: "POST", body: fd });
+    const res = await clientFetch("/api/store/images", {
+      method: "POST",
+      body: fd,
+    });
     const data = await res.json().catch(() => ({}));
     setBusy(false);
     if (!res.ok) {
@@ -101,14 +100,23 @@ function StoreImageField({
 
   async function remove() {
     setBusy(true);
-    await fetch(`/api/store/images?id=${storeId}&kind=${kind}`, { method: "DELETE" });
+    const response = await clientFetch(`/api/store/images?id=${storeId}&kind=${kind}`, {
+      method: "DELETE",
+    });
     setBusy(false);
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setError(data.error ?? ds.uploadFail);
+      return;
+    }
     router.refresh();
   }
 
   return (
     <div>
-      <label className="block text-sm font-medium mb-1.5">{label}</label>
+      <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-storesmanager-1">
+        {label}
+      </label>
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -170,6 +178,7 @@ function StoreImageField({
           if (f) upload(f);
           e.target.value = "";
         }}
+        id="a11y-storesmanager-1"
       />
     </div>
   );
@@ -202,7 +211,9 @@ function PendingImageField({
 
   return (
     <div>
-      <label className="block text-sm font-medium mb-1.5">{label}</label>
+      <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-storesmanager-2">
+        {label}
+      </label>
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -263,6 +274,7 @@ function PendingImageField({
           }
           e.target.value = "";
         }}
+        id="a11y-storesmanager-2"
       />
     </div>
   );
@@ -291,7 +303,10 @@ function StoreEditor({
     whatsapp: store?.whatsapp ?? "",
   });
   // images picked while creating — uploaded right after the store exists
-  const [picked, setPicked] = useState<{ logo: File | null; banner: File | null }>({
+  const [picked, setPicked] = useState<{
+    logo: File | null;
+    banner: File | null;
+  }>({
     logo: null,
     banner: null,
   });
@@ -302,7 +317,7 @@ function StoreEditor({
     e.preventDefault();
     setLoading(true);
     setError("");
-    const res = await fetch("/api/store", {
+    const res = await clientFetch("/api/store", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -324,7 +339,17 @@ function StoreEditor({
         fd.set("storeId", data.id);
         fd.set("kind", kind);
         fd.set("image", file);
-        await fetch("/api/store/images", { method: "POST", body: fd });
+        const imageResult = await clientFetch("/api/store/images", {
+          method: "POST",
+          body: fd,
+        });
+        if (!imageResult.ok) {
+          const data = await imageResult.json().catch(() => ({}));
+          setError(data.error ?? ds.uploadFail);
+          setLoading(false);
+          router.refresh();
+          return;
+        }
       }
     }
     setLoading(false);
@@ -341,7 +366,9 @@ function StoreEditor({
         </button>
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1.5">{ds.name}</label>
+        <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-storesmanager-3">
+          {ds.name}
+        </label>
         <input
           className="input"
           value={form.name}
@@ -349,13 +376,18 @@ function StoreEditor({
           placeholder={ds.namePh}
           required
           minLength={3}
+          id="a11y-storesmanager-3"
         />
       </div>
       <div>
         <label className="block text-sm font-medium mb-1.5">{ds.slug}</label>
         <div className="flex items-center gap-2" dir="ltr">
           <span className="text-sm text-neutral-400">
-            {(process.env.NEXT_PUBLIC_SITE_URL ?? "https://harajstation.com").replace(/^https?:\/\//, "")}/store/
+            {(process.env.NEXT_PUBLIC_SITE_URL ?? "https://harajstation.com").replace(
+              /^https?:\/\//,
+              "",
+            )}
+            /store/
           </span>
           <input
             className="input flex-1"
@@ -369,13 +401,16 @@ function StoreEditor({
         <p className="text-xs text-neutral-400 mt-1">{ds.slugHint}</p>
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1.5">{ds.desc}</label>
+        <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-storesmanager-4">
+          {ds.desc}
+        </label>
         <textarea
           className="input min-h-20 py-3"
           value={form.description}
           onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
           placeholder={ds.descPh}
           maxLength={500}
+          id="a11y-storesmanager-4"
         />
       </div>
 
@@ -385,19 +420,29 @@ function StoreEditor({
           <Share2 className="size-4 text-primary-500" />
           {ds.socialTitle}
         </p>
-        <p className="text-xs text-neutral-400 mb-3">
-          {ds.socialHint}
-        </p>
+        <p className="text-xs text-neutral-400 mb-3">{ds.socialHint}</p>
         <div className="grid sm:grid-cols-2 gap-3">
           {SOCIAL_FIELDS.map(({ key, ph }) => (
             <div key={key}>
-              <label className="block text-xs font-medium mb-1 text-neutral-600">{ds.socials[key]}</label>
+              <label
+                className="block text-xs font-medium mb-1 text-neutral-600"
+                htmlFor="a11y-storesmanager-5"
+              >
+                {ds.socials[key]}
+              </label>
               <input
                 className="input !text-sm"
                 dir="ltr"
                 value={form[key]}
                 onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-                placeholder={ph === "handle" ? ds.socials.handlePh : ph === "channel" ? ds.socials.channelPh : ph}
+                placeholder={
+                  ph === "handle"
+                    ? ds.socials.handlePh
+                    : ph === "channel"
+                      ? ds.socials.channelPh
+                      : ph
+                }
+                id="a11y-storesmanager-5"
               />
             </div>
           ))}
@@ -451,7 +496,9 @@ function StoreEditor({
         />
       )}
       {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
+        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+          {error}
+        </p>
       )}
       <button className="btn-primary" disabled={loading}>
         {loading ? <Loader2 className="size-4 animate-spin" /> : <Store className="size-4" />}
@@ -461,13 +508,7 @@ function StoreEditor({
   );
 }
 
-export function StoresManager({
-  stores,
-  maxStores,
-}: {
-  stores: StoreT[];
-  maxStores: number;
-}) {
+export function StoresManager({ stores, maxStores }: { stores: StoreT[]; maxStores: number }) {
   const router = useRouter();
   const { t } = useLang();
   const ds = t.dash.stores;
@@ -476,7 +517,14 @@ export function StoresManager({
 
   async function remove(id: string) {
     if (!window.confirm(ds.delConfirm)) return;
-    await fetch(`/api/store?id=${id}`, { method: "DELETE" });
+    const response = await clientFetch(`/api/store?id=${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      window.alert(data.error);
+      return;
+    }
     router.refresh();
   }
 
@@ -484,9 +532,7 @@ export function StoresManager({
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-neutral-500">
-        {ds.quota(stores.length, maxStores)}
-      </p>
+      <p className="text-sm text-neutral-500">{ds.quota(stores.length, maxStores)}</p>
 
       {stores.map((s) =>
         editing === s.id ? (
@@ -510,7 +556,10 @@ export function StoresManager({
                 <p className="font-semibold text-sm line-clamp-1 flex items-center gap-1.5">
                   {s.name}
                   {s.isVerified && (
-                    <BadgeCheck className="size-4 text-green-600 shrink-0" aria-label={ds.verifiedBadge} />
+                    <BadgeCheck
+                      className="size-4 text-green-600 shrink-0"
+                      aria-label={ds.verifiedBadge}
+                    />
                   )}
                 </p>
                 <p className="text-xs text-neutral-400 flex items-center gap-2">
@@ -523,20 +572,29 @@ export function StoresManager({
               </div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              <Link href={`/store/${s.slug}`} className="badge bg-neutral-100 text-neutral-700 hover:bg-neutral-200">
+              <Link
+                href={`/store/${s.slug}`}
+                className="badge bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+              >
                 <ExternalLink className="size-3.5" />
                 {ds.view}
               </Link>
-              <button onClick={() => setEditing(s.id)} className="badge bg-neutral-100 text-neutral-700 hover:bg-neutral-200 cursor-pointer">
+              <button
+                onClick={() => setEditing(s.id)}
+                className="badge bg-neutral-100 text-neutral-700 hover:bg-neutral-200 cursor-pointer"
+              >
                 <Pencil className="size-3.5" />
                 {ds.edit}
               </button>
-              <button onClick={() => remove(s.id)} className="badge bg-red-50 text-red-600 hover:bg-red-100 cursor-pointer">
+              <button
+                onClick={() => remove(s.id)}
+                className="badge bg-red-50 text-red-600 hover:bg-red-100 cursor-pointer"
+              >
                 <Trash2 className="size-3.5" />
               </button>
             </div>
           </div>
-        )
+        ),
       )}
 
       {creating ? (
@@ -552,7 +610,9 @@ export function StoresManager({
       ) : (
         <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800 flex items-center justify-between gap-2">
           <span>{ds.maxReached}</span>
-          <Link href="/pro" className="font-semibold hover:underline shrink-0">{ds.goPro}</Link>
+          <Link href="/pro" className="font-semibold hover:underline shrink-0">
+            {ds.goPro}
+          </Link>
         </div>
       )}
     </div>

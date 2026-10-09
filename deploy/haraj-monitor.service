@@ -1,0 +1,14 @@
+[Unit]
+Description=Haraj private operational monitoring
+After=network-online.target
+[Service]
+Type=oneshot
+User=haraj
+Group=haraj
+WorkingDirectory=/var/www/harajstation-releases/current
+ExecStart=/usr/bin/node --env-file=/var/www/harajstation/.env deploy/monitor.mjs
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/harajstation
+PrivateTmp=true
+TimeoutStartSec=55

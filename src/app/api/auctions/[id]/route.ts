@@ -1,17 +1,16 @@
+import { apiMessage } from "@/lib/api-messages";
+import { publicListingWhere } from "@/lib/listing-policy";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 
-export async function GET(
-  _req: Request,
-  ctx: { params: Promise<{ id: string }> }
-) {
+export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
 
   const [session, auction, bidCount] = await Promise.all([
     getSession(),
     db.auction.findUnique({
-      where: { id },
+      where: { id, listing: publicListingWhere },
       include: {
         bids: {
           orderBy: { amount: "desc" },
@@ -40,7 +39,7 @@ export async function GET(
     : null;
 
   if (!auction) {
-    return NextResponse.json({ error: "المزاد غير موجود" }, { status: 404 });
+    return NextResponse.json({ error: apiMessage(_req, "المزاد غير موجود") }, { status: 404 });
   }
 
   const top = auction.bids[0];
@@ -51,9 +50,7 @@ export async function GET(
   // everyone else (including other bidders) only ever sees masked names
   const revealTo = (bid: { anonymous: boolean }) => isSeller && !bid.anonymous;
 
-  const myLastBid = session
-    ? auction.bids.find((b) => b.bidderId === session.sub)
-    : null;
+  const myLastBid = session ? auction.bids.find((b) => b.bidderId === session.sub) : null;
 
   return NextResponse.json({
     status: auction.status,

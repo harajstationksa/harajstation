@@ -5,12 +5,16 @@ import { expandQuery } from "./search-smart";
 export type SP = Record<string, string | string[] | undefined>;
 
 export const str = (v: string | string[] | undefined) =>
-  typeof v === "string" && v.length > 0 ? v : undefined;
+  typeof v === "string" && v.length > 0 ? v.slice(0, 200) : undefined;
 
 export function buildListingWhere(sp: SP): Prisma.ListingWhereInput {
   const q = str(sp.q);
-  const min = Number(str(sp.min)) || undefined;
-  const max = Number(str(sp.max)) || undefined;
+  const price = (v: unknown) => {
+    const n = Number(v);
+    return Number.isSafeInteger(n) && n > 0 && n <= 2_000_000_000 ? n : undefined;
+  };
+  const min = price(str(sp.min));
+  const max = price(str(sp.max));
   const category = str(sp.category);
   // smart search: each term expands to its synonym group ("ايفون" ⇄ "iphone"),
   // every group must match somewhere in the normalized index or title
@@ -19,6 +23,8 @@ export function buildListingWhere(sp: SP): Prisma.ListingWhereInput {
   // several filters below need their own OR — collecting them in one AND list
   // keeps them from clobbering each other on the same object key
   const and: Prisma.ListingWhereInput[] = [];
+  if (str(sp.featured))
+    and.push({ OR: [{ featuredUntil: null }, { featuredUntil: { gt: new Date() } }] });
   if (groups.length > 0) {
     and.push(
       ...groups.map((group) => ({
@@ -27,7 +33,7 @@ export function buildListingWhere(sp: SP): Prisma.ListingWhereInput {
           // titles are raw user text — "IPhone 15" must match "iphone"
           { title: { contains: t, mode: "insensitive" as const } },
         ]),
-      }))
+      })),
     );
   }
   // An auction has no `price` — its money lives on the auction row. Comparing
@@ -35,10 +41,7 @@ export function buildListingWhere(sp: SP): Prisma.ListingWhereInput {
   // used to make every auction vanish from the results. Match either side.
   if (min || max) {
     and.push({
-      OR: [
-        { price: { gte: min, lte: max } },
-        { auction: { startPrice: { gte: min, lte: max } } },
-      ],
+      OR: [{ price: { gte: min, lte: max } }, { auction: { startPrice: { gte: min, lte: max } } }],
     });
   }
   // «بائع موثّق»: identity-verified seller or a verified store
@@ -50,9 +53,8 @@ export function buildListingWhere(sp: SP): Prisma.ListingWhereInput {
 
   return {
     status: "ACTIVE",
-    ...(groups.length === 0 && q
-      ? { searchText: { contains: normalizeArabic(q) } }
-      : {}),
+    seller: { isBanned: false },
+    ...(groups.length === 0 && q ? { searchText: { contains: normalizeArabic(q) } } : {}),
     ...(str(sp.city) ? { city: str(sp.city) } : {}),
     ...(str(sp.condition) ? { condition: str(sp.condition) } : {}),
     ...(str(sp.type) ? { type: str(sp.type) } : {}),
@@ -68,9 +70,7 @@ export function buildListingWhere(sp: SP): Prisma.ListingWhereInput {
   };
 }
 
-export function listingOrderBy(
-  sort: string | undefined
-): Prisma.ListingOrderByWithRelationInput {
+export function listingOrderBy(sort: string | undefined): Prisma.ListingOrderByWithRelationInput {
   switch (sort) {
     // priceless rows (auctions, «على السوم» announcements) sort to the end
     // either way — descending would otherwise lead with a wall of NULLs
@@ -101,7 +101,7 @@ export function scoreListing(
     createdAt: Date;
   },
   q: string,
-  userCity?: string
+  userCity?: string,
 ): number {
   const groups = expandQuery(q);
   const title = normalizeArabic(listing.title);

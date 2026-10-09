@@ -1,3 +1,4 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -20,28 +21,28 @@ export async function POST(req: Request) {
   if (limited) return limited;
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json({ error: "سجّل دخولك أولاً" }, { status: 401 });
+    return NextResponse.json({ error: apiMessage(req, "سجّل دخولك أولاً") }, { status: 401 });
   }
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: "بيانات غير صالحة" }, { status: 400 });
+    return NextResponse.json({ error: apiMessage(req, "بيانات غير صالحة") }, { status: 400 });
   }
   const data = parsed.data;
 
   if (!data.query && !data.category && !data.city && !data.type) {
     return NextResponse.json(
-      { error: "حدد كلمة بحث أو فلتراً واحداً على الأقل" },
-      { status: 400 }
+      { error: apiMessage(req, "حدد كلمة بحث أو فلتراً واحداً على الأقل") },
+      { status: 400 },
     );
   }
   if (data.city && !(CITIES as readonly string[]).includes(data.city)) {
-    return NextResponse.json({ error: "مدينة غير معروفة" }, { status: 400 });
+    return NextResponse.json({ error: apiMessage(req, "مدينة غير معروفة") }, { status: 400 });
   }
   if (data.category) {
     const cat = await db.category.findUnique({ where: { slug: data.category } });
     if (!cat) {
-      return NextResponse.json({ error: "فئة غير معروفة" }, { status: 400 });
+      return NextResponse.json({ error: apiMessage(req, "فئة غير معروفة") }, { status: 400 });
     }
   }
 
@@ -56,8 +57,13 @@ export async function POST(req: Request) {
   const count = await db.savedSearch.count({ where: { userId: user.id } });
   if (count >= MAX_SAVED_SEARCHES) {
     return NextResponse.json(
-      { error: `الحد الأقصى ${MAX_SAVED_SEARCHES} بحثاً محفوظاً — احذف بعض التنبيهات القديمة` },
-      { status: 403 }
+      {
+        error: apiMessage(
+          req,
+          `الحد الأقصى ${MAX_SAVED_SEARCHES} بحثاً محفوظاً — احذف بعض التنبيهات القديمة`,
+        ),
+      },
+      { status: 403 },
     );
   }
 

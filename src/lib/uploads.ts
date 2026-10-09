@@ -1,12 +1,12 @@
+import { privateR2Configured, storePrivateR2, deletePrivateR2 } from "./private-r2";
+import { db } from "@/lib/db";
+import { createImagePreview } from "@/lib/image-preview";
 import { chmod, mkdir, unlink, writeFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
-import {
-  DeleteObjectsCommand,
-  PutObjectCommand,
-  S3Client,
-} from "@aws-sdk/client-s3";
+import { SAFE_IMAGE_OPTIONS, withImageSlot } from "./image-safety";
+import { DeleteObjectsCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 export const MAX_FILE = 5 * 1024 * 1024; // 5MB
 
@@ -36,6 +36,7 @@ function r2Client(): S3Client {
 
 /** Store a processed WebP under `key` and return its public URL. */
 async function storePublicImage(webp: Buffer, key: string): Promise<string> {
+  let url: string;
   if (r2Configured()) {
     await r2Client().send(
       new PutObjectCommand({
@@ -45,14 +46,26 @@ async function storePublicImage(webp: Buffer, key: string): Promise<string> {
         ContentType: "image/webp",
         // uploads are immutable (uuid names) — let the CDN cache forever
         CacheControl: "public, max-age=31536000, immutable",
-      })
+      }),
     );
-    return `${process.env.R2_PUBLIC_URL!.replace(/\/$/, "")}/${key}`;
+    url = `${process.env.R2_PUBLIC_URL!.replace(/\/$/, "")}/${key}`;
+  } else {
+    const full = join(process.cwd(), "public", "uploads", key);
+    await mkdir(join(full, ".."), { recursive: true });
+    await writeFile(full, webp);
+    url = `/uploads/${key}`;
   }
-  const full = join(process.cwd(), "public", "uploads", key);
-  await mkdir(join(full, ".."), { recursive: true });
-  await writeFile(full, webp);
-  return `/uploads/${key}`;
+  try {
+    const preview = await createImagePreview(webp);
+    await db.imagePlaceholder.upsert({
+      where: { url },
+      create: { url, ...preview },
+      update: preview,
+    });
+  } catch {
+    console.warn("Image preview generation failed; original upload preserved");
+  }
+  return url;
 }
 export const ALLOWED_IMAGE = new Map([
   ["image/jpeg", "jpg"],
@@ -60,17 +73,12 @@ export const ALLOWED_IMAGE = new Map([
   ["image/webp", "webp"],
 ]);
 
-export type UploadResult =
-  | { ok: true; urls: string[] }
-  | { ok: false; error: string };
+export type UploadResult = { ok: true; urls: string[] } | { ok: false; error: string };
 
 /** Real content check — the declared MIME type is attacker-controlled. */
 function sniffImage(buf: Buffer): "jpg" | "png" | "webp" | null {
   if (buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "jpg";
-  if (
-    buf.length > 8 &&
-    buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47
-  ) {
+  if (buf.length > 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
     return "png";
   }
   if (
@@ -94,23 +102,32 @@ export async function saveImages(files: File[], subdir = ""): Promise<UploadResu
   if (files.length === 0) return { ok: true, urls };
   for (const file of files) {
     if (!ALLOWED_IMAGE.has(file.type)) {
-      return { ok: false, error: "صيغة صورة غير مدعومة — استخدم JPG أو PNG أو WebP" };
+      await deleteImages(urls);
+      return {
+        ok: false,
+        error: "صيغة صورة غير مدعومة — استخدم JPG أو PNG أو WebP",
+      };
     }
     if (file.size > MAX_FILE) {
+      await deleteImages(urls);
       return { ok: false, error: "حجم الصورة يتجاوز 5 ميجابايت" };
     }
     const buf = Buffer.from(await file.arrayBuffer());
     if (!sniffImage(buf)) {
+      await deleteImages(urls);
       return { ok: false, error: "الملف ليس صورة صالحة" };
     }
     let webp: Buffer;
     try {
-      webp = await sharp(buf)
-        .rotate() // apply EXIF orientation before it is stripped
-        .resize(1600, 1600, { fit: "inside", withoutEnlargement: true })
-        .webp({ quality: 82 })
-        .toBuffer();
+      webp = await withImageSlot(() =>
+        sharp(buf, SAFE_IMAGE_OPTIONS)
+          .rotate() // apply EXIF orientation before it is stripped
+          .resize(1600, 1600, { fit: "inside", withoutEnlargement: true })
+          .webp({ quality: 82 })
+          .toBuffer(),
+      );
     } catch {
+      await deleteImages(urls);
       return { ok: false, error: "تعذّرت معالجة الصورة — جرّب صورة أخرى" };
     }
     const name = `${randomUUID()}.webp`;
@@ -119,6 +136,7 @@ export async function saveImages(files: File[], subdir = ""): Promise<UploadResu
       urls.push(await storePublicImage(webp, key));
     } catch (e) {
       console.error("image store failed:", e);
+      await deleteImages(urls);
       return { ok: false, error: "تعذّر حفظ الصورة — حاول مجدداً" };
     }
   }
@@ -131,7 +149,7 @@ export async function saveImages(files: File[], subdir = ""): Promise<UploadResu
  * Placeholder images under /images/ are skipped; failures are logged only
  * (the DB delete must never be blocked by storage hiccups).
  */
-export async function deleteImages(urls: string[]): Promise<void> {
+export async function deleteImages(urls: string[], strict = false): Promise<void> {
   const publicBase = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
   const r2Keys: string[] = [];
 
@@ -143,7 +161,8 @@ export async function deleteImages(urls: string[]): Promise<void> {
       // local dev storage
       try {
         await unlink(join(process.cwd(), "public", url));
-      } catch {
+      } catch (error) {
+        if (strict && (error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         /* already gone */
       }
     }
@@ -156,10 +175,11 @@ export async function deleteImages(urls: string[]): Promise<void> {
       new DeleteObjectsCommand({
         Bucket: process.env.R2_BUCKET,
         Delete: { Objects: r2Keys.map((Key) => ({ Key })), Quiet: true },
-      })
+      }),
     );
   } catch (e) {
-    console.error("R2 delete failed:", e);
+    console.error("R2 delete failed");
+    if (strict) throw e;
   }
 }
 
@@ -177,6 +197,12 @@ export function privateUploadPath(relativePath: string): string | null {
 
 export async function deletePrivateImage(relativePath: string | null | undefined) {
   if (!relativePath) return;
+  if (relativePath.startsWith("r2:")) {
+    await deletePrivateR2(relativePath).catch(() => {
+      console.error("private_image_delete_failed");
+    });
+    return;
+  }
   const full = privateUploadPath(relativePath);
   if (!full) return;
   await unlink(full).catch(() => {});
@@ -189,10 +215,13 @@ export async function deletePrivateImage(relativePath: string | null | undefined
  */
 export async function savePrivateImage(
   file: File,
-  subdir: string
+  subdir: string,
 ): Promise<{ ok: true; path: string } | { ok: false; error: string }> {
   if (!ALLOWED_IMAGE.has(file.type)) {
-    return { ok: false, error: "صيغة صورة غير مدعومة — استخدم JPG أو PNG أو WebP" };
+    return {
+      ok: false,
+      error: "صيغة صورة غير مدعومة — استخدم JPG أو PNG أو WebP",
+    };
   }
   if (file.size > MAX_FILE) {
     return { ok: false, error: "حجم الصورة يتجاوز 5 ميجابايت" };
@@ -203,18 +232,27 @@ export async function savePrivateImage(
   }
   let webp: Buffer;
   try {
-    webp = await sharp(buf)
-      .rotate()
-      .resize(2000, 2000, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 88 })
-      .toBuffer();
+    webp = await withImageSlot(() =>
+      sharp(buf, SAFE_IMAGE_OPTIONS)
+        .rotate()
+        .resize(2000, 2000, { fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 88 })
+        .toBuffer(),
+    );
   } catch {
     return { ok: false, error: "تعذّرت معالجة الصورة — جرّب صورة أخرى" };
+  }
+  const name = `${randomUUID()}.webp`;
+  if (privateR2Configured()) {
+    try {
+      return { ok: true, path: await storePrivateR2(webp, `${subdir}/${name}`) };
+    } catch {
+      return { ok: false, error: "تعذّر حفظ الصورة — حاول مجدداً" };
+    }
   }
   const dir = join(privateUploadsRoot(), subdir);
   await mkdir(dir, { recursive: true, mode: 0o700 });
   await chmod(dir, 0o700).catch(() => {});
-  const name = `${randomUUID()}.webp`;
   await writeFile(join(dir, name), webp, { mode: 0o600 });
   return { ok: true, path: `${subdir}/${name}` };
 }

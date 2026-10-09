@@ -1,4 +1,6 @@
-import { BadgePercent, Gift, Plus, Trash2, UserPlus } from "lucide-react";
+import { AdminPageHeader } from "@/components/AdminPageHeader";
+import { AdminActionForm } from "@/components/AdminActionForm";
+import { Gift, Plus, Trash2, UserPlus } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireStaff } from "@/lib/auth";
 import { allSettings } from "@/lib/settings";
@@ -15,7 +17,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "الإحالة وأكواد الخصم" };
 
 export default async function AdminPromosPage() {
-  await requireStaff(["ADMIN"]);
+  await requireStaff(["ADMIN"], "promos.manage");
   const [settings, promos, referredCount, paidAgg, topReferrers] = await Promise.all([
     allSettings(),
     db.promoCode.findMany({ orderBy: { createdAt: "desc" } }),
@@ -41,13 +43,10 @@ export default async function AdminPromosPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="section-title flex items-center gap-2">
-        <BadgePercent className="size-6 text-primary-500" />
-        الإحالة وأكواد الخصم
-      </h1>
+      <AdminPageHeader section="promos">الإحالة وأكواد الخصم</AdminPageHeader>
 
       {/* ── referral program ── */}
-      <form action={saveReferralSettingsAction} className="card p-5 space-y-4">
+      <AdminActionForm action={saveReferralSettingsAction} className="card p-5 space-y-4">
         <h2 className="font-bold flex items-center gap-2">
           <UserPlus className="size-5 text-neutral-500" />
           برنامج الإحالة
@@ -63,28 +62,35 @@ export default async function AdminPromosPage() {
             تفعيل برنامج الإحالة
           </label>
           <div>
-            <label className="block text-sm font-medium mb-1.5">نسبة العمولة (%)</label>
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-1">
+              نسبة العمولة (%)
+            </label>
             <input
               name="percent"
               className="input w-28"
               dir="ltr"
               inputMode="numeric"
               defaultValue={settings.REFERRAL_PERCENT}
+              id="a11y-page-1"
             />
           </div>
           <button className="btn-primary mb-0.5">حفظ</button>
         </div>
         <p className="text-xs text-neutral-400">
-          عند كل عملية شحن نقاط يقوم بها مستخدم مسجَّل عبر كود إحالة، يحصل صاحب الكود تلقائياً
-          على هذه النسبة من نقاط الشحنة (بدون بونص أكواد الخصم). التغيير يسري فوراً على الشحنات الجديدة.
+          عند كل عملية شحن نقاط يقوم بها مستخدم مسجَّل عبر كود إحالة، يحصل صاحب الكود تلقائياً على
+          هذه النسبة من نقاط الشحنة (بدون بونص أكواد الخصم). التغيير يسري فوراً على الشحنات الجديدة.
         </p>
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-neutral-50 p-3 text-center">
-            <p className="font-display font-extrabold text-2xl">{referredCount.toLocaleString("en-US")}</p>
+            <p className="font-display font-extrabold text-2xl">
+              {referredCount.toLocaleString("en-US")}
+            </p>
             <p className="text-xs text-neutral-500 mt-0.5">مستخدم سجّل عبر إحالة</p>
           </div>
           <div className="rounded-xl bg-neutral-50 p-3 text-center">
-            <p className="font-display font-extrabold text-2xl">{totalPaid.toLocaleString("en-US")}</p>
+            <p className="font-display font-extrabold text-2xl">
+              {totalPaid.toLocaleString("en-US")}
+            </p>
             <p className="text-xs text-neutral-500 mt-0.5">نقطة مكافآت مدفوعة</p>
           </div>
         </div>
@@ -98,10 +104,15 @@ export default async function AdminPromosPage() {
                   <li key={r.referrerId} className="py-2 flex items-center justify-between gap-3">
                     <span className="min-w-0">
                       <span className="font-medium">{u?.name ?? "مستخدم محذوف"}</span>{" "}
-                      <span className="text-xs text-neutral-400" dir="ltr">{u?.email}</span>
+                      <span className="text-xs text-neutral-400" dir="ltr">
+                        {u?.email}
+                      </span>
                     </span>
                     <span className="shrink-0 text-xs text-neutral-500">
-                      {r._count} عملية — <span className="text-success font-bold">+{(r._sum.points ?? 0).toLocaleString("en-US")}</span>
+                      {r._count} عملية —{" "}
+                      <span className="text-success font-bold">
+                        +{(r._sum.points ?? 0).toLocaleString("en-US")}
+                      </span>
                     </span>
                   </li>
                 );
@@ -109,7 +120,7 @@ export default async function AdminPromosPage() {
             </ul>
           </div>
         )}
-      </form>
+      </AdminActionForm>
 
       {/* ── promo codes ── */}
       <div>
@@ -119,65 +130,135 @@ export default async function AdminPromosPage() {
         </h2>
 
         {/* create */}
-        <form action={createPromoCodeAction} className="card p-4 mb-3 flex items-end gap-3 flex-wrap border-dashed">
+        <AdminActionForm
+          action={createPromoCodeAction}
+          className="card p-4 mb-3 flex items-end gap-3 flex-wrap border-dashed"
+        >
           <div>
-            <label className="block text-xs text-neutral-500 mb-1">الكود</label>
-            <input name="code" className="input w-36" dir="ltr" placeholder="RAMADAN30" maxLength={30} required />
+            <label className="block text-xs text-neutral-500 mb-1" htmlFor="a11y-page-2">
+              الكود
+            </label>
+            <input
+              name="code"
+              className="input w-36"
+              dir="ltr"
+              placeholder="RAMADAN30"
+              maxLength={30}
+              required
+              id="a11y-page-2"
+            />
           </div>
           <div>
-            <label className="block text-xs text-neutral-500 mb-1">نسبة البونص (%)</label>
-            <input name="percent" className="input w-28" dir="ltr" inputMode="numeric" placeholder="20" required />
+            <label className="block text-xs text-neutral-500 mb-1" htmlFor="a11y-page-3">
+              نسبة البونص (%)
+            </label>
+            <input
+              name="percent"
+              className="input w-28"
+              dir="ltr"
+              inputMode="numeric"
+              placeholder="20"
+              required
+              id="a11y-page-3"
+            />
           </div>
           <div>
-            <label className="block text-xs text-neutral-500 mb-1">حد الاستخدام (0 = بلا حد)</label>
-            <input name="maxUses" className="input w-32" dir="ltr" inputMode="numeric" defaultValue="0" />
+            <label className="block text-xs text-neutral-500 mb-1" htmlFor="a11y-page-4">
+              حد الاستخدام (0 = بلا حد)
+            </label>
+            <input
+              name="maxUses"
+              className="input w-32"
+              dir="ltr"
+              inputMode="numeric"
+              defaultValue="0"
+              id="a11y-page-4"
+            />
           </div>
           <div>
-            <label className="block text-xs text-neutral-500 mb-1">تاريخ الانتهاء (اختياري)</label>
-            <input name="expiresAt" type="date" className="input w-40" dir="ltr" />
+            <label className="block text-xs text-neutral-500 mb-1" htmlFor="a11y-page-5">
+              تاريخ الانتهاء (اختياري)
+            </label>
+            <input name="expiresAt" type="date" className="input w-40" dir="ltr" id="a11y-page-5" />
           </div>
           <label className="flex items-center gap-1.5 text-sm mb-2.5">
-            <input type="checkbox" name="oncePerUser" defaultChecked className="size-4 accent-primary-500" />
+            <input
+              type="checkbox"
+              name="oncePerUser"
+              defaultChecked
+              className="size-4 accent-primary-500"
+            />
             مرة لكل مستخدم
           </label>
           <button className="btn-secondary mb-0.5">
             <Plus className="size-4" />
             إنشاء الكود
           </button>
-        </form>
+        </AdminActionForm>
 
         {/* list */}
         {promos.length === 0 ? (
-          <p className="card p-6 text-sm text-neutral-400 text-center">لا توجد أكواد بعد — أنشئ أول كود من الأعلى</p>
+          <p className="card p-6 text-sm text-neutral-400 text-center">
+            لا توجد أكواد بعد — أنشئ أول كود من الأعلى
+          </p>
         ) : (
-          <div className="card overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-right text-xs text-neutral-500 border-b border-neutral-100">
-                  <th className="px-4 py-3 font-medium">الكود</th>
-                  <th className="px-4 py-3 font-medium">البونص</th>
-                  <th className="px-4 py-3 font-medium">الاستخدام</th>
-                  <th className="px-4 py-3 font-medium">الانتهاء</th>
-                  <th className="px-4 py-3 font-medium">الحالة</th>
-                  <th className="px-4 py-3 font-medium"></th>
+          <div className="admin-table-wrap card overflow-x-auto">
+            <table role="table" className="admin-responsive-table w-full text-sm">
+              <thead role="rowgroup">
+                <tr
+                  role="row"
+                  className="text-right text-xs text-neutral-500 border-b border-neutral-100"
+                >
+                  <th role="columnheader" scope="col" className="px-4 py-3 font-medium">
+                    الكود
+                  </th>
+                  <th role="columnheader" scope="col" className="px-4 py-3 font-medium">
+                    البونص
+                  </th>
+                  <th role="columnheader" scope="col" className="px-4 py-3 font-medium">
+                    الاستخدام
+                  </th>
+                  <th role="columnheader" scope="col" className="px-4 py-3 font-medium">
+                    الانتهاء
+                  </th>
+                  <th role="columnheader" scope="col" className="px-4 py-3 font-medium">
+                    الحالة
+                  </th>
+                  <th role="columnheader" scope="col" className="px-4 py-3 font-medium"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-neutral-50">
+              <tbody role="rowgroup" className="divide-y divide-neutral-50">
                 {promos.map((p) => {
                   const expired = p.expiresAt && p.expiresAt < new Date();
                   const exhausted = p.maxUses > 0 && p.usedCount >= p.maxUses;
                   return (
-                    <tr key={p.id}>
-                      <td className="px-4 py-3 font-mono font-bold" dir="ltr">{p.code}</td>
-                      <td className="px-4 py-3">{p.percent}%</td>
-                      <td className="px-4 py-3" dir="ltr">
-                        {p.usedCount} / {p.maxUses || "∞"}
-                        {p.oncePerUser && <span className="text-xs text-neutral-400"> (مرة/مستخدم)</span>}
+                    <tr role="row" key={p.id}>
+                      <td
+                        role="cell"
+                        data-label="الكود"
+                        data-card-header="true"
+                        className="px-4 py-3 font-mono font-bold"
+                        dir="ltr"
+                      >
+                        {p.code}
                       </td>
-                      <td className="px-4 py-3 text-xs text-neutral-500">
+                      <td role="cell" data-label="البونص" className="px-4 py-3">
+                        {p.percent}%
+                      </td>
+                      <td role="cell" data-label="الاستخدام" className="px-4 py-3" dir="ltr">
+                        {p.usedCount} / {p.maxUses || "∞"}
+                        {p.oncePerUser && (
+                          <span className="text-xs text-neutral-400"> (مرة/مستخدم)</span>
+                        )}
+                      </td>
+                      <td
+                        role="cell"
+                        data-label="الانتهاء"
+                        className="px-4 py-3 text-xs text-neutral-500"
+                      >
                         {p.expiresAt ? p.expiresAt.toLocaleDateString("ar-SA") : "—"}
                       </td>
-                      <td className="px-4 py-3">
+                      <td role="cell" data-label="الحالة" className="px-4 py-3">
                         {!p.isActive ? (
                           <span className="badge bg-neutral-100 text-neutral-500">معطل</span>
                         ) : expired ? (
@@ -188,15 +269,20 @@ export default async function AdminPromosPage() {
                           <span className="badge bg-green-50 text-green-700">نشط</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td
+                        role="cell"
+                        data-label="الإجراءات"
+                        data-card-actions="true"
+                        className="px-4 py-3"
+                      >
                         <div className="flex items-center gap-2 justify-end">
-                          <form action={togglePromoCodeAction}>
+                          <AdminActionForm action={togglePromoCodeAction}>
                             <input type="hidden" name="promoId" value={p.id} />
                             <ConfirmSubmit className="badge bg-neutral-100 text-neutral-600 hover:bg-neutral-200">
                               {p.isActive ? "تعطيل" : "تفعيل"}
                             </ConfirmSubmit>
-                          </form>
-                          <form action={deletePromoCodeAction}>
+                          </AdminActionForm>
+                          <AdminActionForm action={deletePromoCodeAction}>
                             <input type="hidden" name="promoId" value={p.id} />
                             <ConfirmSubmit
                               confirm={`حذف الكود ${p.code}؟ سيُحذف سجل استخداماته أيضاً.`}
@@ -204,7 +290,7 @@ export default async function AdminPromosPage() {
                             >
                               <Trash2 className="size-3.5" />
                             </ConfirmSubmit>
-                          </form>
+                          </AdminActionForm>
                         </div>
                       </td>
                     </tr>

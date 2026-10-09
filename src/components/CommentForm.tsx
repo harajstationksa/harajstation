@@ -1,18 +1,14 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2, Send } from "lucide-react";
 import { useLang } from "./LangProvider";
 
-export function CommentForm({
-  listingId,
-  loggedIn,
-}: {
-  listingId: string;
-  loggedIn: boolean;
-}) {
+export function CommentForm({ listingId, loggedIn }: { listingId: string; loggedIn: boolean }) {
   const router = useRouter();
   const [body, setBody] = useState("");
   const [error, setError] = useState("");
@@ -34,7 +30,7 @@ export function CommentForm({
     e.preventDefault();
     setLoading(true);
     setError("");
-    const res = await fetch(`/api/listings/${listingId}/comments`, {
+    const res = await clientFetch(`/api/listings/${listingId}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ body }),
@@ -62,7 +58,11 @@ export function CommentForm({
           required
         />
         <button className="btn-primary px-4 shrink-0" disabled={loading || !body.trim()}>
-          {loading ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4 -scale-x-100" />}
+          {loading ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Send className="size-4 -scale-x-100" />
+          )}
         </button>
       </div>
       {error && <p className="text-xs text-red-600">{error}</p>}

@@ -32,7 +32,7 @@ function recencyWeight(at: Date, now: number): number {
 
 export async function targetAudience(
   listing: { id: string; categoryId: string; city: string; sellerId: string },
-  limit: number
+  limit: number,
 ): Promise<{ userId: string; score: number }[]> {
   const now = Date.now();
 
@@ -98,7 +98,7 @@ export async function targetAudience(
 
   // fetch candidate users, filter out owner / banned / staff / fatigued
   const candidateIds = [...score.keys()].filter(
-    (id) => id !== listing.sellerId && !fatigued.has(id)
+    (id) => id !== listing.sellerId && !fatigued.has(id),
   );
   const users = await db.user.findMany({
     where: { id: { in: candidateIds }, isBanned: false, role: "USER" },
@@ -131,9 +131,7 @@ export async function targetAudience(
       take: limit - ranked.length,
       select: { id: true, city: true },
     });
-    fillers.forEach((f) =>
-      ranked.push({ userId: f.id, score: f.city === listing.city ? 1 : 0.5 })
-    );
+    fillers.forEach((f) => ranked.push({ userId: f.id, score: f.city === listing.city ? 1 : 0.5 }));
   }
 
   return ranked.slice(0, limit);

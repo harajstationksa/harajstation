@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2, Trash2 } from "lucide-react";
@@ -13,7 +15,15 @@ export function DeleteSavedSearch({ id }: { id: string }) {
   async function remove() {
     if (!confirm(t.dash.savedSearch.delConfirm)) return;
     setLoading(true);
-    await fetch(`/api/saved-searches/${id}`, { method: "DELETE" });
+    const response = await clientFetch(`/api/saved-searches/${id}`, {
+      method: "DELETE",
+    });
+    setLoading(false);
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      window.alert(data.error);
+      return;
+    }
     router.refresh();
   }
 

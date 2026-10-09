@@ -3,9 +3,14 @@
 # The age recipient is public. Keep its private key off the server as well.
 # Optional BACKUP_REMOTE is an rclone destination for recurring off-site copies.
 set -euo pipefail
+umask 077
 
 APP_DIR=/var/www/harajstation
 OUT_DIR=/var/backups/harajstation
+mkdir -p -m 700 "$OUT_DIR"
+cd "$APP_DIR"
+exec 9>"$OUT_DIR/.backup.lock"
+flock -n 9 || exit 0
 PG_DUMP=$(command -v pg_dump)
 
 read_env() { sed -n "s/^$1=[\"']\{0,1\}\([^\"']*\)[\"']\{0,1\}$/\1/p" "$APP_DIR/.env" | tail -n 1; }
@@ -25,8 +30,13 @@ mkdir -p -m 700 "$OUT_DIR"
 if [ -d "$APP_DIR/private-uploads" ]; then
   tar -C "$APP_DIR" -czf "$work/private-uploads.tar.gz" private-uploads
 fi
-printf 'created_utc=%s\napp_commit=%s\n' "$stamp" "$(git -C "$APP_DIR" rev-parse HEAD)" > "$work/manifest.txt"
-tar -C "$work" -czf - . | age -r "$RECIPIENT" -o "$out.tmp"
+printf 'created_utc=%s\napp_commit=%s\n' "$stamp" "$(cat /var/www/harajstation-releases/current/RELEASE_COMMIT 2>/dev/null || git -C "$APP_DIR" rev-parse HEAD)" > "$work/manifest.txt"
+recipients=(-r "$RECIPIENT")
+# Additional PUBLIC recovery recipient; its private key is held off-server.
+if [ -s /etc/harajstation-backup-recipient ]; then
+  recipients+=(-r "$(cat /etc/harajstation-backup-recipient)")
+fi
+tar -C "$work" -czf - . | age "${recipients[@]}" -o "$out.tmp"
 chmod 600 "$out.tmp"
 mv "$out.tmp" "$out"
 
@@ -34,6 +44,9 @@ mv "$out.tmp" "$out"
 find "$OUT_DIR" -maxdepth 1 -type f -name 'haraj-*.tar.gz.age' -mtime +30 -delete
 if [ -n "$REMOTE" ]; then
   rclone copy "$out" "$REMOTE" --checksum
+  printf '{"checkedAt":"%s","destination":"rclone"}\n' "$(date -u +%FT%TZ)" > "$OUT_DIR/offsite-health.json"
+else
+  node --env-file="$APP_DIR/.env" "$(dirname "$(realpath "$0")")/backup-offsite.mjs" "$out"
 fi
 
 echo "$(date -Is) encrypted backup ok: $out ($(du -h "$out" | cut -f1))"

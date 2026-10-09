@@ -44,39 +44,68 @@ export default async function DashboardPage() {
   });
   const dailyPoints = plan?.dailyPoints ?? 5;
 
-  const [activeListings, activeAuctions, participated, pendingTx, credLogs] =
-    await Promise.all([
-      db.listing.count({
-        where: { sellerId: user.id, status: "ACTIVE", type: { not: "AUCTION" } },
-      }),
-      db.listing.count({
-        where: { sellerId: user.id, status: "ACTIVE", type: "AUCTION" },
-      }),
-      db.bid.groupBy({ by: ["auctionId"], where: { bidderId: user.id } }),
-      db.transaction.findMany({
-        where: {
-          status: { in: ["PENDING", "DISPUTED"] },
-          OR: [{ sellerId: user.id }, { buyerId: user.id }],
-        },
-        include: { listing: true },
-        orderBy: { deadline: "asc" },
-      }),
-      db.credibilityLog.findMany({
-        where: { userId: user.id },
-        orderBy: { createdAt: "desc" },
-        take: 5,
-      }),
-    ]);
+  const [activeListings, activeAuctions, participated, pendingTx, credLogs] = await Promise.all([
+    db.listing.count({
+      where: { sellerId: user.id, status: "ACTIVE", type: { not: "AUCTION" } },
+    }),
+    db.listing.count({
+      where: { sellerId: user.id, status: "ACTIVE", type: "AUCTION" },
+    }),
+    db.bid.groupBy({ by: ["auctionId"], where: { bidderId: user.id } }),
+    db.transaction.findMany({
+      where: {
+        status: { in: ["PENDING", "DISPUTED"] },
+        OR: [{ sellerId: user.id }, { buyerId: user.id }],
+      },
+      include: { listing: true },
+      orderBy: { deadline: "asc" },
+    }),
+    db.credibilityLog.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    }),
+  ]);
 
   const level = trustLevel(user.credibility);
   const levelLabel = lang === "en" ? level.labelEn : level.label;
 
   const stats = [
-    { label: d.statActive, value: activeListings, icon: ListChecks, color: "text-neutral-600 bg-neutral-100", href: "/dashboard/listings" },
-    { label: d.statAuctions, value: activeAuctions, icon: Gavel, color: "text-red-600 bg-red-50", href: "/dashboard/listings" },
-    { label: d.statParticipated, value: participated.length, icon: TrendingUp, color: "text-blue-600 bg-blue-50", href: "/auctions" },
-    { label: d.statDeals, value: user.successfulTx, icon: ShieldCheck, color: "text-green-600 bg-green-50", href: "/dashboard/verifications" },
-    { label: d.statPoints, value: user.points, icon: Coins, color: "text-primary-600 bg-primary-50", href: "/dashboard/wallet" },
+    {
+      label: d.statActive,
+      value: activeListings,
+      icon: ListChecks,
+      color: "text-neutral-600 bg-neutral-100",
+      href: "/dashboard/listings",
+    },
+    {
+      label: d.statAuctions,
+      value: activeAuctions,
+      icon: Gavel,
+      color: "text-red-600 bg-red-50",
+      href: "/dashboard/listings",
+    },
+    {
+      label: d.statParticipated,
+      value: participated.length,
+      icon: TrendingUp,
+      color: "text-blue-600 bg-blue-50",
+      href: "/auctions",
+    },
+    {
+      label: d.statDeals,
+      value: user.successfulTx,
+      icon: ShieldCheck,
+      color: "text-green-600 bg-green-50",
+      href: "/dashboard/verifications",
+    },
+    {
+      label: d.statPoints,
+      value: user.points,
+      icon: Coins,
+      color: "text-primary-600 bg-primary-50",
+      href: "/dashboard/wallet",
+    },
   ];
 
   const quickActions = [
@@ -102,7 +131,9 @@ export default async function DashboardPage() {
           />
           <div className="min-w-0">
             <p className="text-neutral-400 text-sm">{d.welcome}</p>
-            <h1 className="font-display font-extrabold text-2xl sm:text-3xl truncate">{user.name}</h1>
+            <h1 className="font-display font-extrabold text-2xl sm:text-3xl truncate">
+              {user.name}
+            </h1>
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <span className="tag bg-white/10 text-white">
                 <Star className="size-3 fill-current" style={{ color: level.color }} />
@@ -130,7 +161,10 @@ export default async function DashboardPage() {
             <Plus className="size-4" />
             {d.addListing}
           </Link>
-          <Link href="/dashboard/campaigns/new" className="btn bg-white/10 text-white hover:bg-white/20">
+          <Link
+            href="/dashboard/campaigns/new"
+            className="btn bg-white/10 text-white hover:bg-white/20"
+          >
             <Megaphone className="size-4" />
             {d.promote}
           </Link>
@@ -207,12 +241,8 @@ export default async function DashboardPage() {
         >
           <ShieldCheck className="size-6 text-amber-600 shrink-0" />
           <div className="flex-1">
-            <p className="font-bold text-amber-900">
-              {d.pendingTitle(pendingTx.length)}
-            </p>
-            <p className="text-sm text-amber-800 mt-0.5">
-              {d.pendingHint}
-            </p>
+            <p className="font-bold text-amber-900">{d.pendingTitle(pendingTx.length)}</p>
+            <p className="text-sm text-amber-800 mt-0.5">{d.pendingHint}</p>
           </div>
           <span className="btn-primary max-sm:hidden">{d.pendingBtn}</span>
         </Link>
@@ -236,8 +266,12 @@ export default async function DashboardPage() {
           />
         </div>
         <p className="text-sm text-neutral-500">
-          {d.credLevel} <span className="font-bold" style={{ color: level.color }}>{levelLabel}</span>
-          {" — "}{d.credExplain}
+          {d.credLevel}{" "}
+          <span className="font-bold" style={{ color: level.color }}>
+            {levelLabel}
+          </span>
+          {" — "}
+          {d.credExplain}
         </p>
 
         {credLogs.length > 0 && (
@@ -246,7 +280,9 @@ export default async function DashboardPage() {
               <li key={log.id} className="py-2 flex items-center justify-between gap-3">
                 <span className="text-neutral-600">{log.reason}</span>
                 <span className="flex items-center gap-3 shrink-0">
-                  <span className={log.delta >= 0 ? "text-success font-bold" : "text-danger font-bold"}>
+                  <span
+                    className={log.delta >= 0 ? "text-success font-bold" : "text-danger font-bold"}
+                  >
                     {log.delta > 0 ? `+${log.delta}` : log.delta}
                   </span>
                   <span className="text-xs text-neutral-400" suppressHydrationWarning>

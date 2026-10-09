@@ -37,6 +37,7 @@ export type Condition = keyof typeof CONDITIONS;
 export const LISTING_STATUS = {
   ACTIVE: "نشط",
   PENDING: "قيد المراجعة",
+  AWAITING_INFO: "بانتظار معلومات منك",
   SOLD: "تم البيع",
   EXPIRED: "منتهي",
   REMOVED: "محذوف",
@@ -57,7 +58,7 @@ export const TRUST_LEVELS = [
   { min: 0, label: "غير موثوق", labelEn: "Untrusted", color: "#dc2626", stars: 1 },
 ] as const;
 
-export const STAFF_ROLES = ["ADMIN", "MODERATOR", "SUPPORT", "ACCOUNTANT"];
+export const STAFF_ROLES = ["ADMIN", "MODERATOR", "SUPPORT", "ACCOUNTANT", "STAFF"];
 
 export const ROLE_LABELS: Record<string, string> = {
   USER: "مستخدم",
@@ -65,6 +66,7 @@ export const ROLE_LABELS: Record<string, string> = {
   MODERATOR: "مشرف",
   SUPPORT: "دعم فني",
   ACCOUNTANT: "محاسب",
+  STAFF: "موظف بصلاحيات مخصّصة",
 };
 
 // Credibility point rules (see spec §3)
@@ -86,7 +88,7 @@ export const CONFIRM_WINDOW_HOURS = CONFIRM_WINDOW_DAYS * 24;
 export const EXTENSION_DAY_OPTIONS = [3, 5, 7, 10];
 export const EXTENSION_MAX_DAYS = 10;
 export const SNIPE_WINDOW_MS = 2 * 60 * 1000; // last 2 minutes
-export const SNIPE_EXTENSION_MS = 2 * 60 * 1000; // extend by 2 minutes
+export const SNIPE_EXTENSION_MS = 2 * 60 * 1000; // Add to the PREVIOUS deadline; repeated late bids extend it again.
 
 // Account limits
 export const LIMITS = {

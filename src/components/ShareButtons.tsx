@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { useState } from "react";
 import { useLang } from "@/components/LangProvider";
 import { Check, ImageDown, Link2, Loader2, MessageCircle, QrCode, Share2 } from "lucide-react";
@@ -32,10 +34,16 @@ export function ShareButtons({
     if (!cardUrl || cardBusy) return;
     setCardBusy(true);
     try {
-      const blob = await (await fetch(cardUrl)).blob();
+      const response = await clientFetch(cardUrl);
+      if (!response.ok) throw new Error("Share image unavailable");
+      const blob = await response.blob();
       const file = new File([blob], "haraj-station.png", { type: "image/png" });
       if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title, text: `${title}\n${url}` });
+        await navigator.share({
+          files: [file],
+          title,
+          text: `${title}\n${url}`,
+        });
       } else {
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
@@ -97,7 +105,7 @@ export function ShareButtons({
             itemCls,
             copied
               ? "border-green-200 bg-green-50 text-green-700"
-              : "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400"
+              : "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400",
           )}
         >
           {copied ? <Check className="size-4 shrink-0" /> : <Link2 className="size-4 shrink-0" />}
@@ -110,7 +118,7 @@ export function ShareButtons({
             itemCls,
             showQr
               ? "border-primary-300 bg-primary-50 text-primary-700"
-              : "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400"
+              : "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400",
           )}
           aria-expanded={showQr}
         >
@@ -124,7 +132,7 @@ export function ShareButtons({
             disabled={cardBusy}
             className={cn(
               itemCls,
-              "border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100"
+              "border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100",
             )}
           >
             {cardBusy ? (
@@ -141,7 +149,7 @@ export function ShareButtons({
           onClick={nativeShare}
           className={cn(
             itemCls,
-            "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 sm:hidden"
+            "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 sm:hidden",
           )}
         >
           <Share2 className="size-4 shrink-0" />
@@ -152,10 +160,12 @@ export function ShareButtons({
       {showQr && (
         <div className="rounded-lg border border-neutral-100 bg-neutral-50 p-4 flex flex-col items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={qrDataUrl} alt={t.pub.shQrAlt} className="size-40 rounded-lg border border-neutral-200 bg-white p-2" />
-          <p className="text-[11px] text-neutral-400 text-center">
-            {t.pub.shQrHint}
-          </p>
+          <img
+            src={qrDataUrl}
+            alt={t.pub.shQrAlt}
+            className="size-40 rounded-lg border border-neutral-200 bg-white p-2"
+          />
+          <p className="text-[11px] text-neutral-400 text-center">{t.pub.shQrHint}</p>
         </div>
       )}
     </div>

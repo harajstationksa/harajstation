@@ -1,3 +1,4 @@
+import { PublicImage } from "@/components/PublicImage";
 import Link from "next/link";
 import { ArrowUpLeft, Megaphone } from "lucide-react";
 import type { CardListing } from "@/lib/types";
@@ -23,10 +24,7 @@ export async function SponsoredCard({
   const cover = images[0] ?? "/images/ph/chair1.svg";
   const base = listing.auction ? `/auctions/${listing.auction.id}` : `/listings/${listing.id}`;
   const href = campaignId ? `${base}?spc=${campaignId}` : base;
-  const price =
-    listing.auction != null
-      ? (listing.auction.bids[0]?.amount ?? null)
-      : listing.price;
+  const price = listing.auction != null ? (listing.auction.bids[0]?.amount ?? null) : listing.price;
 
   return (
     <Link
@@ -34,8 +32,7 @@ export async function SponsoredCard({
       className="group relative flex flex-col rounded-[1.35rem] overflow-hidden bg-white ring-1 ring-primary-500/50 shadow-[0_4px_18px_-4px_rgba(219,119,89,0.35)] hover:shadow-[0_10px_28px_-6px_rgba(219,119,89,0.5)] transition-shadow h-full min-h-72"
     >
       {/* full-bleed product image */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <PublicImage
         src={cover}
         alt={listing.title}
         loading="lazy"

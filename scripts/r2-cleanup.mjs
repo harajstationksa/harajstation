@@ -7,16 +7,12 @@
  *   node scripts/r2-cleanup.mjs --delete
  *
  * Safety rails:
- *  - objects newer than 24h are never touched (an upload may be mid-publish)
+ *  - objects newer than seven days are never touched (an upload may be mid-publish)
  *  - reads every image reference in the DB: listing photos, avatars, store
  *    logos/banners, chat attachments, admin banners, dispute evidence
  */
 import { readFileSync } from "node:fs";
-import {
-  S3Client,
-  ListObjectsV2Command,
-  DeleteObjectsCommand,
-} from "@aws-sdk/client-s3";
+import { S3Client, ListObjectsV2Command, DeleteObjectsCommand } from "@aws-sdk/client-s3";
 import { PrismaClient } from "@prisma/client";
 
 // minimal .env loader — plain node doesn't read it and dotenv isn't a dep
@@ -32,7 +28,8 @@ try {
 }
 
 const DELETE = process.argv.includes("--delete");
-const MIN_AGE_MS = 24 * 3600 * 1000;
+const AVATARS_ONLY = process.argv.includes("--avatars-only");
+const MIN_AGE_MS = 7 * 24 * 3600 * 1000;
 
 const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_PUBLIC_URL } =
   process.env;
@@ -97,9 +94,7 @@ async function allObjects() {
   const objects = [];
   let ContinuationToken;
   do {
-    const page = await s3.send(
-      new ListObjectsV2Command({ Bucket: R2_BUCKET, ContinuationToken })
-    );
+    const page = await s3.send(new ListObjectsV2Command({ Bucket: R2_BUCKET, ContinuationToken }));
     for (const o of page.Contents ?? []) {
       objects.push({ key: o.Key, size: o.Size ?? 0, modified: o.LastModified });
     }
@@ -113,25 +108,32 @@ const now = Date.now();
 
 const orphans = objects.filter(
   (o) =>
+    /^(listings|avatars|stores|chat|banners|evidence)\/[a-f0-9-]{36}\.webp$/.test(o.key) &&
+    (!AVATARS_ONLY || o.key.startsWith("avatars/")) &&
     !referenced.has(o.key) &&
-    (!o.modified || now - o.modified.getTime() > MIN_AGE_MS)
+    (!o.modified || now - o.modified.getTime() > MIN_AGE_MS),
 );
 const totalMB = (orphans.reduce((s, o) => s + o.size, 0) / 1024 / 1024).toFixed(1);
 
 console.log(`bucket objects: ${objects.length}`);
 console.log(`referenced in DB: ${referenced.size}`);
-console.log(`orphans (older than 24h): ${orphans.length} — ${totalMB} MB`);
+console.log(`orphans (older than seven days): ${orphans.length} — ${totalMB} MB`);
 for (const o of orphans) console.log(`  ${DELETE ? "DELETE" : "would delete"}  ${o.key}`);
 
 if (DELETE && orphans.length > 0) {
   for (let i = 0; i < orphans.length; i += 1000) {
     const batch = orphans.slice(i, i + 1000);
-    await s3.send(
+    // Recheck references immediately before each destructive batch.
+    const freshReferences = await referencedKeys();
+    const eligible = batch.filter((o) => !freshReferences.has(o.key));
+    if (!eligible.length) continue;
+    const result = await s3.send(
       new DeleteObjectsCommand({
         Bucket: R2_BUCKET,
-        Delete: { Objects: batch.map((o) => ({ Key: o.key })), Quiet: true },
-      })
+        Delete: { Objects: eligible.map((o) => ({ Key: o.key })), Quiet: true },
+      }),
     );
+    if (result.Errors?.length) throw new Error("Storage cleanup failed for some objects");
   }
   console.log(`\ndeleted ${orphans.length} objects (${totalMB} MB freed).`);
 } else if (!DELETE) {

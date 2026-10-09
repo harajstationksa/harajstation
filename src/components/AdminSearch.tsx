@@ -11,7 +11,7 @@ export function AdminSearch() {
 
   return (
     <form
-      className="relative flex-1 max-w-md max-sm:hidden"
+      className="admin-header-search relative flex-1 max-w-md xl:ms-4 min-w-0"
       onSubmit={(e) => {
         e.preventDefault();
         if (q.trim()) router.push(`/admin/search?q=${encodeURIComponent(q.trim())}`);
@@ -21,8 +21,8 @@ export function AdminSearch() {
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="ابحث برقم الإعلان (SM-100001) أو الاسم أو البريد..."
-        className="w-full rounded-lg bg-neutral-800 border border-neutral-700 ps-9 pe-3 min-h-9 text-sm text-white placeholder:text-neutral-500 outline-none focus:border-neutral-500 transition"
+        placeholder="بحث بالإعلان أو الاسم أو البريد…"
+        className="w-full rounded-xl bg-neutral-50 border border-neutral-200 ps-9 pe-3 min-h-11 text-sm text-neutral-900 placeholder:text-neutral-500 outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-500/10 transition"
         aria-label="بحث الإدارة"
       />
     </form>

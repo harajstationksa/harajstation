@@ -41,9 +41,7 @@ export default async function NewCampaignPage({
       <div className="space-y-5">
         <div>
           <h1 className="section-title">{d.pickTitle}</h1>
-          <p className="text-sm text-neutral-500 mt-1">
-            {d.pickSub}
-          </p>
+          <p className="text-sm text-neutral-500 mt-1">{d.pickSub}</p>
         </div>
         {listings.length === 0 ? (
           <EmptyState
@@ -74,7 +72,11 @@ export default async function NewCampaignPage({
                     />
                     <span className="tag absolute top-2 right-2 bg-neutral-900/80 text-white backdrop-blur-sm">
                       {l.auction ? <Gavel className="size-3" /> : null}
-                      {l.auction ? d.auction : lang === "en" ? l.category.nameEn : l.category.nameAr}
+                      {l.auction
+                        ? d.auction
+                        : lang === "en"
+                          ? l.category.nameEn
+                          : l.category.nameAr}
                     </span>
                     {l.isFeatured && (
                       <span className="tag absolute top-2 left-2 bg-neutral-900/80 text-primary-400 backdrop-blur-sm">

@@ -3,10 +3,7 @@ import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { rateLimitGuard } from "@/lib/rate-limit";
 
-export async function POST(
-  req: Request,
-  ctx: { params: Promise<{ listingId: string }> }
-) {
+export async function POST(req: Request, ctx: { params: Promise<{ listingId: string }> }) {
   const limited = await rateLimitGuard(req, "favorite", 60, 10 * 60_000);
   if (limited) return limited;
   const { listingId } = await ctx.params;

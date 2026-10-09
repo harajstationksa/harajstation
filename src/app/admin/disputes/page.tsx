@@ -1,9 +1,11 @@
-import { Scale } from "lucide-react";
+import { AdminPageHeader } from "@/components/AdminPageHeader";
+import { AdminActionForm } from "@/components/AdminActionForm";
+
 import { db } from "@/lib/db";
 import { requireStaff } from "@/lib/auth";
 import { formatSAR, timeAgo } from "@/lib/utils";
 import { CredibilityBadge } from "@/components/CredibilityBadge";
-import { EmptyState } from "@/components/EmptyState";
+import { AdminEmptyState as EmptyState } from "@/components/AdminEmptyState";
 import { resolveDisputeAction } from "../actions";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +13,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "إدارة النزاعات" };
 
 export default async function AdminDisputesPage() {
-  await requireStaff(["ADMIN", "SUPPORT"]);
+  await requireStaff(["ADMIN", "SUPPORT"], "disputes.view");
 
   const disputes = await db.dispute.findMany({
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
@@ -28,16 +30,17 @@ export default async function AdminDisputesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="section-title flex items-center gap-2">
-          <Scale className="size-6 text-amber-600" />
-          إدارة النزاعات
-        </h1>
-        <p className="text-sm text-neutral-500 mt-1">
-          {open.length} نزاع مفتوح — القرار يمنح الطرف الصادق +5 نقاط ويخصم من
-          الطرف المخالف 15 نقطة
-        </p>
-      </div>
+      <AdminPageHeader
+        section="disputes"
+        description={
+          <>
+            {open.length} نزاع مفتوح — القرار يمنح الطرف الصادق +5 نقاط ويخصم من الطرف المخالف 15
+            نقطة
+          </>
+        }
+      >
+        إدارة النزاعات
+      </AdminPageHeader>
 
       {open.length === 0 ? (
         <EmptyState title="لا توجد نزاعات مفتوحة" hint="جميع المعاملات تسير بسلام" />
@@ -61,16 +64,25 @@ export default async function AdminDisputesPage() {
                   { label: "البائع", user: t.seller, answer: t.sellerAnswer },
                   { label: "المشتري", user: t.buyer, answer: t.buyerAnswer },
                 ].map(({ label, user, answer }) => (
-                  <div key={label} className="rounded-lg border border-neutral-100 bg-neutral-50 p-3 space-y-1.5">
+                  <div
+                    key={label}
+                    className="rounded-lg border border-neutral-100 bg-neutral-50 p-3 space-y-1.5"
+                  >
                     <p className="text-xs text-neutral-500">{label}</p>
                     <p className="font-semibold text-sm flex items-center gap-2">
                       {user.name}
                       <CredibilityBadge score={user.credibility} compact />
                     </p>
-                    <p className="text-xs" dir="ltr">{user.phone}</p>
+                    <p className="text-xs" dir="ltr">
+                      {user.phone}
+                    </p>
                     <p className="text-sm">
                       الإجابة:{" "}
-                      <span className={answer === "YES" ? "text-green-700 font-bold" : "text-red-600 font-bold"}>
+                      <span
+                        className={
+                          answer === "YES" ? "text-green-700 font-bold" : "text-red-600 font-bold"
+                        }
+                      >
                         {answer === "YES" ? "نعم، تمت" : answer === "NO" ? "لا، لم تتم" : "لم يرد"}
                       </span>
                     </p>
@@ -89,17 +101,37 @@ export default async function AdminDisputesPage() {
                         <span suppressHydrationWarning>{timeAgo(ev.createdAt)}</span>
                       </p>
                       <p className="text-neutral-700 leading-relaxed">{ev.note}</p>
+                      {ev.fileUrl?.startsWith("private:") && (
+                        <a
+                          href={`/api/admin/evidence/${ev.id}`}
+                          target="_blank"
+                          rel="noopener"
+                          className="inline-block mt-2 text-xs text-primary-600 underline"
+                        >
+                          عرض الصورة المرفقة
+                        </a>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
 
-              <form action={resolveDisputeAction} className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+              <AdminActionForm
+                action={resolveDisputeAction}
+                className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3"
+                confirm="اعتماد القرار النهائي للنزاع؟"
+              >
                 <input type="hidden" name="disputeId" value={d.id} />
                 <p className="font-bold text-sm text-amber-900">إصدار القرار</p>
                 <div className="flex gap-4 text-sm">
                   <label className="flex items-center gap-2">
-                    <input type="radio" name="favor" value="SELLER" required className="accent-primary-500" />
+                    <input
+                      type="radio"
+                      name="favor"
+                      value="SELLER"
+                      required
+                      className="accent-primary-500"
+                    />
                     لصالح البائع ({t.seller.name})
                   </label>
                   <label className="flex items-center gap-2">
@@ -115,7 +147,7 @@ export default async function AdminDisputesPage() {
                   minLength={5}
                 />
                 <button className="btn-primary">إصدار القرار النهائي</button>
-              </form>
+              </AdminActionForm>
             </div>
           );
         })
@@ -132,7 +164,8 @@ export default async function AdminDisputesPage() {
                 <div className="min-w-0">
                   <p className="font-semibold line-clamp-1">{d.transaction.listing.title}</p>
                   <p className="text-xs text-neutral-500 line-clamp-1">
-                    القرار لصالح {d.resolvedInFavorOf === "SELLER" ? "البائع" : "المشتري"} — {d.resolution}
+                    القرار لصالح {d.resolvedInFavorOf === "SELLER" ? "البائع" : "المشتري"} —{" "}
+                    {d.resolution}
                   </p>
                 </div>
                 <span className="badge bg-green-50 text-green-700 shrink-0">محلول</span>

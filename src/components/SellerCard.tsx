@@ -26,13 +26,18 @@ export async function SellerCard({
   const { lang, t } = await getT();
   // «يرد بسرعة»: avg first-reply under an hour, over enough chats to mean it
   const fastReplier =
-    seller.responseCount >= 3 &&
-    seller.responseMinsSum / seller.responseCount <= 60;
+    seller.responseCount >= 3 && seller.responseMinsSum / seller.responseCount <= 60;
   return (
     <div className="card p-4 space-y-3">
       <p className="font-bold text-sm text-neutral-500">{t.seller.info}</p>
       <div className="flex items-center gap-3">
-        <Avatar name={seller.name} color={seller.avatarColor} src={seller.avatarUrl} pro={seller.isPro} className="size-12 text-lg" />
+        <Avatar
+          name={seller.name}
+          color={seller.avatarColor}
+          src={seller.avatarUrl}
+          pro={seller.isPro}
+          className="size-12 text-lg"
+        />
         <div className="min-w-0">
           <Link
             href={`/profile/${seller.id}`}
@@ -48,7 +53,7 @@ export async function SellerCard({
 
       <div className="flex items-center gap-2 flex-wrap">
         {seller.idVerified && (
-          <span className="badge bg-green-50 text-green-700" title="هوية موثّقة من إدارة المنصة">
+          <span className="badge bg-green-50 text-green-700" title={t.seller.verifiedTip}>
             <BadgeCheck className="size-3.5" />
             {lang === "en" ? "Verified" : "موثّق"}
           </span>

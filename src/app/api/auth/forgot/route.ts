@@ -1,3 +1,4 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
@@ -21,7 +22,10 @@ export async function POST(req: Request) {
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: "أدخل بريداً إلكترونياً صالحاً" }, { status: 400 });
+    return NextResponse.json(
+      { error: apiMessage(req, "أدخل بريداً إلكترونياً صالحاً") },
+      { status: 400 },
+    );
   }
 
   const email = parsed.data.email.toLowerCase().trim();
@@ -30,30 +34,46 @@ export async function POST(req: Request) {
   // still reveals nothing about whether the account exists.
   if (await isRateLimited(`forgot:mail:${email}`, 3, 60 * 60_000)) {
     return NextResponse.json(
-      { error: "طلبت رابط الاستعادة عدة مرات — راجع بريدك أو انتظر ساعة" },
-      { status: 429, headers: { "Retry-After": "3600" } }
+      { error: apiMessage(req, "طلبت رابط الاستعادة عدة مرات — راجع بريدك أو انتظر ساعة") },
+      { status: 429, headers: { "Retry-After": "3600" } },
     );
   }
 
+  if (!emailConfigured() && process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { error: apiMessage(req, "خدمة الاستعادة غير متاحة مؤقتًا") },
+      { status: 503 },
+    );
+  }
   const user = await db.user.findUnique({ where: { email } });
   if (!user || user.isBanned) {
     // same response shape as success — reveals nothing
     return NextResponse.json({ ok: true });
   }
 
-  // one active token per user: drop older unused ones
-  await db.passwordResetToken.deleteMany({
-    where: { userId: user.id, usedAt: null },
-  });
-
+  // Serialize issuance with password resets and account security changes.
   const token = randomBytes(32).toString("hex");
-  await db.passwordResetToken.create({
-    data: {
-      userId: user.id,
-      token: hashOneTimeToken(token),
-      expiresAt: new Date(Date.now() + TOKEN_TTL_MIN * 60_000),
-    },
+  const issued = await db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id=${user.id} FOR UPDATE`;
+    const current = await tx.user.findUnique({ where: { id: user.id } });
+    if (
+      !current ||
+      current.isBanned ||
+      current.email !== email ||
+      current.sessionVersion !== user.sessionVersion
+    )
+      return false;
+    await tx.passwordResetToken.deleteMany({ where: { userId: user.id } });
+    await tx.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        token: hashOneTimeToken(token),
+        expiresAt: new Date(Date.now() + TOKEN_TTL_MIN * 60_000),
+      },
+    });
+    return true;
   });
+  if (!issued) return NextResponse.json({ ok: true });
 
   const resetUrl = `/reset/${token}`;
   if (emailConfigured()) {

@@ -1,45 +1,67 @@
-# متطلبات تشغيل حراج ستيشن
+# إعداد الخدمات ومتغيرات البيئة
 
-> آخر تحديث: 2026-08-30. لا تضع أي قيمة سرية في Git أو المحادثات أو هذا الملف.
+القالب: [`.env.example`](.env.example). ضع القيم الفعلية في `.env` محليًا أو في إعدادات الخادم، ولا ترفعها إلى Git. القيم التي تبدأ بـ`NEXT_PUBLIC_` تصل إلى المتصفح وتُضمّن أثناء البناء؛ لا تستخدمها للأسرار.
 
-## إلزامي في الإنتاج
+## الإعداد الأساسي
 
 | المتغير | الغرض |
-|---|---|
-| `DATABASE_URL`, `DIRECT_URL` | PostgreSQL عبر pooler واتصال migrations مباشر |
-| `AUTH_SECRET` | جلسات الموقع والإدارة، عشوائي 32+ حرفًا |
-| `CRON_SECRET` | حماية `/api/cron` |
-| `CHAT_SECRET` | تشفير المحادثات، مستقل عن AUTH |
-| `NEXT_PUBLIC_SITE_URL` | الرابط العام HTTPS |
-| `ADMIN_HOST` | نطاق الإدارة المنفصل |
-| `REDIS_URL` | rate limiting وlogin guard المشترك بين عاملي PM2 |
-| `SMTP_*`, `MAIL_FROM` | تحقق البريد وreset و2FA؛ المصادقة تفشل مغلقة بدونه |
-| `BACKUP_AGE_RECIPIENT` | تشفير النسخ اليومية بمفتاح age عام |
+| --- | --- |
+| `DATABASE_URL` | اتصال التطبيق بقاعدة PostgreSQL |
+| `DIRECT_URL` | اتصال مناسب لـmigrations والنسخ الاحتياطي |
+| `AUTH_SECRET` | توقيع جلسات الموقع |
+| `ADMIN_AUTH_SECRET` | توقيع جلسات الإدارة؛ مستقل عن `AUTH_SECRET` |
+| `CRON_SECRET` | مصادقة المهام الدورية |
+| `CHAT_SECRET` | تشفير المحادثات؛ مستقل عن مفاتيح الجلسات |
+| `NEXT_PUBLIC_SITE_URL` | رابط الموقع، HTTPS في الإنتاج |
+| `ADMIN_HOST` | نطاق الإدارة دون البروتوكول؛ فارغ محليًا |
+| `REDIS_URL` | عدادات الحماية المشتركة في الإنتاج |
 
-## الصور والإشعارات
+ولّد قيمة عشوائية مختلفة لكل سر من الأسرار الأربعة، بطول لا يقل عن 32 حرفًا:
 
-- `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_URL` للصور العامة.
-- `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` لـWeb Push.
-- الوثائق ومرفقات المحادثات لا توضع في R2 العام؛ تُخدم عبر API مصادق.
+```bash
+node -e "console.log(require('node:crypto').randomBytes(48).toString('hex'))"
+```
 
-## الدفع — مؤجل ومعطل
+لا تغيّر `CHAT_SECRET` عشوائيًا على قاعدة تحتوي محادثات مشفرة؛ استخدم أداة تدوير الأسرار وخطة ترحيل. `CHAT_SECRET_PREVIOUS` مخصص لمفاتيح القراءة القديمة، و`CHAT_LEGACY_AUTH_SECRET` لترحيل الصيغة القديمة فقط. تزال مفاتيح القراءة القديمة بعد التحقق من اكتمال الترحيل.
 
-الإنتاج يبقى على `PAYMENTS_ENABLED=false` حتى اعتماد حساب البوابة واختبار webhook. عند التفعيل يلزم:
+## البريد
 
-- `MOYASAR_PUBLISHABLE_KEY`
-- `MOYASAR_SECRET_KEY`
-- `MOYASAR_WEBHOOK_SECRET`
-- endpoint: `https://harajstation.com/api/payments/webhook`
+`SMTP_HOST`، `SMTP_PORT`، `SMTP_USER`، `SMTP_PASS`، `MAIL_FROM`، `MAIL_REPLY_TO`.
 
-غياب أي إعداد لا يمنح نقاطًا تجريبية في production.
+البريد مطلوب لتدفقات التحقق، استعادة الحساب، دخول الإدارة ودعوات الفريق. يستخدم الإنتاج مزود SMTP معتمدًا ومرسلًا موثقًا. لا يعتبر ظهور رمز في سجل التطوير دليلًا على تسليم البريد للمستخدم. القوالب تميز بين أغراض التحقق، وتذكر دور عضو الفريق في الدعوة.
 
-## اختياري
+## الصور والملفات الخاصة
 
-- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` لدخول Google.
-- `ANTHROPIC_API_KEY` لوصف الإعلانات بالذكاء الاصطناعي.
-- `NEXT_PUBLIC_GA_ID` للتحليلات.
-- `SENTRY_DSN` عند اعتماد مزود مراقبة.
-- `BACKUP_REMOTE` لوجهة rclone خارجية.
-- `CHAT_SECRET_PREVIOUS` لمفاتيح القراءة القديمة أثناء التدوير، ثم يزال بعد الترحيل.
+- الصور العامة: `R2_ACCOUNT_ID`، `R2_ACCESS_KEY_ID`، `R2_SECRET_ACCESS_KEY`، `R2_BUCKET`، `R2_PUBLIC_URL`.
+- المستندات والمرفقات الخاصة: `R2_PRIVATE_BUCKET` منفصل، والوصول العام إليه معطل. لا تستخدم حاوية الصور العامة للمستندات الخاصة.
+- دون R2 يستخدم التطوير التخزين المحلي. لا ترفع مجلدات `public/uploads` أو `private-uploads` إلى المستودع.
 
-راجع `.env.example` للقالب الكامل و`DEPLOY.md` للتشغيل والنسخ والاسترجاع.
+## الدفع
+
+`PAYMENTS_ENABLED=false` هو الافتراضي. التفعيل يحتاج `MOYASAR_PUBLISHABLE_KEY`، `MOYASAR_SECRET_KEY` و`MOYASAR_WEBHOOK_SECRET`، واختبار الدفع والـwebhook على `/api/payments/webhook`. لا تستخدم مفاتيح الإنتاج في الاختبارات المحلية.
+
+## الميزات الاختيارية
+
+| الإعداد | الاستخدام |
+| --- | --- |
+| `GOOGLE_CLIENT_ID`، `GOOGLE_CLIENT_SECRET` | دخول Google |
+| `ALLOW_DEV_SOCIAL` | اختصار تطوير صريح؛ يبقى `false` افتراضيًا |
+| `ANTHROPIC_API_KEY` | خدمة تحسين عنوان ووصف الإعلان لمشتركي برو |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY`، `VAPID_PRIVATE_KEY`، `VAPID_SUBJECT` | إشعارات المتصفح |
+| `NEXT_PUBLIC_GA_ID` | إعداد التحليلات |
+| `HSTS_PRELOAD` | تفعيل preload بعد التأكد من HTTPS لكل النطاقات الفرعية |
+
+وجود إعداد في القالب لا يعني أن الخدمة مفعلة أو مجهزة؛ راجع الاستدعاءات الفعلية عند إضافة تكامل جديد.
+
+## النسخ الاحتياطي
+
+`BACKUP_AGE_RECIPIENT` يحتوي مستلم age العام فقط؛ احتفظ بمفتاح فك التشفير خارج الخادم والمستودع. `BACKUP_REMOTE` اختياري لوجهة rclone. عند غيابه يستخدم السكربت R2 ويفحص نسخة التنزيل بمجموع SHA-256؛ `BACKUP_R2_BUCKET` يحدد حاوية مستقلة عند الحاجة.
+
+لإعداد الإنتاج، نفّذ من بيئة الخادم:
+
+```bash
+node --env-file=.env scripts/validate-production-env.cjs
+node --env-file=.env scripts/production-preflight.cjs
+```
+
+فاحص الإعداد يطبع أسماء المتغيرات الناقصة أو غير الصالحة فقط. لا تنشر مخرجات تحتوي بيانات مستخدمين أو أسرارًا عند فحص أدوات أخرى.

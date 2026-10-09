@@ -26,6 +26,15 @@ mkdir -p "$release"
 
 echo "==> preparing immutable release $release"
 git archive HEAD | tar -x -C "$release"
+# version-skew id read by next.config.ts at build AND at `next start`
+echo "$commit" > "$release/DEPLOYMENT_ID"
+# One Server Actions encryption key for every build: without it each release
+# gets a fresh key and pages opened before a deploy fail their next action.
+if ! grep -q '^NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=' "$APP_DIR/.env"; then
+  echo "==> generating a persistent NEXT_SERVER_ACTIONS_ENCRYPTION_KEY"
+  key=$(node -e 'process.stdout.write(require("crypto").randomBytes(32).toString("base64"))')
+  printf '\nNEXT_SERVER_ACTIONS_ENCRYPTION_KEY="%s"\n' "$key" >> "$APP_DIR/.env"
+fi
 ln -s "$APP_DIR/.env" "$release/.env"
 mkdir -p "$APP_DIR/private-uploads"
 cd "$release"
@@ -52,6 +61,12 @@ bash deploy/backup.sh
 # schema changes arrive as checked-in migrations and are applied here.
 echo "==> migrations"
 npx prisma migrate deploy
+# The database must match schema.prisma exactly, or the next `migrate dev`
+# would generate destructive changes. Warn loudly; do not block a hotfix.
+if ! npx prisma migrate diff --from-schema-datasource prisma/schema.prisma \
+     --to-schema-datamodel prisma/schema.prisma --exit-code >/dev/null 2>&1; then
+  echo "!! WARNING: production schema differs from prisma/schema.prisma — run prisma migrate diff" >&2
+fi
 
 echo "==> build"
 npm run build
@@ -71,6 +86,7 @@ echo "==> restart"
 mkdir -p "$RUN_ROOT"
 cp "$release/deploy/start-release.cjs" "$RUN_ROOT/start-release.cjs"
 chmod 755 "$RUN_ROOT/start-release.cjs"
+previous=$(readlink -f "$RELEASE_ROOT/current" 2>/dev/null || true)
 ln -sfn "$release" "$RELEASE_ROOT/current"
 if pm2 describe harajstation 2>/dev/null | grep -q "$RUN_ROOT/start-release.cjs"; then
   pm2 reload "$release/deploy/ecosystem.config.cjs" --update-env
@@ -91,5 +107,25 @@ for attempt in 1 2 3 4 5 6; do
   fi
   sleep 2
 done
-[ "$healthy" = 1 ] || { echo "!! health check failed after reload" >&2; exit 1; }
+if [ "$healthy" != 1 ]; then
+  echo "!! health check failed after reload" >&2
+  if [ -n "$previous" ] && [ -d "$previous" ] && [ "$previous" != "$release" ]; then
+    echo "!! rolling back to $previous" >&2
+    ln -sfn "$previous" "$RELEASE_ROOT/current"
+    pm2 reload "$previous/deploy/ecosystem.config.cjs" --update-env || true
+  fi
+  exit 1
+fi
+
+# Keep the five newest releases (each is ~1.2GB with node_modules + .next);
+# never delete the running one or the one just replaced.
+echo "==> pruning old releases"
+current_target=$(readlink -f "$RELEASE_ROOT/current")
+ls -1dt "$RELEASE_ROOT"/*/ 2>/dev/null | sed 's:/$::' | tail -n +6 | while read -r old; do
+  [ "$(basename "$old")" = current ] && continue
+  [ -L "$old" ] && continue
+  [ "$old" = "$current_target" ] && continue
+  [ "$old" = "$previous" ] && continue
+  case "$old" in "$RELEASE_ROOT"/*) rm -rf -- "$old" ;; esac
+done
 echo "==> done — https://harajstation.com ($release)"

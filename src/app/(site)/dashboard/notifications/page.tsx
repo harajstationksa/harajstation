@@ -1,12 +1,8 @@
+import { NotificationReadReceipt } from "@/components/NotificationReadReceipt";
+import { Pagination } from "@/components/Pagination";
+import { pageNumber } from "@/lib/pagination";
 import Link from "next/link";
-import {
-  AlertTriangle,
-  Bell,
-  Gavel,
-  MessageSquare,
-  ShieldCheck,
-  Trophy,
-} from "lucide-react";
+import { AlertTriangle, Bell, Gavel, MessageSquare, ShieldCheck, Trophy } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { cn, timeAgo } from "@/lib/utils";
@@ -32,27 +28,29 @@ const TYPE_ICON: Record<string, { icon: typeof Bell; cls: string }> = {
   SYSTEM: { icon: Bell, cls: "bg-neutral-100 text-neutral-600" },
 };
 
-export default async function NotificationsPage() {
+export default async function NotificationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const page = pageNumber((await searchParams).page);
   const user = await requireUser();
   const { lang, t } = await getT();
   const d = t.dash.notifications;
 
   const notifications = await db.notification.findMany({
     where: { userId: user.id },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: 50,
+    skip: (page - 1) * 50,
   });
 
-  // mark as read after fetching (so unread styling still shows this render)
-  await db.notification.updateMany({
-    where: { userId: user.id, readAt: null },
-    data: { readAt: new Date() },
-  });
-
+  const total = await db.notification.count({ where: { userId: user.id } });
   return (
     <div className="space-y-5">
       <h1 className="section-title">{d.title}</h1>
       <PushManager />
+      <NotificationReadReceipt ids={notifications.filter((n) => !n.readAt).map((n) => n.id)} />
       {notifications.length === 0 ? (
         <EmptyState title={d.emptyTitle} hint={d.emptyHint} />
       ) : (
@@ -61,7 +59,9 @@ export default async function NotificationsPage() {
             const { icon: Icon, cls } = TYPE_ICON[n.type] ?? TYPE_ICON.SYSTEM;
             const inner = (
               <div className="flex items-start gap-3 p-4">
-                <span className={cn("size-9 rounded-xl flex items-center justify-center shrink-0", cls)}>
+                <span
+                  className={cn("size-9 rounded-xl flex items-center justify-center shrink-0", cls)}
+                >
                   <Icon className="size-4.5" />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -77,7 +77,14 @@ export default async function NotificationsPage() {
               </div>
             );
             return n.link ? (
-              <Link key={n.id} href={n.link} className={cn("block hover:bg-neutral-50 transition-colors", !n.readAt && "bg-primary-50/40")}>
+              <Link
+                key={n.id}
+                href={n.link}
+                className={cn(
+                  "block hover:bg-neutral-50 transition-colors",
+                  !n.readAt && "bg-primary-50/40",
+                )}
+              >
                 {inner}
               </Link>
             ) : (
@@ -88,6 +95,7 @@ export default async function NotificationsPage() {
           })}
         </div>
       )}
+      <Pagination page={page} total={total} size={50} path="/dashboard/notifications" lang={lang} />
     </div>
   );
 }

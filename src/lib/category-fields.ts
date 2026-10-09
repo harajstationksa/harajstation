@@ -25,9 +25,25 @@ export type CategoryConfig = {
 };
 
 const CAR_BRANDS = [
-  "تويوتا", "لكزس", "نيسان", "هيونداي", "كيا", "فورد", "شيفروليه",
-  "جي إم سي", "مرسيدس", "بي إم دبليو", "أودي", "هوندا", "مازda", "ميتسوبيشي",
-  "دودج", "لاند روفر", "بورش", "جيب", "أخرى",
+  "تويوتا",
+  "لكزس",
+  "نيسان",
+  "هيونداي",
+  "كيا",
+  "فورد",
+  "شيفروليه",
+  "جي إم سي",
+  "مرسيدس",
+  "بي إم دبليو",
+  "أودي",
+  "هوندا",
+  "مازda",
+  "ميتسوبيشي",
+  "دودج",
+  "لاند روفر",
+  "بورش",
+  "جيب",
+  "أخرى",
 ];
 
 const PHONE_BRANDS = ["آيفون", "سامسونج", "هواوي", "شاومي", "أوبو", "جوجل", "أخرى"];
@@ -45,12 +61,24 @@ export const CATEGORY_CONFIG: Record<string, CategoryConfig> = {
     showDelivery: false, // vehicles are inspected & picked up, not shipped
     priceLabel: "السعر (ر.س)",
     fields: [
-      { key: "brand", label: "الماركة", type: "select", options: CAR_BRANDS, required: true, filterable: true },
+      {
+        key: "brand",
+        label: "الماركة",
+        type: "select",
+        options: CAR_BRANDS,
+        required: true,
+        filterable: true,
+      },
       { key: "model", label: "الموديل", type: "text" },
       { key: "year", label: "سنة الصنع", type: "number", filterable: true },
       { key: "mileage", label: "الممشى", type: "number", suffix: "كم" },
       { key: "transmission", label: "ناقل الحركة", type: "select", options: ["أوتوماتيك", "عادي"] },
-      { key: "fuel", label: "الوقود", type: "select", options: ["بنزين", "ديزل", "هجين", "كهرباء"] },
+      {
+        key: "fuel",
+        label: "الوقود",
+        type: "select",
+        options: ["بنزين", "ديزل", "هجين", "كهرباء"],
+      },
       { key: "color", label: "اللون", type: "text" },
     ],
   },
@@ -59,12 +87,20 @@ export const CATEGORY_CONFIG: Record<string, CategoryConfig> = {
     showDelivery: false,
     priceLabel: "السعر / الإيجار (ر.س)",
     fields: [
-      { key: "purpose", label: "الغرض", type: "select", options: ["للبيع", "للإيجار"], required: true, filterable: true },
+      {
+        key: "purpose",
+        label: "الغرض",
+        type: "select",
+        options: ["للبيع", "للإيجار"],
+        required: true,
+        filterable: true,
+      },
       { key: "area", label: "المساحة", type: "number", suffix: "م²", filterable: true },
       { key: "rooms", label: "غرف النوم", type: "number", filterable: true },
       { key: "bathrooms", label: "دورات المياه", type: "number" },
       { key: "floor", label: "الدور", type: "number" },
       { key: "furnished", label: "الأثاث", type: "select", options: ["مفروش", "غير مفروش"] },
+      { key: "adLicenseNumber", label: "رقم ترخيص الإعلان العقاري", type: "text" },
     ],
   },
   electronics: {
@@ -73,7 +109,12 @@ export const CATEGORY_CONFIG: Record<string, CategoryConfig> = {
     priceLabel: "السعر (ر.س)",
     fields: [
       { key: "brand", label: "الماركة", type: "select", options: PHONE_BRANDS, filterable: true },
-      { key: "storage", label: "السعة التخزينية", type: "select", options: ["64GB", "128GB", "256GB", "512GB", "1TB", "أخرى"] },
+      {
+        key: "storage",
+        label: "السعة التخزينية",
+        type: "select",
+        options: ["64GB", "128GB", "256GB", "512GB", "1TB", "أخرى"],
+      },
       { key: "warranty", label: "الضمان", type: "select", options: ["يوجد ضمان", "بدون ضمان"] },
     ],
   },
@@ -89,7 +130,13 @@ export const CATEGORY_CONFIG: Record<string, CategoryConfig> = {
     priceLabel: "السعر (ر.س)",
     fields: [
       { key: "brand", label: "الماركة", type: "text", filterable: true },
-      { key: "gender", label: "الفئة", type: "select", options: ["رجالي", "نسائي", "أطفال", "للجنسين"], filterable: true },
+      {
+        key: "gender",
+        label: "الفئة",
+        type: "select",
+        options: ["رجالي", "نسائي", "أطفال", "للجنسين"],
+        filterable: true,
+      },
       { key: "size", label: "المقاس", type: "text" },
       { key: "color", label: "اللون", type: "text" },
     ],
@@ -122,7 +169,14 @@ export const CATEGORY_CONFIG: Record<string, CategoryConfig> = {
     showDelivery: false,
     priceLabel: "الراتب الشهري (ر.س)",
     fields: [
-      { key: "jobType", label: "نوع الدوام", type: "select", options: ["دوام كامل", "دوام جزئي", "عن بعد", "تدريب"], required: true, filterable: true },
+      {
+        key: "jobType",
+        label: "نوع الدوام",
+        type: "select",
+        options: ["دوام كامل", "دوام جزئي", "عن بعد", "تدريب"],
+        required: true,
+        filterable: true,
+      },
       { key: "experience", label: "الخبرة المطلوبة", type: "text" },
     ],
   },
@@ -144,10 +198,7 @@ export function configForMain(mainSlug: string): CategoryConfig {
  */
 export type ListingGoal = "SELL" | "AUCTION" | "ANNOUNCE";
 
-export const GOAL_RULES: Record<
-  ListingGoal,
-  { exclude?: string[]; include?: string[] }
-> = {
+export const GOAL_RULES: Record<ListingGoal, { exclude?: string[]; include?: string[] }> = {
   SELL: { exclude: ["jobs"] },
   AUCTION: { exclude: ["jobs", "services"] },
   ANNOUNCE: { include: ["jobs", "services", "realestate", "other"] },

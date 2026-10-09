@@ -14,7 +14,10 @@ export async function CredibilityBadge({
   const label = lang === "en" ? level.labelEn : level.label;
   if (compact) {
     return (
-      <span className="inline-flex items-center gap-1 text-xs font-semibold" style={{ color: level.color }}>
+      <span
+        className="inline-flex items-center gap-1 text-xs font-semibold"
+        style={{ color: level.color }}
+      >
         <Star className="size-3.5 fill-current" />
         {score}
       </span>

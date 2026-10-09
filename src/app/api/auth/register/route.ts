@@ -1,17 +1,15 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { hashSync } from "bcryptjs";
+import { passwordSchema } from "@/lib/password-policy";
+import { hash } from "bcryptjs";
 import { db } from "@/lib/db";
-import {
-  SESSION_COOKIE,
-  sessionCookieOptions,
-  signSessionToken,
-} from "@/lib/auth";
+import { SESSION_COOKIE, sessionCookieOptions, signSessionToken } from "@/lib/auth";
 import { isValidDisplayName } from "@/lib/utils";
 import { CITIES } from "@/lib/constants";
 import { rateLimitGuard } from "@/lib/rate-limit";
 import { issueEmailVerification } from "@/lib/email-verify";
-import { emailConfigured } from "@/lib/email";
+import { emailConfigured, sendEmail } from "@/lib/email";
 import { getFreeTierConfig } from "@/lib/settings";
 import { generateReferralCode } from "@/lib/referral";
 
@@ -23,15 +21,21 @@ const schema = z.object({
   email: z.email(),
   // enum guard: keeps mojibake ("??????") and free-text out of the DB
   city: z.enum(CITIES),
-  password: z.string().min(8).max(100),
+  password: passwordSchema,
   acceptTerms: z.literal(true),
   // optional referral code from an existing member (prefilled via ?ref=)
   refCode: z.string().max(30).optional(),
 });
 
 const AVATAR_COLORS = [
-  "#db7759", "#0ea5e9", "#8b5cf6", "#10b981",
-  "#ec4899", "#f59e0b", "#14b8a6", "#6366f1",
+  "#db7759",
+  "#0ea5e9",
+  "#8b5cf6",
+  "#10b981",
+  "#ec4899",
+  "#f59e0b",
+  "#14b8a6",
+  "#6366f1",
 ];
 
 export async function POST(req: Request) {
@@ -44,34 +48,48 @@ export async function POST(req: Request) {
     const termsIssue = parsed.error.issues.some((i) => i.path[0] === "acceptTerms");
     return NextResponse.json(
       {
-        error: termsIssue
-          ? "يجب الموافقة على الشروط والأحكام لإنشاء الحساب"
-          : "يرجى التحقق من البيانات المدخلة",
+        error: apiMessage(
+          req,
+          termsIssue
+            ? "يجب الموافقة على الشروط والأحكام لإنشاء الحساب"
+            : "يرجى التحقق من البيانات المدخلة",
+        ),
       },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   if (!isValidDisplayName(parsed.data.name)) {
     return NextResponse.json(
-      { error: "الاسم يجب أن يحتوي حروفاً حقيقية (عربية أو إنجليزية)" },
-      { status: 400 }
+      { error: apiMessage(req, "الاسم يجب أن يحتوي حروفاً حقيقية (عربية أو إنجليزية)") },
+      { status: 400 },
     );
   }
 
   if (process.env.NODE_ENV === "production" && !emailConfigured()) {
     return NextResponse.json(
-      { error: "التسجيل متوقف مؤقتًا لأن خدمة البريد غير متاحة" },
-      { status: 503 }
+      { error: apiMessage(req, "التسجيل متوقف مؤقتًا لأن خدمة البريد غير متاحة") },
+      { status: 503 },
     );
   }
 
   const email = parsed.data.email.toLowerCase();
   const exists = await db.user.findUnique({ where: { email } });
+  if (exists && emailConfigured()) {
+    // Same answer as a fresh signup, so the form never reveals which addresses
+    // have accounts; the real owner gets a heads-up in their inbox instead.
+    await sendEmail({
+      to: email,
+      subject: "محاولة تسجيل ببريدك في حراج ستيشن",
+      html: `<div dir="rtl"><p>حاول أحدهم إنشاء حساب جديد ببريدك، لكن لديك حساباً بالفعل.</p><p>إن كنت أنت فسجّل الدخول، أو استخدم «نسيت كلمة المرور» من صفحة الدخول. وإن لم تكن أنت فتجاهل هذه الرسالة.</p></div>`,
+      text: "حاول أحدهم إنشاء حساب ببريدك، لكن لديك حساباً بالفعل. سجّل الدخول أو استخدم «نسيت كلمة المرور».",
+    }).catch(() => false);
+    return NextResponse.json({ ok: true, needsVerification: true, email });
+  }
   if (exists) {
     return NextResponse.json(
-      { error: "هذا البريد الإلكتروني مسجل مسبقاً" },
-      { status: 409 }
+      { error: apiMessage(req, "هذا البريد الإلكتروني مسجل مسبقاً") },
+      { status: 409 },
     );
   }
 
@@ -86,16 +104,14 @@ export async function POST(req: Request) {
 
   // referral link-up: a bad code never blocks the signup, it's just ignored
   const refCode = (parsed.data.refCode ?? "").trim().toUpperCase();
-  const referrer = refCode
-    ? await db.user.findUnique({ where: { referralCode: refCode } })
-    : null;
+  const referrer = refCode ? await db.user.findUnique({ where: { referralCode: refCode } }) : null;
 
   const user = await db.user.create({
     data: {
       name: parsed.data.name,
       email,
       city: parsed.data.city,
-      passwordHash: hashSync(parsed.data.password, 12),
+      passwordHash: await hash(parsed.data.password, 12),
       avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
       referralCode: await generateReferralCode(),
       referredById: referrer && !referrer.isBanned ? referrer.id : null,
@@ -113,8 +129,8 @@ export async function POST(req: Request) {
   if (emailConfigured()) {
     if (!verificationSent) {
       return NextResponse.json(
-        { error: "تعذّر إرسال رسالة التفعيل — أعد المحاولة من شاشة الدخول" },
-        { status: 503 }
+        { error: apiMessage(req, "تعذّر إرسال رسالة التفعيل — أعد المحاولة من شاشة الدخول") },
+        { status: 503 },
       );
     }
     return NextResponse.json({ ok: true, needsVerification: true, email });

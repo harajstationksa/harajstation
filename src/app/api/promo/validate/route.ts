@@ -1,3 +1,4 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { validatePromo } from "@/lib/promo";
@@ -15,7 +16,7 @@ export async function POST(req: Request) {
   const code = String(body?.code ?? "");
   const check = await validatePromo(code, user.id);
   if (!check.ok) {
-    return NextResponse.json({ valid: false, error: check.error });
+    return NextResponse.json({ valid: false, error: apiMessage(req, check.error) });
   }
   return NextResponse.json({ valid: true, percent: check.promo.percent });
 }

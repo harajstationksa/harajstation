@@ -64,7 +64,14 @@ for (const [key, [glyph, a, b]] of Object.entries(items)) {
   writeFileSync(join(outDir, `${key}.svg`), svg(glyph, a, b));
 }
 
-const banner = (id, from, to, big, small, glyphs) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 400" direction="rtl">
+const banner = (
+  id,
+  from,
+  to,
+  big,
+  small,
+  glyphs,
+) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 400" direction="rtl">
   <defs>
     <linearGradient id="bg${id}" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="${from}"/>
@@ -83,15 +90,36 @@ const banner = (id, from, to, big, small, glyphs) => `<svg xmlns="http://www.w3.
 
 writeFileSync(
   join(bannerDir, "auctions.svg"),
-  banner(1, "#c75d3e", "#863c28", "مزادات حراج ستيشن المباشرة", "زايد الآن واربح أفضل الصفقات — بخصوصية وأمان تام", ["🔨", "🏆"])
+  banner(
+    1,
+    "#c75d3e",
+    "#863c28",
+    "مزادات حراج ستيشن المباشرة",
+    "زايد الآن واربح أفضل الصفقات — بخصوصية وأمان تام",
+    ["🔨", "🏆"],
+  ),
 );
 writeFileSync(
   join(bannerDir, "pro.svg"),
-  banner(2, "#171717", "#404040", "حساب برو للتجار", "إعلانات غير محدودة، أولوية في الظهور، وشارة مميزة — 99 ر.س شهرياً", ["⭐", "🚀"])
+  banner(
+    2,
+    "#171717",
+    "#404040",
+    "حساب برو للتجار",
+    "إعلانات غير محدودة، أولوية في الظهور، وشارة مميزة — 99 ر.س شهرياً",
+    ["⭐", "🚀"],
+  ),
 );
 writeFileSync(
   join(bannerDir, "cars.svg"),
-  banner(3, "#a64a30", "#db7759", "موسم السيارات في حراج ستيشن", "آلاف السيارات الجديدة والمستعملة بأفضل الأسعار", ["🚗", "🔑"])
+  banner(
+    3,
+    "#a64a30",
+    "#db7759",
+    "موسم السيارات في حراج ستيشن",
+    "آلاف السيارات الجديدة والمستعملة بأفضل الأسعار",
+    ["🚗", "🔑"],
+  ),
 );
 
 console.log(`Generated ${Object.keys(items).length} product images + 3 banners`);

@@ -26,11 +26,7 @@ export async function generateMetadata() {
   return { title: t.dash.campaigns.title };
 }
 
-export default async function CampaignsPage({
-  searchParams,
-}: {
-  searchParams: Promise<SP>;
-}) {
+export default async function CampaignsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const user = await requireUser();
   const { lang, t } = await getT();
   const d = t.dash.campaigns;
@@ -56,7 +52,14 @@ export default async function CampaignsPage({
         include: {
           auction: true,
           category: {
-            select: { id: true, slug: true, nameAr: true, nameEn: true, icon: true, parent: { select: { id: true, slug: true, nameAr: true, nameEn: true, icon: true } } },
+            select: {
+              id: true,
+              slug: true,
+              nameAr: true,
+              nameEn: true,
+              icon: true,
+              parent: { select: { id: true, slug: true, nameAr: true, nameEn: true, icon: true } },
+            },
           },
         },
       },
@@ -71,16 +74,20 @@ export default async function CampaignsPage({
       clicks: acc.clicks + c.clicks,
       delivered: acc.delivered + c.delivered,
     }),
-    { impressions: 0, clicks: 0, delivered: 0 }
+    { impressions: 0, clicks: 0, delivered: 0 },
   );
-  const totalCtr =
-    totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : null;
+  const totalCtr = totals.impressions > 0 ? (totals.clicks / totals.impressions) * 100 : null;
 
   // category chips from the user's own campaigns (rolled up to main category)
   const catMap = new Map<string, { slug: string; name: string; icon: string; count: number }>();
   for (const c of campaigns) {
     const root = c.listing.category.parent ?? c.listing.category;
-    const entry = catMap.get(root.id) ?? { slug: root.slug, name: lang === "en" ? root.nameEn : root.nameAr, icon: root.icon, count: 0 };
+    const entry = catMap.get(root.id) ?? {
+      slug: root.slug,
+      name: lang === "en" ? root.nameEn : root.nameAr,
+      icon: root.icon,
+      count: 0,
+    };
     entry.count++;
     catMap.set(root.id, entry);
   }
@@ -104,10 +111,30 @@ export default async function CampaignsPage({
   const hasFilters = !!(statusFilter || catFilter);
 
   const summary = [
-    { icon: Eye, label: d.sumImpressions, value: totals.impressions.toLocaleString("en-US"), tile: "bg-blue-50 text-blue-600 border-blue-100" },
-    { icon: MousePointerClick, label: d.sumClicks, value: totals.clicks.toLocaleString("en-US"), tile: "bg-primary-50 text-primary-600 border-primary-100" },
-    { icon: TrendingUp, label: d.sumCtr, value: totalCtr != null ? `${totalCtr.toFixed(1)}%` : "—", tile: "bg-green-50 text-green-600 border-green-100" },
-    { icon: Users, label: d.sumReached, value: totals.delivered.toLocaleString("en-US"), tile: "bg-amber-50 text-amber-600 border-amber-100" },
+    {
+      icon: Eye,
+      label: d.sumImpressions,
+      value: totals.impressions.toLocaleString("en-US"),
+      tile: "bg-blue-50 text-blue-600 border-blue-100",
+    },
+    {
+      icon: MousePointerClick,
+      label: d.sumClicks,
+      value: totals.clicks.toLocaleString("en-US"),
+      tile: "bg-primary-50 text-primary-600 border-primary-100",
+    },
+    {
+      icon: TrendingUp,
+      label: d.sumCtr,
+      value: totalCtr != null ? `${totalCtr.toFixed(1)}%` : "—",
+      tile: "bg-green-50 text-green-600 border-green-100",
+    },
+    {
+      icon: Users,
+      label: d.sumReached,
+      value: totals.delivered.toLocaleString("en-US"),
+      tile: "bg-amber-50 text-amber-600 border-amber-100",
+    },
   ];
 
   return (
@@ -120,9 +147,7 @@ export default async function CampaignsPage({
           </span>
           <div>
             <h1 className="section-title">{d.title}</h1>
-            <p className="text-sm text-neutral-500 mt-0.5">
-              {d.sub}
-            </p>
+            <p className="text-sm text-neutral-500 mt-0.5">{d.sub}</p>
           </div>
         </div>
         <Link href="/dashboard/campaigns/new" className="btn-primary">
@@ -136,11 +161,15 @@ export default async function CampaignsPage({
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {summary.map(({ icon: Icon, label, value, tile }) => (
             <div key={label} className="card p-4 flex items-center gap-3">
-              <span className={`size-10 rounded-lg border flex items-center justify-center shrink-0 ${tile}`}>
+              <span
+                className={`size-10 rounded-lg border flex items-center justify-center shrink-0 ${tile}`}
+              >
                 <Icon className="size-5" />
               </span>
               <div className="min-w-0">
-                <p className="font-display font-extrabold text-xl tabular-nums leading-tight">{value}</p>
+                <p className="font-display font-extrabold text-xl tabular-nums leading-tight">
+                  {value}
+                </p>
                 <p className="text-[11px] text-neutral-500">{label}</p>
               </div>
             </div>
@@ -165,7 +194,7 @@ export default async function CampaignsPage({
                     "flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-[13px] font-semibold border-b-2 -mb-px transition-colors",
                     statusFilter === key
                       ? "border-primary-500 text-primary-600 bg-primary-50/50"
-                      : "border-transparent text-neutral-500 hover:text-neutral-800 hover:bg-neutral-50"
+                      : "border-transparent text-neutral-500 hover:text-neutral-800 hover:bg-neutral-50",
                   )}
                 >
                   {label}
@@ -184,7 +213,7 @@ export default async function CampaignsPage({
                   "shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold border transition-colors",
                   !catFilter
                     ? "bg-neutral-900 text-white border-neutral-900"
-                    : "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400"
+                    : "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400",
                 )}
               >
                 {d.allCats}
@@ -197,12 +226,17 @@ export default async function CampaignsPage({
                     "shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold border transition-colors",
                     catFilter === c.slug
                       ? "bg-neutral-900 text-white border-neutral-900"
-                      : "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400"
+                      : "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400",
                   )}
                 >
                   <CategoryIcon name={c.icon} className="size-3.5" />
                   {c.name}
-                  <span className={cn("text-[10px] tabular-nums", catFilter === c.slug ? "text-white/70" : "text-neutral-400")}>
+                  <span
+                    className={cn(
+                      "text-[10px] tabular-nums",
+                      catFilter === c.slug ? "text-white/70" : "text-neutral-400",
+                    )}
+                  >
                     {c.count}
                   </span>
                 </Link>
@@ -226,18 +260,29 @@ export default async function CampaignsPage({
         <EmptyState
           title={d.emptyTitle}
           hint={d.emptyHint}
-          action={<Link href="/dashboard/campaigns/new" className="btn-primary mt-2">{d.launchFirst}</Link>}
+          action={
+            <Link href="/dashboard/campaigns/new" className="btn-primary mt-2">
+              {d.launchFirst}
+            </Link>
+          }
         />
       ) : filtered.length === 0 ? (
         <EmptyState
           title={d.emptyFiltered}
           hint={d.emptyFilteredHint}
-          action={<Link href="/dashboard/campaigns" className="btn-secondary mt-2">{d.showAllC}</Link>}
+          action={
+            <Link href="/dashboard/campaigns" className="btn-secondary mt-2">
+              {d.showAllC}
+            </Link>
+          }
         />
       ) : (
         <div className="grid gap-3">
           {filtered.map((c) => {
-            const [label, cls] = STATUS[c.status] ?? [c.status, "bg-neutral-100 border-neutral-200"];
+            const [label, cls] = STATUS[c.status] ?? [
+              c.status,
+              "bg-neutral-100 border-neutral-200",
+            ];
             const nowMs = new Date().getTime();
             const daysLeft = c.endsAt
               ? Math.max(0, Math.ceil((c.endsAt.getTime() - nowMs) / 86_400_000))
@@ -250,8 +295,8 @@ export default async function CampaignsPage({
                       Math.round(
                         ((nowMs - c.createdAt.getTime()) /
                           (c.endsAt.getTime() - c.createdAt.getTime())) *
-                          100
-                      )
+                          100,
+                      ),
                     )
                   : 100
                 : 100;
@@ -273,12 +318,18 @@ export default async function CampaignsPage({
                   />
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-sm line-clamp-1">{c.listing.title}</p>
-                    <p className="text-xs text-neutral-400 mt-0.5 flex items-center gap-2 flex-wrap" suppressHydrationWarning>
+                    <p
+                      className="text-xs text-neutral-400 mt-0.5 flex items-center gap-2 flex-wrap"
+                      suppressHydrationWarning
+                    >
                       <span className="flex items-center gap-1">
                         <CategoryIcon name={rootCat.icon} className="size-3" />
                         {lang === "en" ? rootCat.nameEn : rootCat.nameAr}
                       </span>
-                      <span>{c.pointsSpent.toLocaleString("en-US")} {d.pointsUnit} · {timeAgo(c.createdAt, lang)}</span>
+                      <span>
+                        {c.pointsSpent.toLocaleString("en-US")} {d.pointsUnit} ·{" "}
+                        {timeAgo(c.createdAt, lang)}
+                      </span>
                       <span className="flex items-center gap-0.5">
                         <MapPin className="size-3" />
                         {c.targetCity || d.allCities}
@@ -292,11 +343,26 @@ export default async function CampaignsPage({
                 {/* compact stat row */}
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { icon: Eye, label: d.impressions, value: c.impressions.toLocaleString("en-US") },
-                    { icon: MousePointerClick, label: d.clicks, value: c.clicks.toLocaleString("en-US") },
-                    { icon: BarChart3, label: "CTR", value: ctr != null ? `${ctr.toFixed(1)}%` : "—" },
+                    {
+                      icon: Eye,
+                      label: d.impressions,
+                      value: c.impressions.toLocaleString("en-US"),
+                    },
+                    {
+                      icon: MousePointerClick,
+                      label: d.clicks,
+                      value: c.clicks.toLocaleString("en-US"),
+                    },
+                    {
+                      icon: BarChart3,
+                      label: "CTR",
+                      value: ctr != null ? `${ctr.toFixed(1)}%` : "—",
+                    },
                   ].map(({ icon: Icon, label: slabel, value }) => (
-                    <div key={slabel} className="rounded-lg bg-neutral-50 border border-neutral-100 px-3 py-2">
+                    <div
+                      key={slabel}
+                      className="rounded-lg bg-neutral-50 border border-neutral-100 px-3 py-2"
+                    >
                       <p className="text-[10px] text-neutral-400 flex items-center gap-1">
                         <Icon className="size-3" />
                         {slabel}
@@ -316,7 +382,10 @@ export default async function CampaignsPage({
                       <span className="tabular-nums">{pct}%</span>
                     </div>
                     <div className="h-1.5 rounded-full bg-neutral-100 overflow-hidden">
-                      <div className="h-full rounded-full bg-primary-500" style={{ width: `${pct}%` }} />
+                      <div
+                        className="h-full rounded-full bg-primary-500"
+                        style={{ width: `${pct}%` }}
+                      />
                     </div>
                   </div>
                 )}

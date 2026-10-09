@@ -1,3 +1,4 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -10,10 +11,7 @@ const schema = z.object({
   comment: z.string().max(500).optional().or(z.literal("")),
 });
 
-export async function POST(
-  req: Request,
-  ctx: { params: Promise<{ id: string }> }
-) {
+export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const limited = await rateLimitGuard(req, "tx-review", 10, 10 * 60_000);
   if (limited) return limited;
   const { id } = await ctx.params;
@@ -24,7 +22,7 @@ export async function POST(
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: "تقييم غير صالح" }, { status: 400 });
+    return NextResponse.json({ error: apiMessage(req, "تقييم غير صالح") }, { status: 400 });
   }
 
   const t = await db.transaction.findUnique({
@@ -32,12 +30,12 @@ export async function POST(
     include: { listing: true },
   });
   if (!t) {
-    return NextResponse.json({ error: "المعاملة غير موجودة" }, { status: 404 });
+    return NextResponse.json({ error: apiMessage(req, "المعاملة غير موجودة") }, { status: 404 });
   }
   if (t.status !== "CONFIRMED") {
     return NextResponse.json(
-      { error: "التقييم متاح فقط بعد تأكيد المعاملة من الطرفين" },
-      { status: 409 }
+      { error: apiMessage(req, "التقييم متاح فقط بعد تأكيد المعاملة من الطرفين") },
+      { status: 409 },
     );
   }
   const isParty = t.sellerId === session.sub || t.buyerId === session.sub;
@@ -51,7 +49,10 @@ export async function POST(
     where: { transactionId_authorId: { transactionId: id, authorId: session.sub } },
   });
   if (existing) {
-    return NextResponse.json({ error: "سبق أن قيّمت هذه المعاملة" }, { status: 409 });
+    return NextResponse.json(
+      { error: apiMessage(req, "سبق أن قيّمت هذه المعاملة") },
+      { status: 409 },
+    );
   }
 
   await db.review.create({
@@ -69,7 +70,7 @@ export async function POST(
     "SYSTEM",
     "تقييم جديد",
     `قيّمك ${session.name} بعد معاملة "${t.listing.title}" بـ${parsed.data.rating} نجوم.`,
-    `/profile/${targetId}`
+    `/profile/${targetId}`,
   );
 
   return NextResponse.json({ ok: true });

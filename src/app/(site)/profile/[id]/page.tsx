@@ -38,11 +38,7 @@ export async function generateMetadata({
   });
 }
 
-export default async function ProfilePage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await db.user.findUnique({
     where: { id },
@@ -77,14 +73,18 @@ export default async function ProfilePage({
   const level = trustLevel(user.credibility);
   const reviews = user.reviewsGotten;
   const avgRating =
-    reviews.length > 0
-      ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
-      : null;
+    reviews.length > 0 ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : null;
 
   return (
     <div className="container-page py-8 pb-12 space-y-6">
       <div className="card p-6 flex flex-col sm:flex-row items-center gap-5">
-        <Avatar name={user.name} color={user.avatarColor} src={user.avatarUrl} pro={user.isPro} className="size-20 text-3xl" />
+        <Avatar
+          name={user.name}
+          color={user.avatarColor}
+          src={user.avatarUrl}
+          pro={user.isPro}
+          className="size-20 text-3xl"
+        />
         <div className="flex-1 text-center sm:text-right space-y-2">
           <h1 className="font-display font-bold text-2xl flex items-center gap-2 justify-center sm:justify-start">
             {user.name}
@@ -100,7 +100,9 @@ export default async function ProfilePage({
               <MapPin className="size-4" />
               {user.city}
             </span>
-            <span>{p.memberSince} {formatDate(user.createdAt, lang)}</span>
+            <span>
+              {p.memberSince} {formatDate(user.createdAt, lang)}
+            </span>
             <span className="flex items-center gap-1">
               <BadgeCheck className="size-4 text-success" />
               {user.successfulTx} {p.deals}
@@ -197,7 +199,7 @@ export default async function ProfilePage({
                 <AuctionCard key={listing.id} listing={listing} />
               ) : (
                 <ListingCard key={listing.id} listing={listing} />
-              )
+              ),
             )}
           </div>
         )}

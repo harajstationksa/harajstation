@@ -27,7 +27,9 @@ function audioContext(): AudioContext | null {
 
 /** Call from any click/keypress so the chime is allowed to sound later. */
 export function unlockChatSound() {
-  audioContext()?.resume().catch(() => {});
+  audioContext()
+    ?.resume()
+    .catch(() => {});
 }
 
 export function isChatMuted() {

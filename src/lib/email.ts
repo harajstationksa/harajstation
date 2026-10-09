@@ -6,6 +6,7 @@
 
 import nodemailer, { type Transporter } from "nodemailer";
 import { isRateLimited } from "./rate-limit";
+import { emailShell as shell, otpEmailTemplate, type OtpEmailPurpose } from "./email-templates";
 
 export function emailConfigured() {
   return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
@@ -42,6 +43,7 @@ export async function sendEmail(opts: {
   to: string;
   subject: string;
   html: string;
+  text?: string;
 }): Promise<boolean> {
   const transport = getTransporter();
   if (!transport) return false;
@@ -51,7 +53,7 @@ export async function sendEmail(opts: {
   // reset mails. Cap it here, at the single point every mail passes through.
   const to = opts.to.toLowerCase().trim();
   if (await mailBombGuard(to)) {
-    console.warn("email suppressed — recipient over quota:", to);
+    console.warn("email_suppressed_recipient_quota");
     return false;
   }
 
@@ -65,54 +67,13 @@ export async function sendEmail(opts: {
       to: opts.to,
       subject: opts.subject,
       html: opts.html,
+      text: opts.text,
     });
     return true;
-  } catch (e) {
-    console.error("smtp send failed:", e);
+  } catch {
+    console.error("smtp_send_failed");
     return false;
   }
-}
-
-/** Shared RTL wrapper so every mail looks on-brand without a template system. */
-function shell(title: string, body: string) {
-  return `<!doctype html>
-<html dir="rtl" lang="ar">
-  <body style="margin:0;background:#f5f5f4;font-family:Tahoma,Arial,sans-serif;padding:32px 12px">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-      <tr><td align="center">
-        <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;text-align:right;box-shadow:0 1px 3px rgba(0,0,0,0.08)">
-          <!-- brand header -->
-          <tr>
-            <td style="background:linear-gradient(135deg,#f97316,#ea580c);background-color:#f97316;padding:22px 32px">
-              <span style="font-size:22px;font-weight:bold;color:#ffffff;letter-spacing:0.5px">حراج ستيشن</span>
-              <span style="font-size:11px;color:#ffedd5;display:block;padding-top:2px">منصة الإعلانات المبوبة والمزادات السعودية</span>
-            </td>
-          </tr>
-          <!-- body -->
-          <tr>
-            <td style="padding:28px 32px 8px">
-              <p style="margin:0 0 10px;font-size:18px;font-weight:bold;color:#171717">${title}</p>
-              <div style="font-size:14px;color:#525252;line-height:1.9">${body}</div>
-            </td>
-          </tr>
-          <!-- footer -->
-          <tr>
-            <td style="padding:20px 32px 28px">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                <tr><td style="border-top:1px solid #f0f0ef;padding-top:16px;font-size:11px;color:#a3a3a3;line-height:1.9">
-                  وصلتك هذه الرسالة لأن بريدك مسجّل في حراج ستيشن — إذا لم تطلبها فتجاهلها بأمان.<br/>
-                  للمساعدة راسل فريق الدعم:
-                  <a href="mailto:support@harajstation.com" style="color:#f97316;text-decoration:none" dir="ltr">support@harajstation.com</a>
-                  <br/>© ${new Date().getFullYear()} حراج ستيشن — harajstation.com
-                </td></tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-      </td></tr>
-    </table>
-  </body>
-</html>`;
 }
 
 export async function sendVerificationEmail(to: string, verifyUrl: string) {
@@ -130,24 +91,17 @@ export async function sendVerificationEmail(to: string, verifyUrl: string) {
          </a>
        </div>
        أو انسخ الرابط التالي في المتصفح:<br/>
-       <span dir="ltr" style="color:#737373;font-size:12px;word-break:break-all">${link}</span>`
+       <span dir="ltr" style="color:#737373;font-size:12px;word-break:break-all">${link}</span>`,
     ),
   });
 }
 
-export async function sendLoginCodeEmail(to: string, code: string) {
-  return sendEmail({
-    to,
-    subject: `${code} — رمز تسجيل الدخول | حراج ستيشن`,
-    html: shell(
-      "رمز تسجيل الدخول",
-      `أحد يحاول الدخول لحسابك (غالباً أنت 👀) — استخدم الرمز التالي لإتمام الدخول. الرمز صالح لمدة 10 دقائق:
-       <div style="padding:20px 0;text-align:center">
-         <span dir="ltr" style="display:inline-block;background:#fff7ed;border:1px dashed #fdba74;color:#c2410c;border-radius:12px;padding:14px 32px;font-size:28px;font-weight:bold;letter-spacing:8px">${code}</span>
-       </div>
-       إذا ما كنت أنت من يحاول الدخول، غيّر كلمة المرور فوراً — لا تشارك هذا الرمز مع أي أحد، حتى لو قال إنه من فريق حراج ستيشن.`
-    ),
-  });
+export async function sendLoginCodeEmail(
+  to: string,
+  code: string,
+  purpose: OtpEmailPurpose = "SITE_LOGIN",
+) {
+  return sendEmail({ to, ...otpEmailTemplate(code, purpose) });
 }
 
 export async function sendPasswordResetEmail(to: string, resetUrl: string) {
@@ -165,7 +119,7 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string) {
          </a>
        </div>
        أو انسخ الرابط التالي في المتصفح:<br/>
-       <span dir="ltr" style="color:#737373;font-size:12px;word-break:break-all">${link}</span>`
+       <span dir="ltr" style="color:#737373;font-size:12px;word-break:break-all">${link}</span>`,
     ),
   });
 }

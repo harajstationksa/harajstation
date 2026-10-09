@@ -43,17 +43,14 @@ export function DashboardNav() {
   return (
     <nav className="card p-2 flex lg:flex-col gap-1 overflow-x-auto no-scrollbar">
       {items.map(({ href, key, icon: Icon }) => {
-        const active =
-          href === "/dashboard" ? pathname === href : pathname.startsWith(href);
+        const active = href === "/dashboard" ? pathname === href : pathname.startsWith(href);
         return (
           <Link
             key={href}
             href={href}
             className={cn(
               "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors",
-              active
-                ? "bg-primary-50 text-primary-700"
-                : "text-neutral-600 hover:bg-neutral-50"
+              active ? "bg-primary-50 text-primary-700" : "text-neutral-600 hover:bg-neutral-50",
             )}
           >
             <Icon className="size-4.5 shrink-0" />

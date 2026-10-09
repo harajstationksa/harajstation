@@ -1,3 +1,4 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
@@ -24,7 +25,8 @@ const OUTPUT_SCHEMA = {
   properties: {
     title: {
       type: "string" as const,
-      description: "عنوان إعلان جذاب ودقيق، 30–90 حرفاً، يذكر الماركة/الموديل/السنة إن وُجدت، بدون مبالغات",
+      description:
+        "عنوان إعلان جذاب ودقيق، 30–90 حرفاً، يذكر الماركة/الموديل/السنة إن وُجدت، بدون مبالغات",
     },
     description: {
       type: "string" as const,
@@ -41,30 +43,39 @@ export async function POST(req: Request) {
   if (limited) return limited;
 
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "سجّل دخولك أولاً" }, { status: 401 });
+  if (!user)
+    return NextResponse.json({ error: apiMessage(req, "سجّل دخولك أولاً") }, { status: 401 });
   if (!user.isPro) {
     return NextResponse.json(
-      { error: "كتابة الوصف بالذكاء الاصطناعي ميزة لمشتركي برو" },
-      { status: 403 }
+      { error: apiMessage(req, "كتابة الوصف بالذكاء الاصطناعي ميزة لمشتركي برو") },
+      { status: 403 },
     );
   }
   // PRO or not, cap the spend per account
   if (await isRateLimited(`ai-describe:${user.id}`, 20, 24 * 3_600_000)) {
     return NextResponse.json(
-      { error: "وصلت لحد الاستخدام اليومي لهذه الميزة — جرّب غداً" },
-      { status: 429 }
+      { error: apiMessage(req, "وصلت لحد الاستخدام اليومي لهذه الميزة — جرّب غداً") },
+      { status: 429 },
     );
   }
 
   if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: "الميزة غير مفعّلة حالياً" }, { status: 503 });
+    return NextResponse.json(
+      { error: apiMessage(req, "الميزة غير مفعّلة حالياً") },
+      { status: 503 },
+    );
   }
 
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "اكتب وصفاً مختصراً للسلعة (5 أحرف على الأقل) ليساعدك الذكاء الاصطناعي" },
-      { status: 400 }
+      {
+        error: apiMessage(
+          req,
+          "اكتب وصفاً مختصراً للسلعة (5 أحرف على الأقل) ليساعدك الذكاء الاصطناعي",
+        ),
+      },
+      { status: 400 },
     );
   }
   const { hint, categoryId, goal, attributes } = parsed.data;
@@ -73,7 +84,8 @@ export async function POST(req: Request) {
     where: { id: categoryId },
     include: { parent: true },
   });
-  if (!category) return NextResponse.json({ error: "فئة غير موجودة" }, { status: 400 });
+  if (!category)
+    return NextResponse.json({ error: apiMessage(req, "فئة غير موجودة") }, { status: 400 });
 
   const attrText = attributes
     ? Object.entries(attributes)
@@ -84,9 +96,13 @@ export async function POST(req: Request) {
 
   const client = new Anthropic();
   try {
-    const response = await client.messages.create({
-      model: "claude-opus-4-8",
-      max_tokens: 1024,
+    const response = await client.beta.messages.create({
+      model: "claude-opus-5-5",
+      // thinking is always on for this model and counts toward max_tokens
+      max_tokens: 4096,
+      // a policy decline is re-run on a fallback model inside the same call
+      betas: ["server-side-fallback-2026-06-01"],
+      fallbacks: [{ model: "claude-opus-4-8" }],
       output_config: {
         effort: "low",
         format: { type: "json_schema", schema: OUTPUT_SCHEMA },
@@ -110,14 +126,17 @@ export async function POST(req: Request) {
 
     if (response.stop_reason === "refusal" || response.content.length === 0) {
       return NextResponse.json(
-        { error: "تعذّر توليد الوصف لهذا المحتوى — اكتبه يدوياً" },
-        { status: 422 }
+        { error: apiMessage(req, "تعذّر توليد الوصف لهذا المحتوى — اكتبه يدوياً") },
+        { status: 422 },
       );
     }
     const textBlock = response.content.find((b) => b.type === "text");
     const out = textBlock ? JSON.parse(textBlock.text) : null;
     if (!out?.title || !out?.description) {
-      return NextResponse.json({ error: "حدث خطأ — أعد المحاولة" }, { status: 502 });
+      return NextResponse.json(
+        { error: apiMessage(req, "حدث خطأ — أعد المحاولة") },
+        { status: 502 },
+      );
     }
     return NextResponse.json({
       title: String(out.title).slice(0, 100),
@@ -125,9 +144,12 @@ export async function POST(req: Request) {
     });
   } catch (e) {
     if (e instanceof Anthropic.RateLimitError) {
-      return NextResponse.json({ error: "الخدمة مشغولة — أعد المحاولة بعد قليل" }, { status: 429 });
+      return NextResponse.json(
+        { error: apiMessage(req, "الخدمة مشغولة — أعد المحاولة بعد قليل") },
+        { status: 429 },
+      );
     }
     console.error("ai-describe:", e instanceof Error ? e.message : e);
-    return NextResponse.json({ error: "حدث خطأ — أعد المحاولة" }, { status: 502 });
+    return NextResponse.json({ error: apiMessage(req, "حدث خطأ — أعد المحاولة") }, { status: 502 });
   }
 }

@@ -1,4 +1,6 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
+import { parsePage } from "@/lib/pagination";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { getTopupConfig } from "@/lib/settings";
@@ -6,28 +8,30 @@ import { getTopupConfig } from "@/lib/settings";
 /** Wallet: balance + point ledger + payment history. */
 export async function GET(req: Request) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "غير مسجل" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: apiMessage(req, "غير مسجل") }, { status: 401 });
 
   const url = new URL(req.url);
-  const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
+  const page = parsePage(url.searchParams.get("page"));
+  if (page === null)
+    return NextResponse.json({ error: apiMessage(req, "رقم الصفحة غير صالح") }, { status: 400 });
   const pageSize = 30;
 
-  const [ledger, payments, total, topup] = await Promise.all([
+  const [ledger, payments, total, topup, paymentsTotal] = await Promise.all([
     db.pointTransaction.findMany({
       where: { userId: user.id },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
-    page === 1
-      ? db.payment.findMany({
-          where: { userId: user.id },
-          orderBy: { createdAt: "desc" },
-          take: 10,
-        })
-      : [],
+    db.payment.findMany({
+      where: { userId: user.id },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: pageSize,
+      skip: (page - 1) * pageSize,
+    }),
     db.pointTransaction.count({ where: { userId: user.id } }),
     getTopupConfig(),
+    db.payment.count({ where: { userId: user.id } }),
   ]);
 
   const startOfToday = new Date();
@@ -54,6 +58,10 @@ export async function GET(req: Request) {
       paidAt: p.paidAt?.toISOString() ?? null,
     })),
     page,
+    total,
+    pageSize,
+    paymentsTotal,
+    paymentsHasMore: page * pageSize < paymentsTotal,
     hasMore: page * pageSize < total,
   });
 }

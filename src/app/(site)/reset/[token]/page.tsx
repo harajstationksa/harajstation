@@ -1,15 +1,13 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import Link from "next/link";
 import { use, useState } from "react";
 import { CheckCircle2, Loader2, LockKeyhole } from "lucide-react";
 import { useLang } from "@/components/LangProvider";
 
-export default function ResetPasswordPage({
-  params,
-}: {
-  params: Promise<{ token: string }>;
-}) {
+export default function ResetPasswordPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -27,7 +25,7 @@ export default function ResetPasswordPage({
       return;
     }
     setLoading(true);
-    const res = await fetch("/api/auth/reset", {
+    const res = await clientFetch("/api/auth/reset", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token, password }),
@@ -64,8 +62,11 @@ export default function ResetPasswordPage({
         ) : (
           <form onSubmit={submit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1.5">{f.newPassword}</label>
+              <label htmlFor="reset-password" className="block text-sm font-medium mb-1.5">
+                {f.newPassword}
+              </label>
               <input
+                id="reset-password"
                 className="input"
                 dir="ltr"
                 type="password"
@@ -77,8 +78,11 @@ export default function ResetPasswordPage({
               <p className="text-xs text-neutral-400 mt-1">{f.passwordHint}</p>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">{f.confirmPassword}</label>
+              <label htmlFor="reset-confirm" className="block text-sm font-medium mb-1.5">
+                {f.confirmPassword}
+              </label>
               <input
+                id="reset-confirm"
                 className="input"
                 dir="ltr"
                 type="password"

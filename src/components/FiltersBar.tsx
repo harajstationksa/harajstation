@@ -115,7 +115,8 @@ export function FiltersBar({
       >
         <span className="flex items-center gap-2">
           <SlidersHorizontal className="size-4" />
-          {f.label} {active > 0 && <span className="badge bg-primary-500 text-white">{active}</span>}
+          {f.label}{" "}
+          {active > 0 && <span className="badge bg-primary-500 text-white">{active}</span>}
         </span>
         <span className="text-neutral-400 text-xs">{open ? f.hide : f.show}</span>
       </button>
@@ -133,7 +134,7 @@ export function FiltersBar({
                   "px-4 py-1.5 rounded-md text-sm font-medium transition-all cursor-pointer",
                   activeType === opt.value
                     ? "bg-white text-neutral-900 shadow-sm"
-                    : "text-neutral-500 hover:text-neutral-700"
+                    : "text-neutral-500 hover:text-neutral-700",
                 )}
               >
                 {opt.label}
@@ -143,18 +144,32 @@ export function FiltersBar({
         )}
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 items-end">
-          <select className="input" value={city} onChange={(e) => setCity(e.target.value)} aria-label={f.allCities}>
+          <select
+            className="input"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            aria-label={f.allCities}
+          >
             <option value="">{f.allCities}</option>
             {CITIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c} value={c}>
+                {c}
+              </option>
             ))}
           </select>
 
           {showCondition && (
-            <select className="input" value={condition} onChange={(e) => setCondition(e.target.value)} aria-label={f.allConditions}>
+            <select
+              className="input"
+              value={condition}
+              onChange={(e) => setCondition(e.target.value)}
+              aria-label={f.allConditions}
+            >
               <option value="">{f.allConditions}</option>
               {Object.entries(t.card.conditions).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
+                <option key={k} value={k}>
+                  {v}
+                </option>
               ))}
             </select>
           )}
@@ -185,7 +200,12 @@ export function FiltersBar({
             <span className="truncate">{f.verifiedOnly}</span>
           </label>
 
-          <select className="input" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="sort">
+          <select
+            className="input"
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+            aria-label="sort"
+          >
             <option value="newest">{f.sortNew}</option>
             <option value="price_asc">{f.sortPriceAsc}</option>
             <option value="price_desc">{f.sortPriceDesc}</option>
@@ -193,7 +213,9 @@ export function FiltersBar({
           </select>
 
           <div className="flex gap-2 col-span-2 sm:col-span-1">
-            <button onClick={apply} className="btn-primary flex-1">{f.apply}</button>
+            <button onClick={apply} className="btn-primary flex-1">
+              {f.apply}
+            </button>
             {active > 0 && (
               <button onClick={reset} className="btn-secondary px-3" aria-label="reset">
                 <X className="size-4" />

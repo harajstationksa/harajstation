@@ -18,10 +18,8 @@ export async function getPlanLimits(isPro: boolean) {
     where: { key: isPro ? "PRO_MONTHLY" : "FREE" },
   });
   return {
-    maxListings:
-      plan?.maxListings ?? (isPro ? 100000 : LIMITS.FREE_LISTINGS),
-    maxAuctions:
-      plan?.maxAuctions ?? (isPro ? LIMITS.PRO_AUCTIONS : LIMITS.FREE_AUCTIONS),
+    maxListings: plan?.maxListings ?? (isPro ? 100000 : LIMITS.FREE_LISTINGS),
+    maxAuctions: plan?.maxAuctions ?? (isPro ? LIMITS.PRO_AUCTIONS : LIMITS.FREE_AUCTIONS),
     maxStores: plan?.maxStores ?? (isPro ? 5 : 1),
     dailyPoints: plan?.dailyPoints ?? (isPro ? 25 : 5),
   };

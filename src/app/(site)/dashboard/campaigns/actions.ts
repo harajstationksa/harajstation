@@ -8,6 +8,7 @@ import { getSettingInt } from "@/lib/settings";
 import { targetAudience } from "@/lib/targeting";
 import { CITIES } from "@/lib/constants";
 import { isRateLimited } from "@/lib/rate-limit";
+import { cancelOwnCampaign } from "@/lib/campaigns";
 
 /**
  * Launch a day-based promotion campaign for one of the user's listings.
@@ -49,40 +50,42 @@ export async function createCampaignAction(formData: FormData) {
   }
 
   const endsAt = new Date(Date.now() + days * 86_400_000);
-  const campaign = await db.$transaction(async (tx) => {
-    const reserved = await tx.listing.updateMany({
-      where: {
-        id: listingId,
-        sellerId: user.id,
-        status: "ACTIVE",
-        isPromoted: false,
-      },
-      data: { isPromoted: true, promotedUntil: endsAt },
+  const campaign = await db
+    .$transaction(async (tx) => {
+      const reserved = await tx.listing.updateMany({
+        where: {
+          id: listingId,
+          sellerId: user.id,
+          status: "ACTIVE",
+          isPromoted: false,
+        },
+        data: { isPromoted: true, promotedUntil: endsAt },
+      });
+      if (reserved.count !== 1) throw new Error("CAMPAIGN_ALREADY_ACTIVE");
+      const balance = await adjustPointsWithClient(
+        tx,
+        user.id,
+        -cost,
+        `حملة إعلانية (${days} أيام): ${listing.title}`,
+      );
+      if (balance === null) throw new Error("INSUFFICIENT_POINTS");
+      return tx.campaign.create({
+        data: {
+          listingId,
+          ownerId: user.id,
+          days,
+          endsAt,
+          pointsSpent: cost,
+          status: "ACTIVE",
+          targetCity,
+        },
+      });
+    })
+    .catch((error: unknown) => {
+      if (error instanceof Error && error.message === "INSUFFICIENT_POINTS") return null;
+      if (error instanceof Error && error.message === "CAMPAIGN_ALREADY_ACTIVE") return null;
+      throw error;
     });
-    if (reserved.count !== 1) throw new Error("CAMPAIGN_ALREADY_ACTIVE");
-    const balance = await adjustPointsWithClient(
-      tx,
-      user.id,
-      -cost,
-      `حملة إعلانية (${days} أيام): ${listing.title}`
-    );
-    if (balance === null) throw new Error("INSUFFICIENT_POINTS");
-    return tx.campaign.create({
-      data: {
-        listingId,
-        ownerId: user.id,
-        days,
-        endsAt,
-        pointsSpent: cost,
-        status: "ACTIVE",
-        targetCity,
-      },
-    });
-  }).catch((error: unknown) => {
-    if (error instanceof Error && error.message === "INSUFFICIENT_POINTS") return null;
-    if (error instanceof Error && error.message === "CAMPAIGN_ALREADY_ACTIVE") return null;
-    throw error;
-  });
   if (!campaign) return { error: "الرصيد غير كافٍ أو توجد حملة نشطة بالفعل" };
 
   // smart targeting — notify the best-match audience (capped to keep it sane);
@@ -94,7 +97,7 @@ export async function createCampaignAction(formData: FormData) {
       city: targetCity || listing.city,
       sellerId: user.id,
     },
-    200
+    200,
   );
   const href = listing.auction ? `/auctions/${listing.auction.id}` : `/listings/${listing.id}`;
   if (audience.length > 0) {
@@ -123,18 +126,6 @@ export async function createCampaignAction(formData: FormData) {
 export async function cancelCampaignAction(formData: FormData) {
   const user = await requireUser();
   const id = String(formData.get("campaignId"));
-  const campaign = await db.campaign.findUnique({ where: { id } });
-  if (!campaign || campaign.ownerId !== user.id) return;
-  if (campaign.status !== "ACTIVE") return;
-  await db.$transaction([
-    db.campaign.update({
-      where: { id },
-      data: { status: "CANCELLED", endedAt: new Date() },
-    }),
-    db.listing.update({
-      where: { id: campaign.listingId },
-      data: { isPromoted: false, promotedUntil: null },
-    }),
-  ]);
+  if (!(await cancelOwnCampaign(user.id, id))) return;
   revalidatePath("/dashboard/campaigns");
 }

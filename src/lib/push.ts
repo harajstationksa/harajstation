@@ -1,3 +1,4 @@
+import { isAllowedPushEndpoint, safePushAgent } from "./push-policy";
 import webpush from "web-push";
 import { db } from "./db";
 
@@ -17,7 +18,7 @@ function ensureConfigured(): boolean {
   webpush.setVapidDetails(
     process.env.VAPID_SUBJECT ?? "mailto:admin@harajstation.com",
     publicKey,
-    privateKey
+    privateKey,
   );
   configured = true;
   return true;
@@ -36,7 +37,7 @@ export async function sendPush(userId: string, payload: PushPayload): Promise<vo
 
 /** Send a push notification to many users (deduplicated). */
 export async function sendPushMany(userIds: string[], payload: PushPayload): Promise<void> {
-  try {
+  {
     if (!ensureConfigured()) return;
     const ids = [...new Set(userIds)].filter(Boolean);
     if (ids.length === 0) return;
@@ -52,28 +53,31 @@ export async function sendPushMany(userIds: string[], payload: PushPayload): Pro
       icon: "/icon.png",
     });
 
-    await Promise.all(
-      subs.map(async (sub) => {
-        try {
-          await webpush.sendNotification(
-            {
-              endpoint: sub.endpoint,
-              keys: { p256dh: sub.p256dh, auth: sub.auth },
-            },
-            body
-          );
-        } catch (err) {
-          const status = (err as { statusCode?: number }).statusCode;
-          if (status === 404 || status === 410) {
-            // subscription expired/revoked — drop it
-            await db.pushSubscription
-              .delete({ where: { id: sub.id } })
-              .catch(() => {});
+    for (let offset = 0; offset < subs.length; offset += 8) {
+      const results = await Promise.allSettled(
+        subs.slice(offset, offset + 8).map(async (sub) => {
+          if (!isAllowedPushEndpoint(sub.endpoint)) return;
+          try {
+            await webpush.sendNotification(
+              {
+                endpoint: sub.endpoint,
+                keys: { p256dh: sub.p256dh, auth: sub.auth },
+              },
+              body,
+              { timeout: 5000, agent: safePushAgent },
+            );
+          } catch (err) {
+            const status = (err as { statusCode?: number }).statusCode;
+            if (status === 404 || status === 410) {
+              // subscription expired/revoked — drop it
+              await db.pushSubscription.delete({ where: { id: sub.id } }).catch(() => {});
+            } else {
+              throw new Error("PUSH_PROVIDER_FAILED");
+            }
           }
-        }
-      })
-    );
-  } catch {
-    // push must never break the calling flow
+        }),
+      );
+      if (results.some((r) => r.status === "rejected")) throw new Error("PUSH_BATCH_FAILED");
+    }
   }
 }

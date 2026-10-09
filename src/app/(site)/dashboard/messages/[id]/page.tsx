@@ -6,16 +6,13 @@ import { requireUser } from "@/lib/auth";
 import { parseImages } from "@/lib/utils";
 import { Avatar } from "@/components/Avatar";
 import { ChatThread } from "@/components/ChatThread";
+import { BlockUserButton } from "@/components/BlockUserButton";
 import { ReportButton } from "@/components/ReportButton";
 import { getT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
-export default async function ConversationPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function ConversationPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { t } = await getT();
   const { id } = await params;
@@ -27,6 +24,10 @@ export default async function ConversationPage({
   if (!conv || (conv.buyerId !== user.id && conv.sellerId !== user.id)) notFound();
 
   const other = conv.buyerId === user.id ? conv.seller : conv.buyer;
+  const ownBlock = await db.userBlock.findUnique({
+    where: { blockerId_blockedId: { blockerId: user.id, blockedId: other.id } },
+    select: { id: true },
+  });
   // direct profile chats have no listing attached
   const listingHref = conv.listing
     ? conv.listing.auction
@@ -45,16 +46,25 @@ export default async function ConversationPage({
       </Link>
 
       <div className="card p-3.5 flex items-center gap-3">
-        <Avatar name={other.name} color={other.avatarColor} src={other.avatarUrl} className="size-11 text-base" />
+        <Avatar
+          name={other.name}
+          color={other.avatarColor}
+          src={other.avatarUrl}
+          className="size-11 text-base"
+        />
         <div className="min-w-0 flex-1">
           <p className="font-bold text-sm flex items-center gap-2">
             <Link href={`/profile/${other.id}`} className="hover:text-primary-600">
               {other.name}
             </Link>
             <ReportButton targetType="USER" targetId={other.id} compact />
+            <BlockUserButton userId={other.id} initiallyBlocked={!!ownBlock} />
           </p>
           {conv.listing && listingHref && (
-            <Link href={listingHref} className="text-xs text-primary-600 hover:underline line-clamp-1">
+            <Link
+              href={listingHref}
+              className="text-xs text-primary-600 hover:underline line-clamp-1"
+            >
               {t.dash.thread.about} {conv.listing.title}
             </Link>
           )}
@@ -70,6 +80,7 @@ export default async function ConversationPage({
       </div>
 
       <ChatThread
+        key={conv.id}
         conversationId={conv.id}
         role={conv.sellerId === user.id ? "seller" : "buyer"}
       />

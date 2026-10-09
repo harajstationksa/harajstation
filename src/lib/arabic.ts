@@ -22,7 +22,9 @@ export function normalizeArabic(input: string): string {
 
 /** Tokenized normalized terms for scoring/fuzzy-ish matching */
 export function arabicTerms(input: string): string[] {
-  return normalizeArabic(input).split(" ").filter((t) => t.length > 1);
+  return normalizeArabic(input)
+    .split(" ")
+    .filter((t) => t.length > 1);
 }
 
 /** Build the indexed search text for a listing */

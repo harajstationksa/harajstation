@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Camera, CheckCircle2, Loader2, Mail, Trash2 } from "lucide-react";
@@ -10,7 +12,9 @@ import { AvatarCropper } from "./AvatarCropper";
 
 export function SettingsForm({
   initial,
+  oauthOnly = false,
 }: {
+  oauthOnly?: boolean;
   initial: {
     name: string;
     city: string;
@@ -20,11 +24,13 @@ export function SettingsForm({
     avatarColor: string;
   };
 }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const d = t.dash.settings;
   const router = useRouter();
   const [form, setForm] = useState(initial);
   const [emailUnlocked, setEmailUnlocked] = useState(false);
+  const [challenge, setChallenge] = useState("");
+  const [code, setCode] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [avatarUrl, setAvatarUrl] = useState(initial.avatarUrl);
   const [avatarBusy, setAvatarBusy] = useState(false);
@@ -40,7 +46,10 @@ export function SettingsForm({
     setError("");
     const fd = new FormData();
     fd.append("avatar", file);
-    const res = await fetch("/api/account/avatar", { method: "POST", body: fd });
+    const res = await clientFetch("/api/account/avatar", {
+      method: "POST",
+      body: fd,
+    });
     setAvatarBusy(false);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -53,8 +62,15 @@ export function SettingsForm({
 
   async function removeAvatar() {
     setAvatarBusy(true);
-    await fetch("/api/account/avatar", { method: "DELETE" });
+    const response = await clientFetch("/api/account/avatar", {
+      method: "DELETE",
+    });
     setAvatarBusy(false);
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      setError(data.error ?? d.genericError);
+      return;
+    }
     setAvatarUrl(null);
     router.refresh();
   }
@@ -66,7 +82,7 @@ export function SettingsForm({
     setLoading(true);
     setError("");
     setSaved(false);
-    const res = await fetch("/api/account", {
+    const res = await clientFetch("/api/account", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -75,12 +91,23 @@ export function SettingsForm({
         phone: form.phone,
         email: form.email.trim(),
         ...(emailChanged ? { currentPassword } : {}),
+        ...(challenge ? { challenge, code } : {}),
       }),
     });
     setLoading(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       setError(data.error ?? d.genericError);
+      return;
+    }
+    const response = await res.json().catch(() => ({}));
+    if (response.requiresOtp) {
+      setChallenge(response.challenge);
+      return;
+    }
+    if (response.needsVerification) {
+      router.push("/login");
+      router.refresh();
       return;
     }
     setSaved(true);
@@ -159,13 +186,16 @@ export function SettingsForm({
       )}
 
       <div className="border-t border-neutral-100 pt-4">
-        <label className="block text-sm font-medium mb-1.5">{d.fullName}</label>
+        <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-settingsform-1">
+          {d.fullName}
+        </label>
         <input
           className="input"
           value={form.name}
           onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
           required
           minLength={2}
+          id="a11y-settingsform-1"
         />
       </div>
 
@@ -204,14 +234,12 @@ export function SettingsForm({
             </button>
           )}
         </div>
-        <p className="text-xs text-neutral-400 mt-1">
-          {d.emailNote}
-        </p>
+        <p className="text-xs text-neutral-400 mt-1">{d.emailNote}</p>
       </div>
 
-      {emailUnlocked && emailChanged && (
+      {emailUnlocked && emailChanged && !oauthOnly && (
         <div className="rounded-lg bg-amber-50 border border-amber-100 p-3">
-          <label className="block text-sm font-medium mb-1.5">
+          <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-settingsform-2">
             {d.currentPassword} <span className="text-neutral-400">{d.currentPasswordWhy}</span>
           </label>
           <input
@@ -221,25 +249,31 @@ export function SettingsForm({
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
             required
+            id="a11y-settingsform-2"
           />
         </div>
       )}
 
       <div>
-        <label className="block text-sm font-medium mb-1.5">{d.city}</label>
+        <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-settingsform-3">
+          {d.city}
+        </label>
         <select
           className="input"
           value={form.city}
           onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+          id="a11y-settingsform-3"
         >
           {CITIES.map((c) => (
-            <option key={c} value={c}>{c}</option>
+            <option key={c} value={c}>
+              {c}
+            </option>
           ))}
         </select>
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-1.5">
+        <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-settingsform-4">
           {d.phone} <span className="text-neutral-400">{d.optional}</span>
         </label>
         <input
@@ -248,12 +282,26 @@ export function SettingsForm({
           value={form.phone}
           onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
           placeholder="05XXXXXXXX"
+          id="a11y-settingsform-4"
         />
-        <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
-          {d.phoneNote}
-        </p>
+        <p className="text-xs text-neutral-400 mt-1 leading-relaxed">{d.phoneNote}</p>
       </div>
 
+      {challenge && (
+        <label className="block text-sm">
+          {lang === "en"
+            ? "Confirm with the six-digit code sent to your current email"
+            : "أكّد التغيير بالرمز المرسل إلى بريدك الحالي"}
+          <input
+            className="input mt-1"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+          />
+        </label>
+      )}
       {error && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
           {error}

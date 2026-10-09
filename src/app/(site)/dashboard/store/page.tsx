@@ -35,9 +35,7 @@ export default async function StorePage() {
           <Store className="size-6 text-primary-500" />
           {d.title}
         </h1>
-        <p className="text-sm text-neutral-500 mt-1">
-          {d.sub}
-        </p>
+        <p className="text-sm text-neutral-500 mt-1">{d.sub}</p>
       </div>
 
       <StoresManager

@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -80,7 +82,9 @@ export function BidPanel({
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch(`/api/auctions/${auctionId}`, { cache: "no-store" });
+      const res = await clientFetch(`/api/auctions/${auctionId}`, {
+        cache: "no-store",
+      });
       if (!res.ok) return;
       const data: AuctionState = await res.json();
       setState(data);
@@ -99,7 +103,7 @@ export function BidPanel({
     setSubmitting(true);
     setError("");
     setFlash("");
-    const res = await fetch(`/api/auctions/${auctionId}/bids`, {
+    const res = await clientFetch(`/api/auctions/${auctionId}/bids`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ amount: value, anonymous: anon }),
@@ -122,7 +126,7 @@ export function BidPanel({
     setProxyBusy(true);
     setError("");
     setFlash("");
-    const res = await fetch(`/api/auctions/${auctionId}/proxy`, {
+    const res = await clientFetch(`/api/auctions/${auctionId}/proxy`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ maxAmount: v, anonymous: anon }),
@@ -142,7 +146,7 @@ export function BidPanel({
   async function cancelProxy() {
     if (!confirm(b.proxyCancelConfirm)) return;
     setProxyBusy(true);
-    await fetch(`/api/auctions/${auctionId}/proxy`, { method: "DELETE" });
+    await clientFetch(`/api/auctions/${auctionId}/proxy`, { method: "DELETE" });
     setProxyBusy(false);
     refresh();
   }
@@ -152,7 +156,7 @@ export function BidPanel({
     if (!buyerId) return;
     setChatBusy(true);
     setError("");
-    const res = await fetch("/api/conversations", {
+    const res = await clientFetch("/api/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ listingId: state.listingId, buyerId }),
@@ -172,7 +176,7 @@ export function BidPanel({
     if (!confirm(b.blockConfirm)) return;
     setError("");
     setFlash("");
-    const res = await fetch(`/api/auctions/${auctionId}/block`, {
+    const res = await clientFetch(`/api/auctions/${auctionId}/block`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ bidId }),
@@ -210,9 +214,7 @@ export function BidPanel({
 
         {/* current bid */}
         <div className="text-center py-2">
-          <p className="text-sm text-neutral-500 mb-1">
-            {live ? b.current : b.finalPrice}
-          </p>
+          <p className="text-sm text-neutral-500 mb-1">{live ? b.current : b.finalPrice}</p>
           <p className="font-display font-extrabold text-4xl text-red-600" suppressHydrationWarning>
             {formatSAR(state.currentBid)}
           </p>
@@ -301,7 +303,7 @@ export function BidPanel({
                       "flex-1 rounded-lg border py-1.5 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer",
                       !anon
                         ? "border-primary-400 bg-primary-50 text-primary-700"
-                        : "border-neutral-200 text-neutral-500 hover:border-neutral-300"
+                        : "border-neutral-200 text-neutral-500 hover:border-neutral-300",
                     )}
                   >
                     <User className="size-3.5" />
@@ -314,7 +316,7 @@ export function BidPanel({
                       "flex-1 rounded-lg border py-1.5 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer",
                       anon
                         ? "border-primary-400 bg-primary-50 text-primary-700"
-                        : "border-neutral-200 text-neutral-500 hover:border-neutral-300"
+                        : "border-neutral-200 text-neutral-500 hover:border-neutral-300",
                     )}
                   >
                     <EyeOff className="size-3.5" />
@@ -336,7 +338,7 @@ export function BidPanel({
                     amountTouched.current = true;
                     setAmount(e.target.value.replace(/[^\d]/g, ""));
                   }}
-                  aria-label="مبلغ المزايدة"
+                  aria-label={b.amountLabel}
                 />
                 <button className="btn-primary shrink-0 px-6" disabled={submitting}>
                   {submitting ? (
@@ -457,13 +459,9 @@ export function BidPanel({
 
       {/* bid history */}
       <div className="card overflow-hidden">
-        <div className="px-4 py-3 border-b border-neutral-100 font-bold text-sm">
-          {b.history}
-        </div>
+        <div className="px-4 py-3 border-b border-neutral-100 font-bold text-sm">{b.history}</div>
         {state.bids.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-neutral-400 text-center">
-            {b.noBids}
-          </p>
+          <p className="px-4 py-6 text-sm text-neutral-400 text-center">{b.noBids}</p>
         ) : (
           <ul className="divide-y divide-neutral-50 max-h-80 overflow-y-auto">
             {state.bids.map((bid, i) => (
@@ -471,7 +469,7 @@ export function BidPanel({
                 key={bid.id}
                 className={cn(
                   "flex items-center justify-between px-4 py-2.5 text-sm",
-                  i === 0 && "bg-primary-50/60"
+                  i === 0 && "bg-primary-50/60",
                 )}
               >
                 <span className="flex items-center gap-2 font-medium text-neutral-700">

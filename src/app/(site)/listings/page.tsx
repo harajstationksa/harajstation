@@ -1,17 +1,14 @@
+import { PublicImage } from "@/components/PublicImage";
+import { relevancePage } from "@/lib/search-relevance";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { pageNumber } from "@/lib/pagination";
 import { cache, Suspense } from "react";
 import { BadgeCheck, LayoutGrid, Search, Store, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { cardInclude } from "@/lib/types";
 import { getT } from "@/lib/i18n";
-import {
-  buildListingWhere,
-  listingOrderBy,
-  scoreListing,
-  str,
-  type SP,
-} from "@/lib/listing-query";
+import { buildListingWhere, listingOrderBy, str, type SP } from "@/lib/listing-query";
 import { matchCategorySlugs, suggestCorrection } from "@/lib/search-smart";
 import { getSponsored, recordImpressions } from "@/lib/campaigns";
 import { canonicalFor, isFiltered, pageMeta } from "@/lib/seo";
@@ -54,7 +51,7 @@ const PAGE_SIZE = 24;
  * instead of each re-running the queries (and re-recording ad impressions).
  */
 const loadResults = cache(async (sp: SP) => {
-  const page = Math.max(1, Number(str(sp.page)) || 1);
+  const page = pageNumber(str(sp.page));
   const where = buildListingWhere(sp);
   const q = str(sp.q);
   const sort = str(sp.sort);
@@ -62,15 +59,17 @@ const loadResults = cache(async (sp: SP) => {
   let items;
   let total;
   if (q && !sort) {
-    // relevance ranking: relevance → featured → recency
-    const candidates = await db.listing.findMany({
-      where,
+    const [ids, count] = await Promise.all([
+      relevancePage(sp, page, PAGE_SIZE),
+      db.listing.count({ where }),
+    ]);
+    const cards = await db.listing.findMany({
+      where: { ...where, id: { in: ids } },
       include: cardInclude,
-      take: 200,
     });
-    candidates.sort((a, b) => scoreListing(b, q) - scoreListing(a, q));
-    total = candidates.length;
-    items = candidates.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    const byId = new Map(cards.map((card) => [card.id, card]));
+    items = ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
+    total = count;
   } else {
     [items, total] = await Promise.all([
       db.listing.findMany({
@@ -118,7 +117,12 @@ const loadResults = cache(async (sp: SP) => {
             name: true,
             logoUrl: true,
             isVerified: true,
-            _count: { select: { followers: true, listings: { where: { status: "ACTIVE" } } } },
+            _count: {
+              select: {
+                followers: true,
+                listings: { where: { status: "ACTIVE" } },
+              },
+            },
           },
           orderBy: [{ isVerified: "desc" }, { createdAt: "asc" }],
           take: 3,
@@ -129,7 +133,10 @@ const loadResults = cache(async (sp: SP) => {
   const sellers =
     q && page === 1
       ? await db.user.findMany({
-          where: { isBanned: false, name: { contains: q, mode: "insensitive" } },
+          where: {
+            isBanned: false,
+            name: { contains: q, mode: "insensitive" },
+          },
           select: {
             id: true,
             name: true,
@@ -149,7 +156,10 @@ const loadResults = cache(async (sp: SP) => {
     const targetCatIds = new Set<string>(suggestedCats.map((c) => c.id));
     items.slice(0, 12).forEach((l) => targetCatIds.add(l.categoryId));
     if (targetCatIds.size > 0) {
-      sponsored = await getSponsored({ categoryIds: [...targetCatIds], take: 2 });
+      sponsored = await getSponsored({
+        categoryIds: [...targetCatIds],
+        take: 2,
+      });
       const sponsoredIds = new Set(sponsored.map((s) => s.id));
       items = items.filter((l) => !sponsoredIds.has(l.id));
       await recordImpressions(sponsored.map((l) => l.campaigns[0]?.id ?? ""));
@@ -157,21 +167,25 @@ const loadResults = cache(async (sp: SP) => {
   }
 
   // zero results? try to guess the typo ("ايفوون" → "ايفون")
-  const correction =
-    q && total === 0 && sponsored.length === 0 ? suggestCorrection(q) : null;
+  const correction = q && total === 0 && sponsored.length === 0 ? suggestCorrection(q) : null;
 
-  return { items, total, sponsored, suggestedCats, stores, sellers, correction, page };
+  return {
+    items,
+    total,
+    sponsored,
+    suggestedCats,
+    stores,
+    sellers,
+    correction,
+    page,
+  };
 });
 
 /**
  * The shell — heading, filters, layout — renders straight away from the URL
  * alone. Everything that needs the database streams in underneath it.
  */
-export default async function ListingsPage({
-  searchParams,
-}: {
-  searchParams: Promise<SP>;
-}) {
+export default async function ListingsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const { t } = await getT();
   const sp = await searchParams;
   const q = str(sp.q);
@@ -184,7 +198,9 @@ export default async function ListingsPage({
             {q ? `${t.listingsPage.resultsFor} «${q}»` : t.listingsPage.title}
           </h1>
           <Suspense
-            fallback={<div className="h-5 w-24 mt-1.5 rounded-md bg-neutral-200/80 animate-pulse" />}
+            fallback={
+              <div className="h-5 w-24 mt-1.5 rounded-md bg-neutral-200/80 animate-pulse" />
+            }
           >
             <ResultCount sp={sp} />
           </Suspense>
@@ -277,8 +293,7 @@ async function MatchingSellers({ sp }: { sp: SP }) {
           className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm font-semibold text-neutral-800 hover:border-primary-300 hover:bg-primary-50 transition-colors"
         >
           {u.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={u.avatarUrl} alt="" className="size-6 rounded-full object-cover" />
+            <PublicImage src={u.avatarUrl} alt="" className="size-6 rounded-full object-cover" />
           ) : (
             <span
               className="size-6 rounded-full text-white text-[10px] font-bold flex items-center justify-center"
@@ -314,8 +329,7 @@ async function MatchingStores({ sp }: { sp: SP }) {
           className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-sm font-semibold text-neutral-800 hover:border-primary-300 hover:bg-primary-50 transition-colors"
         >
           {s.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={s.logoUrl} alt="" className="size-6 rounded-full object-cover" />
+            <PublicImage src={s.logoUrl} alt="" className="size-6 rounded-full object-cover" />
           ) : (
             <span className="size-6 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center">
               <Store className="size-3.5" />
@@ -377,18 +391,14 @@ async function Results({ sp }: { sp: SP }) {
     <>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {sponsored.map((listing) => (
-          <SponsoredCard
-            key={listing.id}
-            listing={listing}
-            campaignId={listing.campaigns[0]?.id}
-          />
+          <SponsoredCard key={listing.id} listing={listing} campaignId={listing.campaigns[0]?.id} />
         ))}
         {items.map((listing) =>
           listing.type === "AUCTION" ? (
             <AuctionCard key={listing.id} listing={listing} />
           ) : (
             <ListingCard key={listing.id} listing={listing} />
-          )
+          ),
         )}
       </div>
 

@@ -1,5 +1,7 @@
+import { contentSecurityPolicy } from "@/lib/csp";
 import { NextResponse, type NextRequest } from "next/server";
 import { clientIp, isRateLimited } from "@/lib/rate-limit";
+import { jwtVerify } from "jose";
 
 /**
  * Global burst shield. (Next 16 renamed `middleware` → `proxy`; it runs on
@@ -36,9 +38,53 @@ const ADMIN_PATHS = [
 ];
 
 function isAdminPath(pathname: string) {
-  return ADMIN_PATHS.some(
-    (p) => pathname === p || pathname.startsWith(`${p}/`)
-  );
+  return ADMIN_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+/**
+ * HTML is never stored by shared caches: every page streams a per-request CSP
+ * nonce and the header can carry the signed-in account and language, and
+ * Cloudflare ignores `Vary: Cookie`. Hot public data is cached in-process
+ * instead (src/lib/page-cache.ts).
+ */
+const HTML_CACHE_CONTROL = "private, no-store";
+function nextWithCsp(req: NextRequest) {
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const csp = contentSecurityPolicy(nonce, process.env.NODE_ENV !== "production");
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("x-pathname", req.nextUrl.pathname);
+  requestHeaders.set("Content-Security-Policy", csp);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  response.headers.set("Content-Security-Policy", csp);
+  if (!req.nextUrl.pathname.startsWith("/api/")) {
+    response.headers.set("Cache-Control", HTML_CACHE_CONTROL);
+  }
+  return response;
+}
+/**
+ * Signed-in visitors are budgeted per account rather than per IP: Saudi mobile
+ * carriers put many customers behind one carrier-grade NAT address, and a
+ * shared IP must not throttle all of them together. Only a valid signature
+ * counts (a made-up cookie falls back to the IP bucket).
+ */
+const SITE_KEY =
+  process.env.AUTH_SECRET && process.env.AUTH_SECRET.length >= 32
+    ? new TextEncoder().encode(process.env.AUTH_SECRET)
+    : null;
+async function signedInSubject(req: NextRequest): Promise<string | null> {
+  const token = req.cookies.get("samel_session")?.value;
+  if (!token || !SITE_KEY) return null;
+  try {
+    const { payload } = await jwtVerify(token, SITE_KEY, {
+      issuer: "harajstation",
+      audience: "site",
+      algorithms: ["HS256"],
+    });
+    return typeof payload.sub === "string" ? payload.sub : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function proxy(req: NextRequest) {
@@ -60,6 +106,8 @@ export async function proxy(req: NextRequest) {
         isAdminPath(pathname) ||
         pathname.startsWith("/_next") ||
         pathname === "/favicon.ico" ||
+        pathname === "/icon.png" ||
+        pathname === "/manifest.webmanifest" ||
         pathname === "/logo.png";
       if (!allowed) {
         return new NextResponse("Not found", { status: 404 });
@@ -70,21 +118,22 @@ export async function proxy(req: NextRequest) {
     }
   }
 
-  if (isRead && !pathname.startsWith("/api/")) return NextResponse.next();
-  if (BYPASS.some((p) => pathname.startsWith(p))) return NextResponse.next();
+  if (isRead && !pathname.startsWith("/api/")) return nextWithCsp(req);
+  if (BYPASS.some((p) => pathname.startsWith(p))) return nextWithCsp(req);
 
-  const ip = clientIp(req);
+  const subject = await signedInSubject(req);
+  const who = subject ? `u:${subject}` : clientIp(req);
   const limited = isRead
-    ? await isRateLimited(`burst:read:${ip}`, READ_LIMIT, WINDOW)
-    : await isRateLimited(`burst:write:${ip}`, WRITE_LIMIT, WINDOW);
+    ? await isRateLimited(`burst:read:${who}`, READ_LIMIT, WINDOW)
+    : await isRateLimited(`burst:write:${who}`, WRITE_LIMIT, WINDOW);
 
   if (limited) {
     return NextResponse.json(
       { error: "محاولات كثيرة — انتظر قليلاً ثم حاول مجدداً" },
-      { status: 429, headers: { "Retry-After": "60" } }
+      { status: 429, headers: { "Retry-After": "60" } },
     );
   }
-  return NextResponse.next();
+  return nextWithCsp(req);
 }
 
 export const config = {

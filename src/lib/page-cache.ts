@@ -24,11 +24,7 @@ type Entry = {
 
 const store = new Map<string, Entry>();
 
-export async function cached<T>(
-  key: string,
-  ttlMs: number,
-  fn: () => Promise<T>
-): Promise<T> {
+export async function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
   const entry = store.get(key);
   const now = Date.now();
 
@@ -52,7 +48,7 @@ export async function cached<T>(
     (err) => {
       e.inflight = null;
       throw err;
-    }
+    },
   );
   store.set(key, e);
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, X, ZoomIn } from "lucide-react";
+import { AccessibleDialog } from "./AccessibleDialog";
 
 /**
  * Circle-crop editor: drag to reposition, slider to zoom.
@@ -22,7 +23,12 @@ export function AvatarCropper({
   const [img, setImg] = useState<HTMLImageElement | null>(null);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const drag = useRef<{ startX: number; startY: number; ox: number; oy: number } | null>(null);
+  const drag = useRef<{
+    startX: number;
+    startY: number;
+    ox: number;
+    oy: number;
+  } | null>(null);
 
   useEffect(() => {
     const url = URL.createObjectURL(file);
@@ -48,7 +54,12 @@ export function AvatarCropper({
 
   function onPointerDown(e: React.PointerEvent) {
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    drag.current = { startX: e.clientX, startY: e.clientY, ox: pos.x, oy: pos.y };
+    drag.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      ox: pos.x,
+      oy: pos.y,
+    };
   }
   function onPointerMove(e: React.PointerEvent) {
     if (!drag.current) return;
@@ -56,7 +67,7 @@ export function AvatarCropper({
       clamp({
         x: drag.current.ox + (e.clientX - drag.current.startX),
         y: drag.current.oy + (e.clientY - drag.current.startY),
-      })
+      }),
     );
   }
   function onPointerUp() {
@@ -74,67 +85,73 @@ export function AvatarCropper({
       ((VIEW - drawW) / 2 + pos.x) * k,
       ((VIEW - drawH) / 2 + pos.y) * k,
       drawW * k,
-      drawH * k
+      drawH * k,
     );
     const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.88));
     if (blob) onSave(new File([blob], "avatar.jpg", { type: "image/jpeg" }));
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button aria-label="close" onClick={onCancel} className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div className="relative card p-5 w-full max-w-sm space-y-4 animate-fade-up">
-        <p className="font-bold text-center">{labels.title}</p>
+    <AccessibleDialog label={labels.title} onClose={onCancel}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <button
+          aria-label={labels.cancel}
+          onClick={onCancel}
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        />
+        <div className="relative card p-5 w-full max-w-sm space-y-4 animate-fade-up">
+          <p className="font-bold text-center">{labels.title}</p>
 
-        <div
-          className="relative mx-auto overflow-hidden rounded-full border-4 border-white shadow-lg cursor-grab active:cursor-grabbing touch-none select-none bg-neutral-100"
-          style={{ width: VIEW, height: VIEW }}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={img.src}
-            alt=""
-            draggable={false}
-            className="absolute max-w-none pointer-events-none"
-            style={{
-              width: drawW,
-              height: drawH,
-              left: (VIEW - drawW) / 2 + pos.x,
-              top: (VIEW - drawH) / 2 + pos.y,
-            }}
-          />
-        </div>
+          <div
+            className="relative mx-auto overflow-hidden rounded-full border-4 border-white shadow-lg cursor-grab active:cursor-grabbing touch-none select-none bg-neutral-100"
+            style={{ width: VIEW, height: VIEW }}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={img.src}
+              alt=""
+              draggable={false}
+              className="absolute max-w-none pointer-events-none"
+              style={{
+                width: drawW,
+                height: drawH,
+                left: (VIEW - drawW) / 2 + pos.x,
+                top: (VIEW - drawH) / 2 + pos.y,
+              }}
+            />
+          </div>
 
-        <p className="text-xs text-neutral-400 text-center">{labels.hint}</p>
+          <p className="text-xs text-neutral-400 text-center">{labels.hint}</p>
 
-        <div className="flex items-center gap-3 px-2" dir="ltr">
-          <ZoomIn className="size-4 text-neutral-400 shrink-0" />
-          <input
-            type="range"
-            min={1}
-            max={3}
-            step={0.01}
-            value={zoom}
-            onChange={(e) => setZoom(Number(e.target.value))}
-            className="w-full accent-primary-500"
-            aria-label="zoom"
-          />
-        </div>
+          <div className="flex items-center gap-3 px-2" dir="ltr">
+            <ZoomIn className="size-4 text-neutral-400 shrink-0" />
+            <input
+              type="range"
+              min={1}
+              max={3}
+              step={0.01}
+              value={zoom}
+              onChange={(e) => setZoom(Number(e.target.value))}
+              className="w-full accent-primary-500"
+              aria-label="zoom"
+            />
+          </div>
 
-        <div className="flex gap-2">
-          <button onClick={save} className="btn-primary flex-1">
-            <Check className="size-4" />
-            {labels.save}
-          </button>
-          <button onClick={onCancel} className="btn-secondary px-4">
-            <X className="size-4" />
-            {labels.cancel}
-          </button>
+          <div className="flex gap-2">
+            <button onClick={save} className="btn-primary flex-1">
+              <Check className="size-4" />
+              {labels.save}
+            </button>
+            <button onClick={onCancel} className="btn-secondary px-4">
+              <X className="size-4" />
+              {labels.cancel}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </AccessibleDialog>
   );
 }

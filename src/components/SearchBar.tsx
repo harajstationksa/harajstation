@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLang } from "@/components/LangProvider";
 import { BadgeCheck, CircleUserRound, Gavel, LayoutGrid, Search, Store, Tag } from "lucide-react";
@@ -21,7 +23,10 @@ const TYPE_ICON = {
 };
 
 /** dropdown sections, in display order — each renders under its own header */
-const SECTIONS: { key: "category" | "store" | "user" | "listing"; types: Suggestion["type"][] }[] = [
+const SECTIONS: {
+  key: "category" | "store" | "user" | "listing";
+  types: Suggestion["type"][];
+}[] = [
   { key: "category", types: ["category"] },
   { key: "store", types: ["store"] },
   { key: "user", types: ["user"] },
@@ -62,7 +67,7 @@ export function SearchBar({
     }
     timerRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search/suggest?q=${encodeURIComponent(value.trim())}`);
+        const res = await clientFetch(`/api/search/suggest?q=${encodeURIComponent(value.trim())}`);
         if (!res.ok) return;
         const data = await res.json();
         setSuggestions(data.suggestions);
@@ -120,9 +125,13 @@ export function SearchBar({
                         >
                           <Icon className="size-4 text-neutral-400 shrink-0" />
                           <span className="line-clamp-1">{s.label}</span>
-                          {s.verified && <BadgeCheck className="size-3.5 text-green-600 shrink-0" />}
+                          {s.verified && (
+                            <BadgeCheck className="size-3.5 text-green-600 shrink-0" />
+                          )}
                           {s.type === "auction" && (
-                            <span className="badge bg-red-50 text-red-600 mr-auto text-[10px]">{t.pub.sbAuction}</span>
+                            <span className="badge bg-red-50 text-red-600 mr-auto text-[10px]">
+                              {t.pub.sbAuction}
+                            </span>
                           )}
                         </button>
                       );

@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { BadgeCheck, Clock, Loader2, ShieldCheck, Upload, XCircle } from "lucide-react";
@@ -36,7 +38,10 @@ export function IdentityVerifyCard({
     setError("");
     const fd = new FormData();
     fd.set("document", file);
-    const res = await fetch("/api/identity", { method: "POST", body: fd });
+    const res = await clientFetch("/api/identity", {
+      method: "POST",
+      body: fd,
+    });
     const data = await res.json().catch(() => ({}));
     setLoading(false);
     if (!res.ok) {
@@ -60,9 +65,7 @@ export function IdentityVerifyCard({
       </div>
 
       {verified ? (
-        <p className="text-sm text-neutral-500">
-          {d.idVerifiedBody}
-        </p>
+        <p className="text-sm text-neutral-500">{d.idVerifiedBody}</p>
       ) : status === "PENDING" ? (
         <p className="flex items-start gap-2 text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5">
           <Clock className="size-4 shrink-0 mt-0.5" />
@@ -70,9 +73,7 @@ export function IdentityVerifyCard({
         </p>
       ) : (
         <>
-          <p className="text-sm text-neutral-500 leading-relaxed">
-            {d.idBody}
-          </p>
+          <p className="text-sm text-neutral-500 leading-relaxed">{d.idBody}</p>
 
           {status === "REJECTED" && (
             <p className="flex items-start gap-2 text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2.5">
@@ -89,7 +90,11 @@ export function IdentityVerifyCard({
               className="text-sm file:btn-secondary file:me-3 file:cursor-pointer"
             />
             <button className="btn-primary" disabled={loading}>
-              {loading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+              {loading ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Upload className="size-4" />
+              )}
               {d.idSubmit}
             </button>
           </form>

@@ -8,7 +8,7 @@ export async function adjustPointsWithClient(
   tx: PointsClient,
   userId: string,
   delta: number,
-  reason: string
+  reason: string,
 ): Promise<number | null> {
   if (!Number.isSafeInteger(delta) || delta === 0) return null;
   const changed = await tx.user.updateMany({
@@ -35,7 +35,7 @@ export async function adjustPointsWithClient(
 export async function adjustPoints(
   userId: string,
   delta: number,
-  reason: string
+  reason: string,
 ): Promise<number | null> {
   return db.$transaction((tx) => adjustPointsWithClient(tx, userId, delta, reason));
 }
@@ -44,7 +44,7 @@ export async function adjustPoints(
 export async function claimDailyPoints(
   userId: string,
   amount: number,
-  startOfToday: Date
+  startOfToday: Date,
 ): Promise<number | null> {
   if (!Number.isSafeInteger(amount) || amount <= 0) return null;
   return db.$transaction(async (tx) => {

@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { useEffect, useState } from "react";
 import { BellOff, BellRing, Loader2, MonitorSmartphone, Share } from "lucide-react";
 import { useLang } from "@/components/LangProvider";
@@ -33,9 +35,9 @@ export function PushManager() {
     let active = true;
     const initialize = isSupported
       ? navigator.serviceWorker
-        .register("/sw.js", { scope: "/", updateViaCache: "none" })
-        .then((reg) => reg.pushManager.getSubscription())
-        .catch(() => null)
+          .register("/sw.js", { scope: "/", updateViaCache: "none" })
+          .then((reg) => reg.pushManager.getSubscription())
+          .catch(() => null)
       : Promise.resolve(null);
     initialize.then((sub) => {
       if (!active) return;
@@ -61,11 +63,9 @@ export function PushManager() {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(
-          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
-        ),
+        applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!),
       });
-      const res = await fetch("/api/push/subscribe", {
+      const res = await clientFetch("/api/push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(JSON.parse(JSON.stringify(sub))),
@@ -86,11 +86,12 @@ export function PushManager() {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
-        await fetch("/api/push/unsubscribe", {
+        const response = await clientFetch("/api/push/unsubscribe", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ endpoint: sub.endpoint }),
         });
+        if (!response.ok) throw new Error("Unsubscribe failed");
         await sub.unsubscribe();
       }
       setSubscribed(false);
@@ -135,9 +136,7 @@ export function PushManager() {
         </span>
         <div className="min-w-0">
           <p className="font-bold text-sm">{d.title}</p>
-          <p className="text-xs text-neutral-500 mt-0.5">
-            {subscribed ? d.onHint : d.offHint}
-          </p>
+          <p className="text-xs text-neutral-500 mt-0.5">{subscribed ? d.onHint : d.offHint}</p>
           {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
         </div>
       </div>

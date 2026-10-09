@@ -1,7 +1,8 @@
 "use client";
+import { publicAsset, type AdminAction } from "@/lib/admin";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef, useEffect, useId } from "react";
 import {
   Ban,
   BellRing,
@@ -43,26 +44,91 @@ const PRO_PRESETS = [7, 30, 90, 365];
 export function AdminUserActions({
   user,
   canBan,
-  canAdjust,
+  canCredibility,
+  canPoints,
   canPro,
+  canNotify,
 }: {
   user: AdminUser;
   canBan: boolean;
-  canAdjust: boolean;
+  canCredibility: boolean;
+  canPoints: boolean;
   canPro: boolean;
+  canNotify: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [done, setDone] = useState("");
+  const [error, setError] = useState(false);
+  const dialog = useRef<HTMLDivElement>(null),
+    request = useRef(""),
+    flight = useRef(false);
+  const titleId = useId();
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const el = dialog.current;
+    el?.querySelector<HTMLElement>("button,input,select,textarea")?.focus();
+    function key(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setOpen(false);
+        return;
+      }
+      if (e.key !== "Tab" || !el) return;
+      const nodes = Array.from(
+        el.querySelectorAll<HTMLElement>(
+          "button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href]",
+        ),
+      );
+      const first = nodes[0],
+        last = nodes.at(-1);
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    }
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("keydown", key);
+      document.body.style.overflow = overflow;
+      previous?.focus();
+    };
+  }, [open]);
   const [customDays, setCustomDays] = useState("");
 
-  function run(action: (fd: FormData) => Promise<void>, fd: FormData, doneMsg: string) {
+  function run(action: AdminAction, fd: FormData, doneMsg: string) {
+    if (flight.current) return;
+    if (
+      action === adjustUserPointsAction &&
+      Number(fd.get("delta")) < 0 &&
+      !window.confirm("تأكيد خصم النقاط؟")
+    )
+      return;
+    flight.current = true;
     setDone("");
     startTransition(async () => {
-      await action(fd);
-      setDone(doneMsg);
-      router.refresh();
+      try {
+        if (!request.current) request.current = crypto.randomUUID();
+        fd.set("requestId", request.current);
+        const result = await action(fd);
+        setError(!!result && !result.ok);
+        setDone(result?.message ?? doneMsg);
+        if (!result || result.ok) {
+          request.current = "";
+          router.refresh();
+        }
+      } catch {
+        setError(true);
+        setDone("تعذّر الاتصال. حاول مجددًا");
+      } finally {
+        flight.current = false;
+      }
     });
   }
 
@@ -98,12 +164,22 @@ export function AdminUserActions({
           className="fixed inset-0 z-50 bg-black/45 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={(e) => e.target === e.currentTarget && setOpen(false)}
         >
-          <div className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[88vh] overflow-y-auto">
+          <div
+            ref={dialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            className="bg-white w-full sm:max-w-lg sm:rounded-2xl rounded-t-2xl shadow-2xl max-h-[88vh] overflow-y-auto"
+          >
             {/* header */}
             <div className="sticky top-0 bg-white/95 backdrop-blur border-b border-neutral-100 px-5 py-3.5 flex items-center gap-3 z-10">
               {user.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={user.avatarUrl} alt="" className="size-9 rounded-full object-cover" />
+                <img
+                  src={publicAsset(user.avatarUrl)}
+                  alt=""
+                  className="size-9 rounded-full object-cover"
+                />
               ) : (
                 <span
                   className="size-9 rounded-full text-white text-sm font-bold flex items-center justify-center"
@@ -113,7 +189,9 @@ export function AdminUserActions({
                 </span>
               )}
               <div className="min-w-0 flex-1">
-                <p className="font-bold text-sm line-clamp-1">{user.name}</p>
+                <p id={titleId} className="font-bold text-sm line-clamp-1">
+                  {user.name}
+                </p>
                 <p className="text-xs text-neutral-400 line-clamp-1" dir="ltr">
                   {user.email}
                 </p>
@@ -121,6 +199,7 @@ export function AdminUserActions({
               {pending && <Loader2 className="size-4 animate-spin text-primary-500" />}
               <button
                 type="button"
+                aria-label="إغلاق"
                 onClick={() => setOpen(false)}
                 className="text-neutral-400 hover:text-neutral-600 cursor-pointer"
               >
@@ -130,8 +209,11 @@ export function AdminUserActions({
 
             <div className="p-5 space-y-5">
               {done && (
-                <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
-                  {done} ✓
+                <p
+                  role={error ? "alert" : "status"}
+                  className={`text-sm rounded-lg px-3 py-2 ${error ? "text-red-700 bg-red-50" : "text-green-700 bg-green-50"}`}
+                >
+                  {done}
                 </p>
               )}
 
@@ -143,7 +225,9 @@ export function AdminUserActions({
                     اشتراك برو
                     <span
                       className={`badge text-[10px] ${
-                        user.isPro ? "bg-amber-50 text-amber-700" : "bg-neutral-100 text-neutral-500"
+                        user.isPro
+                          ? "bg-amber-50 text-amber-700"
+                          : "bg-neutral-100 text-neutral-500"
                       }`}
                     >
                       {proLabel}
@@ -156,7 +240,11 @@ export function AdminUserActions({
                         type="button"
                         disabled={pending || (user.isPro && !user.proUntil)}
                         onClick={() =>
-                          run(grantProAction, fd({ mode: "days", days: String(d) }), `تم منح ${d} يوم برو`)
+                          run(
+                            grantProAction,
+                            fd({ mode: "days", days: String(d) }),
+                            `تم منح ${d} يوم برو`,
+                          )
                         }
                         className="badge bg-neutral-100 text-neutral-700 hover:bg-amber-100 hover:text-amber-800 cursor-pointer disabled:opacity-40"
                       >
@@ -175,7 +263,11 @@ export function AdminUserActions({
                         type="button"
                         disabled={pending || !customDays || (user.isPro && !user.proUntil)}
                         onClick={() =>
-                          run(grantProAction, fd({ mode: "days", days: customDays }), `تم منح ${customDays} يوم برو`)
+                          run(
+                            grantProAction,
+                            fd({ mode: "days", days: customDays }),
+                            `تم منح ${customDays} يوم برو`,
+                          )
                         }
                         className="badge bg-amber-500 text-white hover:bg-amber-600 cursor-pointer disabled:opacity-40"
                       >
@@ -185,7 +277,9 @@ export function AdminUserActions({
                     <button
                       type="button"
                       disabled={pending || (user.isPro && !user.proUntil)}
-                      onClick={() => run(grantProAction, fd({ mode: "permanent" }), "تم منح برو دائم")}
+                      onClick={() =>
+                        run(grantProAction, fd({ mode: "permanent" }), "تم منح برو دائم")
+                      }
                       className="badge bg-neutral-900 text-amber-400 hover:bg-neutral-700 cursor-pointer disabled:opacity-40"
                     >
                       <Crown className="size-3.5" />
@@ -195,7 +289,9 @@ export function AdminUserActions({
                       <button
                         type="button"
                         disabled={pending}
-                        onClick={() => run(grantProAction, fd({ mode: "revoke" }), "تم إلغاء الاشتراك")}
+                        onClick={() =>
+                          run(grantProAction, fd({ mode: "revoke" }), "تم إلغاء الاشتراك")
+                        }
                         className="badge bg-red-50 text-red-600 hover:bg-red-100 cursor-pointer"
                       >
                         إلغاء الاشتراك
@@ -209,93 +305,108 @@ export function AdminUserActions({
               )}
 
               {/* ── private notification ── */}
-              <section className="space-y-2.5 border-t border-neutral-100 pt-4">
-                <h3 className="font-bold text-sm flex items-center gap-1.5">
-                  <BellRing className="size-4 text-primary-500" />
-                  إشعار / رسالة خاصة
-                </h3>
-                <form
-                  action={(f) => {
-                    f.set("userId", user.id);
-                    run(notifyUserAction, f, "أُرسل الإشعار — داخل الموقع وعبر الجوال");
-                  }}
-                  className="space-y-2"
-                >
-                  <input
-                    name="title"
-                    required
-                    minLength={3}
-                    maxLength={100}
-                    placeholder="عنوان الرسالة"
-                    className="input !text-sm"
-                  />
-                  <textarea
-                    name="body"
-                    required
-                    minLength={5}
-                    maxLength={500}
-                    placeholder="نص الرسالة — يصل للمستخدم كإشعار داخل الموقع وإشعار Push على جهازه"
-                    className="input !text-sm min-h-20 py-2.5"
-                  />
-                  <div className="flex items-center gap-2">
+              {canNotify && (
+                <section className="space-y-2.5 border-t border-neutral-100 pt-4">
+                  <h3 className="font-bold text-sm flex items-center gap-1.5">
+                    <BellRing className="size-4 text-primary-500" />
+                    إشعار / رسالة خاصة
+                  </h3>
+                  <form
+                    action={(f) => {
+                      f.set("userId", user.id);
+                      run(notifyUserAction, f, "أُرسل الإشعار — داخل الموقع وعبر الجوال");
+                    }}
+                    className="space-y-2"
+                  >
                     <input
-                      name="link"
-                      placeholder="رابط اختياري (/pro أو https://…)"
-                      dir="ltr"
-                      className="input !text-sm flex-1"
+                      name="title"
+                      required
+                      minLength={3}
+                      maxLength={100}
+                      placeholder="عنوان الرسالة"
+                      className="input !text-sm"
                     />
-                    <button disabled={pending} className="btn-primary !min-h-9 !px-4 text-xs shrink-0">
-                      <Send className="size-3.5" />
-                      إرسال
-                    </button>
-                  </div>
-                </form>
-              </section>
+                    <textarea
+                      name="body"
+                      required
+                      minLength={5}
+                      maxLength={500}
+                      placeholder="نص الرسالة — يصل للمستخدم كإشعار داخل الموقع وإشعار Push على جهازه"
+                      className="input !text-sm min-h-20 py-2.5"
+                    />
+                    <div className="flex items-center gap-2">
+                      <input
+                        name="link"
+                        placeholder="رابط اختياري (/pro أو https://…)"
+                        dir="ltr"
+                        className="input !text-sm flex-1"
+                      />
+                      <button
+                        disabled={pending}
+                        className="btn-primary !min-h-9 !px-4 text-xs shrink-0"
+                      >
+                        <Send className="size-3.5" />
+                        إرسال
+                      </button>
+                    </div>
+                  </form>
+                </section>
+              )}
 
               {/* ── credibility & points ── */}
-              {canAdjust && user.role === "USER" && (
+              {(canCredibility || canPoints) && user.role === "USER" && (
                 <section className="space-y-2.5 border-t border-neutral-100 pt-4">
                   <h3 className="font-bold text-sm flex items-center gap-1.5">
                     <SlidersHorizontal className="size-4 text-neutral-500" />
                     تعديلات الرصيد
                   </h3>
                   <div className="grid grid-cols-2 gap-2">
-                    <form
-                      action={(f) => {
-                        f.set("userId", user.id);
-                        f.set("reason", "تعديل إداري");
-                        run(adjustCredibilityAction, f, "عُدّلت المصداقية");
-                      }}
-                      className="flex items-center gap-1.5"
-                    >
-                      <input
-                        name="delta"
-                        placeholder="±مصداقية"
-                        dir="ltr"
-                        className="input !text-xs !py-1.5 flex-1 text-center"
-                      />
-                      <button disabled={pending} className="badge bg-neutral-800 text-white cursor-pointer hover:bg-neutral-700 shrink-0">
-                        <ShieldCheck className="size-3.5" />
-                        تطبيق
-                      </button>
-                    </form>
-                    <form
-                      action={(f) => {
-                        f.set("userId", user.id);
-                        run(adjustUserPointsAction, f, "عُدّلت النقاط");
-                      }}
-                      className="flex items-center gap-1.5"
-                    >
-                      <input
-                        name="delta"
-                        placeholder="±نقاط"
-                        dir="ltr"
-                        className="input !text-xs !py-1.5 flex-1 text-center"
-                      />
-                      <button disabled={pending} className="badge bg-amber-500 text-white cursor-pointer hover:bg-amber-600 shrink-0">
-                        تطبيق
-                      </button>
-                    </form>
+                    {canCredibility && (
+                      <form
+                        action={(f) => {
+                          f.set("userId", user.id);
+                          f.set("reason", "تعديل إداري");
+                          run(adjustCredibilityAction, f, "عُدّلت المصداقية");
+                        }}
+                        className="flex items-center gap-1.5"
+                      >
+                        <input
+                          name="delta"
+                          placeholder="±مصداقية"
+                          dir="ltr"
+                          className="input !text-xs !py-1.5 flex-1 text-center"
+                        />
+                        <button
+                          disabled={pending}
+                          className="badge bg-neutral-800 text-white cursor-pointer hover:bg-neutral-700 shrink-0"
+                        >
+                          <ShieldCheck className="size-3.5" />
+                          تطبيق
+                        </button>
+                      </form>
+                    )}
+                    {canPoints && (
+                      <form
+                        action={(f) => {
+                          f.set("userId", user.id);
+                          run(adjustUserPointsAction, f, "عُدّلت النقاط");
+                        }}
+                        className="flex items-center gap-1.5"
+                      >
+                        <input
+                          name="delta"
+                          placeholder="±نقاط"
+                          dir="ltr"
+                          className="input !text-xs !py-1.5 flex-1 text-center"
+                        />
+                        <button
+                          disabled={pending}
+                          className="badge bg-amber-500 text-white cursor-pointer hover:bg-amber-600 shrink-0"
+                        >
+                          تطبيق
+                        </button>
+                      </form>
+                    )}
                   </div>
                 </section>
               )}

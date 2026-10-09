@@ -1,3 +1,4 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -12,13 +13,20 @@ import {
   NOT_AUCTION,
   type ListingGoal,
 } from "@/lib/category-fields";
-import { CITIES } from "@/lib/constants";
 import { findBannedWord } from "@/lib/moderation";
+import {
+  REVIEW_RULES,
+  addReviewReason,
+  classifyListing,
+  isLikelyDuplicate,
+  type ReviewResult,
+} from "@/lib/smart-review";
 import { generateListingRef } from "@/lib/ref";
-import { alertSavedSearches } from "@/lib/saved-search";
+import { lockPublishingQuota, hasListingCapacity } from "@/lib/listing-policy";
+import { validAmount, readAttributes, listingFieldsSchema } from "@/lib/listing-validation";
 
-import { saveImages, MAX_FILE } from "@/lib/uploads";
-import { isRateLimited, rateLimitGuard } from "@/lib/rate-limit";
+import { saveImages, deleteImages, MAX_FILE } from "@/lib/uploads";
+import { rateLimitGuard } from "@/lib/rate-limit";
 
 // category icon → fallback placeholder image
 const FALLBACK: Record<string, string> = {
@@ -35,17 +43,12 @@ const FALLBACK: Record<string, string> = {
   package: "chair1",
 };
 
-const base = z.object({
+const base = listingFieldsSchema.extend({
   type: z.enum(["STANDARD", "AUCTION", "ANNOUNCE"]),
   goal: z.enum(["SELL", "AUCTION", "ANNOUNCE"]).default("SELL"),
   categoryId: z.string().min(1),
-  title: z.string().min(4).max(100),
-  description: z.string().min(20).max(5000),
   // optional: categories like real estate & jobs have no condition field at
   // all — requiring it here used to reject them with a phantom-field error
-  condition: z.enum(["NEW", "LIKE_NEW", "USED"]).optional(),
-  city: z.enum(CITIES),
-  neighborhood: z.string().max(60).optional(),
 });
 
 // Arabic field labels + human validation messages so a rejected submit tells
@@ -89,7 +92,7 @@ export async function POST(req: Request) {
 
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.json({ error: "سجّل دخولك أولاً" }, { status: 401 });
+    return NextResponse.json({ error: apiMessage(req, "سجّل دخولك أولاً") }, { status: 401 });
   }
 
   const fd = await req.formData().catch(() => null);
@@ -99,14 +102,16 @@ export async function POST(req: Request) {
     // it, and log the size for us — never the reason, which means nothing to
     // them and describes our internals.
     console.warn(
-      `listing upload: unreadable body (content-length: ${req.headers.get("content-length") ?? "?"})`
+      `listing upload: unreadable body (content-length: ${req.headers.get("content-length") ?? "?"})`,
     );
     return NextResponse.json(
       {
-        error:
+        error: apiMessage(
+          req,
           "لم تصلنا الصور كاملة — قد يكون الاتصال انقطع أثناء الرفع. جرّب صوراً أقل أو أعد المحاولة.",
+        ),
       },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -133,7 +138,7 @@ export async function POST(req: Request) {
     const summary = Object.entries(fields)
       .map(([k, msg]) => `${FIELD_LABEL[k] ?? k}: ${msg}`)
       .join(" · ");
-    return NextResponse.json({ error: summary, fields }, { status: 400 });
+    return NextResponse.json({ error: apiMessage(req, summary), fields }, { status: 400 });
   }
   const data = parsed.data;
 
@@ -142,7 +147,7 @@ export async function POST(req: Request) {
     include: { parent: true },
   });
   if (!category) {
-    return NextResponse.json({ error: "فئة غير موجودة" }, { status: 400 });
+    return NextResponse.json({ error: apiMessage(req, "فئة غير موجودة") }, { status: 400 });
   }
   const mainSlug = category.parent?.slug ?? category.slug;
   const cfg = configForMain(mainSlug);
@@ -152,39 +157,30 @@ export async function POST(req: Request) {
   // can't take bids — the form filters these, this guards direct requests
   if (!goalAllowsCategory(goal, mainSlug)) {
     return NextResponse.json(
-      { error: "هذه الفئة غير متاحة لهذا الهدف — غيّر الهدف أو اختر فئة أخرى", fields: { categoryId: "غير متاحة لهذا الهدف" } },
-      { status: 400 }
+      {
+        error: apiMessage(req, "هذه الفئة غير متاحة لهذا الهدف — غيّر الهدف أو اختر فئة أخرى"),
+        fields: { categoryId: "غير متاحة لهذا الهدف" },
+      },
+      { status: 400 },
     );
   }
   if (GOAL_TYPE[goal] !== data.type) {
-    return NextResponse.json({ error: "نوع الإعلان لا يطابق الهدف" }, { status: 400 });
+    return NextResponse.json(
+      { error: apiMessage(req, "نوع الإعلان لا يطابق الهدف") },
+      { status: 400 },
+    );
   }
 
   // collect category-specific attributes (attr_<key>) and validate required —
   // every missing required field is reported so its box lights up red
-  const attributes: Record<string, string> = {};
-  const attrErrors: Record<string, string> = {};
-  for (const f of cfg.fields) {
-    const val = String(fd.get(`attr_${f.key}`) ?? "").trim();
-    if (val) attributes[f.key] = val;
-    else if (f.required) attrErrors[`attr_${f.key}`] = `حقل "${f.label}" مطلوب`;
-  }
+  const { attributes, errors: attrErrors } = readAttributes(fd, cfg);
   if (Object.keys(attrErrors).length > 0) {
     return NextResponse.json(
-      { error: Object.values(attrErrors).join(" · "), fields: attrErrors },
-      { status: 400 }
+      { error: apiMessage(req, Object.values(attrErrors).join(" · ")), fields: attrErrors },
+      { status: 400 },
     );
   }
   const attrText = Object.values(attributes).join(" ");
-
-  // banned content check (admin-managed word list)
-  const banned = await findBannedWord(`${data.title} ${data.description}`);
-  if (banned) {
-    return NextResponse.json(
-      { error: "الإعلان يحتوي محتوى مخالفاً لسياسات المنصة والأنظمة المحلية" },
-      { status: 422 }
-    );
-  }
 
   // account limits (from admin-editable plans). Sale posts and announcements
   // share the one "listings" quota — counting them separately would hand every
@@ -194,20 +190,25 @@ export async function POST(req: Request) {
   const activeCount = await db.listing.count({
     where: {
       sellerId: user.id,
-      status: "ACTIVE",
+      status: { in: ["ACTIVE", "PENDING", "AWAITING_INFO"] },
       type: isAuction ? "AUCTION" : NOT_AUCTION,
     },
   });
   if (!isAuction && activeCount >= limits.maxListings) {
     return NextResponse.json(
-      { error: `الحد الأقصى ${limits.maxListings} إعلانات نشطة — رقِّ حسابك إلى برو` },
-      { status: 403 }
+      {
+        error: apiMessage(
+          req,
+          `الحد الأقصى ${limits.maxListings} إعلانات نشطة — رقِّ حسابك إلى برو`,
+        ),
+      },
+      { status: 403 },
     );
   }
   if (isAuction && activeCount >= limits.maxAuctions) {
     return NextResponse.json(
-      { error: `الحد الأقصى ${limits.maxAuctions} مزادات نشطة` },
-      { status: 403 }
+      { error: apiMessage(req, `الحد الأقصى ${limits.maxAuctions} مزادات نشطة`) },
+      { status: 403 },
     );
   }
 
@@ -228,21 +229,26 @@ export async function POST(req: Request) {
     const buyNowRaw = String(fd.get("buyNowPrice") ?? "").trim();
     const buyNowPrice = buyNowRaw ? Number(buyNowRaw) : null;
 
-    if (!Number.isInteger(startPrice) || startPrice < 1) {
-      return NextResponse.json({ error: "سعر البداية غير صالح" }, { status: 400 });
+    if (!validAmount(startPrice)) {
+      return NextResponse.json({ error: apiMessage(req, "سعر البداية غير صالح") }, { status: 400 });
     }
-    if (!Number.isInteger(minIncrement) || minIncrement < 1) {
-      return NextResponse.json({ error: "حد الزيادة غير صالح" }, { status: 400 });
+    if (!validAmount(minIncrement)) {
+      return NextResponse.json({ error: apiMessage(req, "حد الزيادة غير صالح") }, { status: 400 });
     }
     if (![24, 72, 120, 168].includes(durationHours)) {
-      return NextResponse.json({ error: "مدة المزاد غير صالحة" }, { status: 400 });
+      return NextResponse.json({ error: apiMessage(req, "مدة المزاد غير صالحة") }, { status: 400 });
     }
-    if (buyNowPrice != null && (!Number.isInteger(buyNowPrice) || buyNowPrice <= startPrice)) {
+    if (buyNowPrice != null && (!validAmount(buyNowPrice) || buyNowPrice <= startPrice)) {
       return NextResponse.json(
-        { error: "سعر الشراء الفوري يجب أن يكون أعلى من سعر البداية" },
-        { status: 400 }
+        { error: apiMessage(req, "سعر الشراء الفوري يجب أن يكون أعلى من سعر البداية") },
+        { status: 400 },
       );
     }
+    if (String(fd.get("terms") ?? "").length > 5000)
+      return NextResponse.json(
+        { error: apiMessage(req, "شروط المزاد طويلة جداً") },
+        { status: 400 },
+      );
     auctionInput = {
       startPrice,
       minIncrement,
@@ -257,50 +263,84 @@ export async function POST(req: Request) {
       price = null;
     } else {
       price = Number(priceRaw);
-      if (!Number.isInteger(price) || price < 1) {
+      if (!validAmount(price)) {
         return NextResponse.json(
-          { error: "السعر غير صالح", fields: { price: "أدخل رقماً صحيحاً أكبر من صفر" } },
-          { status: 400 }
+          {
+            error: apiMessage(req, "السعر غير صالح"),
+            fields: { price: "أدخل رقماً صحيحاً أكبر من صفر" },
+          },
+          { status: 400 },
         );
       }
     }
   }
 
+  let review: ReviewResult;
+  try {
+    review = classifyListing({
+      title: data.title,
+      description: data.description,
+      categorySlug: category.slug,
+      parentSlug: category.parent?.slug,
+      categoryName: category.nameAr,
+      attributes,
+    });
+    const banned = await findBannedWord(`${data.title} ${data.description} ${attrText}`);
+    if (banned)
+      review = addReviewReason(review, "PROHIBITED", "BANNED_WORD", "قائمة محظورات الإدارة");
+    if (REVIEW_RULES.duplicate) {
+      const recent = await db.listing.findMany({
+        where: {
+          sellerId: user.id,
+          status: { in: ["ACTIVE", "PENDING", "AWAITING_INFO"] },
+          createdAt: { gte: new Date(Date.now() - 30 * 86400000) },
+        },
+        select: { title: true, description: true, categoryId: true, price: true },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+      });
+      if (
+        isLikelyDuplicate(
+          { title: data.title, description: data.description, categoryId: category.id, price },
+          recent,
+        )
+      )
+        review = addReviewReason(review, "SENSITIVE", "DUPLICATE", "إعلان مماثل من البائع");
+    }
+  } catch {
+    review = { level: "SENSITIVE", reasons: ["ANALYSIS_FAILED"], signals: [] };
+  }
+  const pendingReview = review.level !== "NORMAL";
+
   // Everything checks out, so this request is about to become a real listing —
   // charge it against the publishing cap now, before we spend time storing
   // images. Keyed by account, because that is the thing a spammer has to burn.
-  if (await isRateLimited(`listing-publish:${user.id}`, 10, 10 * 60_000)) {
-    return NextResponse.json(
-      { error: "نشرت إعلانات كثيرة خلال وقت قصير — انتظر قليلاً ثم أضف إعلانك التالي" },
-      { status: 429 }
-    );
-  }
 
   // image uploads
   const files = fd.getAll("images").filter((f): f is File => f instanceof File && f.size > 0);
   if (files.length > 10) {
-    return NextResponse.json({ error: "الحد الأقصى 10 صور" }, { status: 400 });
+    return NextResponse.json({ error: apiMessage(req, "الحد الأقصى 10 صور") }, { status: 400 });
   }
   const urls: string[] = [];
   if (files.length > 0) {
     for (const file of files) {
       if (file.size > MAX_FILE) {
         return NextResponse.json(
-          { error: "حجم الصورة يتجاوز 5 ميجابايت — جرّب صورة أصغر" },
-          { status: 400 }
+          { error: apiMessage(req, "حجم الصورة يتجاوز 5 ميجابايت — جرّب صورة أصغر") },
+          { status: 400 },
         );
       }
     }
     const saved = await saveImages(files, "listings");
     if (!saved.ok) {
-      return NextResponse.json({ error: saved.error }, { status: 400 });
+      return NextResponse.json({ error: apiMessage(req, saved.error) }, { status: 400 });
     }
     urls.push(...saved.urls);
   } else {
     urls.push(`/images/ph/${FALLBACK[category.icon] ?? "chair1"}.svg`);
   }
 
-  const showPhone = fd.get("showPhone") != null && !!user.phone;
+  const showPhone = fd.get("showPhone") != null && !!user.phone && user.phoneVerified;
   const deliveryRaw = String(fd.get("deliveryMethod") ?? "PICKUP");
   const deliveryMethod =
     cfg.showDelivery && ["PICKUP", "SHIPPING", "DELIVERY"].includes(deliveryRaw)
@@ -315,48 +355,94 @@ export async function POST(req: Request) {
     if (store && store.userId === user.id) storeId = store.id;
   }
 
-  const ref = await generateListingRef();
-  const listing = await db.listing.create({
-    data: {
-      ref,
-      type: data.type,
-      title: data.title,
-      description: data.description,
-      price,
-      // categories without a condition field (عقارات، وظائف، خدمات) default it
-      condition: cfg.showCondition ? (data.condition ?? "USED") : "USED",
-      city: data.city,
-      neighborhood: data.neighborhood ?? null,
-      images: JSON.stringify(urls),
-      sellerId: user.id,
-      categoryId: category.id,
-      storeId,
-      phone: showPhone ? user.phone : null,
-      whatsapp: showPhone ? user.phone : null,
-      showPhone,
-      deliveryMethod,
-      attributes: JSON.stringify(attributes),
-      searchText: buildSearchText(data.title, data.description, data.city, attrText),
-    },
-  });
+  try {
+    const listing = await db.$transaction(async (tx) => {
+      await lockPublishingQuota(tx, user.id);
+      if (
+        (await tx.listing.count({
+          where: { sellerId: user.id, createdAt: { gte: new Date(Date.now() - 10 * 60_000) } },
+        })) >= 10
+      )
+        throw new Error("PUBLISH_RATE_LIMIT");
+      if (!(await hasListingCapacity(tx, user.id, user.isPro, isAuction)))
+        throw new Error("LISTING_QUOTA");
+      const created = await tx.listing.create({
+        data: {
+          ...(auctionInput
+            ? {
+                auction: {
+                  create: {
+                    startPrice: auctionInput.startPrice,
+                    minIncrement: auctionInput.minIncrement,
+                    buyNowPrice: auctionInput.buyNowPrice,
+                    terms: auctionInput.terms,
+                    endsAt: new Date(Date.now() + auctionInput.durationHours * 3600000),
+                    status: pendingReview ? "PENDING" : "LIVE",
+                  },
+                },
+              }
+            : {}),
+          ref: await generateListingRef(tx),
+          type: data.type,
+          title: data.title,
+          description: data.description,
+          price,
+          status: pendingReview ? "PENDING" : "ACTIVE",
+          riskLevel: review.level,
+          riskReasons: JSON.stringify(review.reasons),
+          riskSignals: JSON.stringify(review.signals),
+          // categories without a condition field (عقارات، وظائف، خدمات) default it
+          condition: cfg.showCondition ? (data.condition ?? "USED") : "USED",
+          city: data.city,
+          neighborhood: data.neighborhood ?? null,
+          images: JSON.stringify(urls),
+          sellerId: user.id,
+          categoryId: category.id,
+          storeId,
+          phone: showPhone ? user.phone : null,
+          whatsapp: showPhone ? user.phone : null,
+          showPhone,
+          deliveryMethod,
+          attributes: JSON.stringify(attributes),
+          searchText: buildSearchText(data.title, data.description, data.city, attrText),
+        },
+        include: { auction: { select: { id: true } } },
+      });
 
-  let auctionId: string | undefined;
-  if (auctionInput) {
-    const auction = await db.auction.create({
-      data: {
-        listingId: listing.id,
-        startPrice: auctionInput.startPrice,
-        minIncrement: auctionInput.minIncrement,
-        buyNowPrice: auctionInput.buyNowPrice,
-        terms: auctionInput.terms,
-        endsAt: new Date(Date.now() + auctionInput.durationHours * 3_600_000),
-      },
+      if (!pendingReview)
+        await tx.backgroundJob.create({
+          data: {
+            kind: "LISTING_ALERT",
+            dedupKey: `listing:${created.id}`,
+            payload: JSON.stringify({ listingId: created.id }),
+          },
+        });
+      return created;
     });
-    auctionId = auction.id;
+    return NextResponse.json({
+      ok: true,
+      id: listing.id,
+      auctionId: listing.auction?.id,
+      pendingReview,
+    });
+  } catch (error) {
+    await deleteImages(urls);
+    if (error instanceof Error && error.message === "PUBLISH_RATE_LIMIT")
+      return NextResponse.json(
+        { error: apiMessage(req, "نشرت إعلانات كثيرة خلال وقت قصير — انتظر قليلاً") },
+        { status: 429 },
+      );
+    if (error instanceof Error && error.message === "LISTING_QUOTA")
+      return NextResponse.json(
+        { error: apiMessage(req, "وصلت الحد الأقصى للإعلانات النشطة") },
+        { status: 403 },
+      );
+    console.error("listing creation failed", {
+      code: (error as { code?: string }).code ?? "CREATE_FAILED",
+    });
+    return NextResponse.json(
+      { error: apiMessage(req, "تعذر حفظ الإعلان، حاول مجدداً") },
+      { status: 500 },
+    );
   }
-
-  // saved-search + follower alerts (best-effort, never blocks publishing)
-  await alertSavedSearches(listing.id);
-
-  return NextResponse.json({ ok: true, id: listing.id, auctionId });
 }

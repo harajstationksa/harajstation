@@ -1,11 +1,13 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
+import { hasUserBlock, lockChatUsers } from "@/lib/conversation-policy";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { decryptText, encryptText } from "@/lib/crypto";
 import { findBannedWord } from "@/lib/moderation";
-import { notify } from "@/lib/notify";
-import { savePrivateImage, MAX_FILE } from "@/lib/uploads";
+import { notifyWithClient } from "@/lib/notify";
+import { savePrivateImage, deletePrivateImage, MAX_FILE } from "@/lib/uploads";
 import { rateLimitGuard } from "@/lib/rate-limit";
 
 async function getConvForUser(id: string, userId: string) {
@@ -17,10 +19,9 @@ async function getConvForUser(id: string, userId: string) {
   return conv;
 }
 
-export async function GET(
-  _req: Request,
-  ctx: { params: Promise<{ id: string }> }
-) {
+export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const limited = await rateLimitGuard(_req, "chat-read", 120, 60_000);
+  if (limited) return limited;
   const { id } = await ctx.params;
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -28,30 +29,46 @@ export async function GET(
   const conv = await getConvForUser(id, session.sub);
   if (!conv) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  const messages = await db.message.findMany({
-    where: { conversationId: id },
-    orderBy: { createdAt: "asc" },
-    take: 200,
+  const sp = new URL(_req.url).searchParams;
+  const before = sp.get("before"),
+    after = sp.get("after");
+  if (before && after) return NextResponse.json({ error: "invalid cursor" }, { status: 400 });
+  const cursor =
+    before || after
+      ? await db.message.findFirst({
+          where: { id: (before || after)!, conversationId: id },
+          select: { id: true, createdAt: true },
+        })
+      : null;
+  if ((before || after) && !cursor)
+    return NextResponse.json({ error: "invalid cursor" }, { status: 400 });
+  const boundary = cursor
+    ? {
+        OR: [
+          { createdAt: after ? { gt: cursor.createdAt } : { lt: cursor.createdAt } },
+          { createdAt: cursor.createdAt, id: after ? { gt: cursor.id } : { lt: cursor.id } },
+        ],
+      }
+    : {};
+  const fetched = await db.message.findMany({
+    where: { conversationId: id, ...boundary },
+    orderBy: [{ createdAt: after ? "asc" : "desc" }, { id: after ? "asc" : "desc" }],
+    take: 51,
+  });
+  const hasMore = fetched.length > 50;
+  const messages = fetched.slice(0, 50);
+  if (!after) messages.reverse();
+  const receipts = await db.message.findMany({
+    where: { conversationId: id, senderId: session.sub },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    select: { id: true, readAt: true, deliveredAt: true },
   });
 
-  // Reading the thread implies delivery too — someone can open a conversation
-  // straight from a link without a page view having marked it delivered first,
-  // and a message that is read but not delivered would be nonsense. Separate
-  // updates so an existing deliveredAt keeps the time it actually arrived.
-  const now = new Date();
-  const fromThem = { conversationId: id, senderId: { not: session.sub } };
-  await Promise.all([
-    db.message.updateMany({
-      where: { ...fromThem, readAt: null },
-      data: { readAt: now },
-    }),
-    db.message.updateMany({
-      where: { ...fromThem, deliveredAt: null },
-      data: { deliveredAt: now },
-    }),
-  ]);
-
   return NextResponse.json({
+    hasMoreBefore: !after && hasMore,
+    hasMoreAfter: !!after && hasMore,
+    receipts,
     messages: messages.map((m) => ({
       id: m.id,
       // stored encrypted — decrypted only for the two conversation parties
@@ -69,38 +86,7 @@ export async function GET(
 
 const postSchema = z.object({ body: z.string().max(2000) });
 
-/** Add (delay until first seller reply, in minutes) to the seller's stats. */
-async function recordSellerFirstReply(
-  conversationId: string,
-  sellerId: string,
-  sentMessageId: string
-) {
-  const sellerMsgCount = await db.message.count({
-    where: { conversationId, senderId: sellerId },
-  });
-  if (sellerMsgCount !== 1) return; // not their first reply here
-
-  const firstFromBuyer = await db.message.findFirst({
-    where: { conversationId, senderId: { not: sellerId }, id: { not: sentMessageId } },
-    orderBy: { createdAt: "asc" },
-    select: { createdAt: true },
-  });
-  if (!firstFromBuyer) return; // seller wrote first — nothing was awaited
-
-  const mins = Math.min(
-    1440,
-    Math.max(0, Math.round((Date.now() - firstFromBuyer.createdAt.getTime()) / 60_000))
-  );
-  await db.user.update({
-    where: { id: sellerId },
-    data: { responseMinsSum: { increment: mins }, responseCount: { increment: 1 } },
-  });
-}
-
-export async function POST(
-  req: Request,
-  ctx: { params: Promise<{ id: string }> }
-) {
+export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const limited = await rateLimitGuard(req, "chat-send", 30, 60_000);
   if (limited) return limited;
 
@@ -117,31 +103,37 @@ export async function POST(
   const contentType = req.headers.get("content-type") ?? "";
   if (contentType.includes("multipart/form-data")) {
     const fd = await req.formData().catch(() => null);
-    if (!fd) return NextResponse.json({ error: "طلب غير صالح" }, { status: 400 });
+    if (!fd) return NextResponse.json({ error: apiMessage(req, "طلب غير صالح") }, { status: 400 });
     body = String(fd.get("body") ?? "").trim();
     const file = fd.get("image");
     if (file instanceof File && file.size > 0) imageFile = file;
   } else {
     const parsed = postSchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) {
-      return NextResponse.json({ error: "رسالة غير صالحة" }, { status: 400 });
+      return NextResponse.json({ error: apiMessage(req, "رسالة غير صالحة") }, { status: 400 });
     }
     body = parsed.data.body.trim();
   }
 
   if (!body && !imageFile) {
-    return NextResponse.json({ error: "اكتب رسالة أو أرفق صورة" }, { status: 400 });
+    return NextResponse.json(
+      { error: apiMessage(req, "اكتب رسالة أو أرفق صورة") },
+      { status: 400 },
+    );
   }
   if (body.length > 2000) {
-    return NextResponse.json({ error: "الرسالة أطول من الحد المسموح" }, { status: 400 });
+    return NextResponse.json(
+      { error: apiMessage(req, "الرسالة أطول من الحد المسموح") },
+      { status: 400 },
+    );
   }
 
   if (body) {
     const banned = await findBannedWord(body);
     if (banned) {
       return NextResponse.json(
-        { error: "رسالتك تحتوي محتوى مخالفاً لسياسات المنصة" },
-        { status: 422 }
+        { error: apiMessage(req, "رسالتك تحتوي محتوى مخالفاً لسياسات المنصة") },
+        { status: 422 },
       );
     }
   }
@@ -152,51 +144,115 @@ export async function POST(
   if (imageFile) {
     if (imageFile.size > MAX_FILE) {
       return NextResponse.json(
-        { error: "حجم الصورة يتجاوز 5 ميجابايت" },
-        { status: 400 }
+        { error: apiMessage(req, "حجم الصورة يتجاوز 5 ميجابايت") },
+        { status: 400 },
       );
     }
     const saved = await savePrivateImage(imageFile, "chat");
     if (!saved.ok) {
-      return NextResponse.json({ error: saved.error }, { status: 400 });
+      return NextResponse.json({ error: apiMessage(req, saved.error) }, { status: 400 });
     }
     imageUrl = `private:${saved.path}`;
   }
 
-  const message = await db.message.create({
-    data: {
-      conversationId: id,
-      senderId: session.sub,
-      // encrypted at rest — a DB leak exposes no chat content
-      body: body ? encryptText(body) : "",
-      imageUrl,
-    },
-  });
-
-  // seller responsiveness: on the seller's FIRST message in this conversation,
-  // record how long the buyer waited — this feeds the «يرد بسرعة» badge.
-  // Capped at 24h so one ignored thread doesn't poison the average forever.
-  if (session.sub === conv.sellerId) {
-    recordSellerFirstReply(id, conv.sellerId, message.id).catch(() => {});
-  }
-
-  // notify the counterpart (throttled: skip if an unread chat notification exists)
-  const recipientId = conv.buyerId === session.sub ? conv.sellerId : conv.buyerId;
-  const link = `/dashboard/messages/${id}`;
-  const existing = await db.notification.findFirst({
-    where: { userId: recipientId, type: "MESSAGE", link, readAt: null },
-  });
-  if (!existing) {
-    await notify(
-      recipientId,
-      "MESSAGE",
-      "رسالة جديدة",
-      conv.listing
-        ? `رسالة من ${session.name} حول "${conv.listing.title}"`
-        : `رسالة من ${session.name}`,
-      link
+  let message;
+  try {
+    message = await db.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "Conversation" WHERE id = ${id} FOR UPDATE`;
+        await lockChatUsers(tx, [conv.buyerId, conv.sellerId]);
+        const fresh = await tx.conversation.findUnique({
+          where: { id },
+          include: { listing: true, buyer: true, seller: true },
+        });
+        if (
+          !fresh ||
+          fresh.buyer.isBanned ||
+          fresh.seller.isBanned ||
+          (await hasUserBlock(fresh.buyerId, fresh.sellerId, tx))
+        )
+          throw new Error("CHAT_FORBIDDEN");
+        if (fresh.listing && fresh.listing.status !== "ACTIVE") {
+          const fulfilment =
+            fresh.listing.status === "SOLD" &&
+            (await tx.transaction.findFirst({
+              where: {
+                listingId: fresh.listingId!,
+                buyerId: fresh.buyerId,
+                sellerId: fresh.sellerId,
+                status: { in: ["PENDING", "CONFIRMED", "DISPUTED"] },
+              },
+              select: { id: true },
+            }));
+          if (!fulfilment) throw new Error("CHAT_FORBIDDEN");
+        }
+        const created = await tx.message.create({
+          data: {
+            conversationId: id,
+            senderId: session.sub,
+            body: body ? encryptText(body) : "",
+            imageUrl,
+          },
+        });
+        if (session.sub === fresh.sellerId && !fresh.firstSellerReplyAt) {
+          const first = await tx.message.findFirst({
+            where: { conversationId: id, senderId: fresh.buyerId },
+            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+            select: { createdAt: true },
+          });
+          await tx.conversation.update({
+            where: { id },
+            data: { firstSellerReplyAt: created.createdAt },
+          });
+          if (first)
+            await tx.user.update({
+              where: { id: fresh.sellerId },
+              data: {
+                responseMinsSum: {
+                  increment: Math.min(
+                    1440,
+                    Math.max(
+                      0,
+                      Math.round(
+                        (created.createdAt.getTime() - first.createdAt.getTime()) / 60_000,
+                      ),
+                    ),
+                  ),
+                },
+                responseCount: { increment: 1 },
+              },
+            });
+        }
+        const recipientId = fresh.buyerId === session.sub ? fresh.sellerId : fresh.buyerId;
+        const link = `/dashboard/messages/${id}`;
+        const existing = await tx.notification.findFirst({
+          where: { userId: recipientId, type: "MESSAGE", link, readAt: null },
+          select: { id: true },
+        });
+        if (!existing)
+          await notifyWithClient(
+            tx,
+            [recipientId],
+            "MESSAGE",
+            "رسالة جديدة",
+            fresh.listing
+              ? `رسالة من ${session.name} حول "${fresh.listing.title}"`
+              : `رسالة من ${session.name}`,
+            link,
+            `chat:${id}:${created.id}`,
+          );
+        return created;
+      },
+      { timeout: 15_000 },
     );
+  } catch (error) {
+    if (imageUrl) await deletePrivateImage(imageUrl.slice("private:".length));
+    if (error instanceof Error && error.message === "CHAT_FORBIDDEN")
+      return NextResponse.json(
+        { error: apiMessage(req, "لا يمكن إرسال رسائل في هذه المحادثة") },
+        { status: 403 },
+      );
+    throw error;
   }
-
   return NextResponse.json({ ok: true, id: message.id });
 }

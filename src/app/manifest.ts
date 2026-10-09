@@ -1,6 +1,19 @@
+import { headers } from "next/headers";
 import type { MetadataRoute } from "next";
 
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const host = (await headers()).get("host")?.split(":")[0];
+  if (process.env.ADMIN_HOST && host === process.env.ADMIN_HOST)
+    return {
+      name: "إدارة حراج ستيشن",
+      short_name: "الإدارة",
+      id: "/admin",
+      start_url: "/admin",
+      display: "browser",
+      dir: "rtl",
+      lang: "ar",
+      icons: [{ src: "/icon.png", sizes: "any", type: "image/png" }],
+    };
   return {
     name: "حراج ستيشن — سوقك السعودي الأول للمزادات والإعلانات",
     short_name: "حراج ستيشن",

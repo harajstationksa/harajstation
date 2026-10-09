@@ -32,7 +32,11 @@ export default async function FavoritesPage() {
         <EmptyState
           title={d.emptyTitle}
           hint={d.emptyHint}
-          action={<Link href="/listings" className="btn-secondary mt-2">{d.browse}</Link>}
+          action={
+            <Link href="/listings" className="btn-secondary mt-2">
+              {d.browse}
+            </Link>
+          }
         />
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
@@ -41,7 +45,7 @@ export default async function FavoritesPage() {
               <AuctionCard key={listing.id} listing={listing} />
             ) : (
               <ListingCard key={listing.id} listing={listing} />
-            )
+            ),
           )}
         </div>
       )}

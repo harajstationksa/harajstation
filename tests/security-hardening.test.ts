@@ -58,7 +58,7 @@ describe("security primitives", () => {
     process.env.CHAT_SECRET = oldKey;
     process.env.CHAT_SECRET_PREVIOUS = "";
     const encrypted = encryptText("رسالة خاصة");
-    expect(encrypted).toMatch(/^enc:v2:[a-f0-9]{16}:/);
+    expect(encrypted).toMatch(/^enc:v3:[a-f0-9]{16}:/);
 
     process.env.CHAT_SECRET = newKey;
     process.env.CHAT_SECRET_PREVIOUS = oldKey;
@@ -69,10 +69,10 @@ describe("security primitives", () => {
 
   it("accepts only allow-listed HTTPS video embeds", () => {
     expect(safeBannerEmbedUrl("https://www.youtube.com/embed/abc123")).toBe(
-      "https://www.youtube.com/embed/abc123"
+      "https://www.youtube.com/embed/abc123",
     );
     expect(safeBannerEmbedUrl('<iframe src="https://player.vimeo.com/video/123"></iframe>')).toBe(
-      "https://player.vimeo.com/video/123"
+      "https://player.vimeo.com/video/123",
     );
     expect(safeBannerEmbedUrl('<img src=x onerror="alert(1)">')).toBeNull();
     expect(safeBannerEmbedUrl("javascript:alert(1)")).toBeNull();
@@ -120,7 +120,18 @@ describe("atomic points and payment", () => {
     });
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => new Response(JSON.stringify({ status: "paid" }), { status: 200 }))
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              id: payment.invoiceId,
+              status: "paid",
+              amount: payment.amount,
+              currency: "SAR",
+            }),
+            { status: 200 },
+          ),
+      ),
     );
 
     expect(await Promise.all([confirmPayment(payment.id), confirmPayment(payment.id)])).toEqual([
@@ -131,7 +142,7 @@ describe("atomic points and payment", () => {
     expect(
       await db.pointTransaction.count({
         where: { userId, reason: { contains: "دفع إلكتروني" } },
-      })
+      }),
     ).toBe(1);
   });
 });

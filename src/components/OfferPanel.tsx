@@ -44,13 +44,17 @@ export function OfferPanel({
   function run(action: (fd: FormData) => Promise<{ ok?: boolean; error?: string }>, fd: FormData) {
     setError("");
     startTransition(async () => {
-      const res = await action(fd);
-      if ("error" in res && res.error) setError(res.error);
-      else {
-        setOpen(false);
-        setAmount("");
-        setNote("");
-        router.refresh();
+      try {
+        const res = await action(fd);
+        if ("error" in res && res.error) setError(res.error);
+        else {
+          setOpen(false);
+          setAmount("");
+          setNote("");
+          router.refresh();
+        }
+      } catch {
+        setError(t.dash.settings.genericError);
       }
     });
   }
@@ -77,9 +81,7 @@ export function OfferPanel({
         ) : (
           <p className="text-sm text-neutral-800">
             {o.sellerCounter}:{" "}
-            <b className="tabular-nums text-primary-700">
-              {formatSAR(myOffer.counterAmount ?? 0)}
-            </b>
+            <b className="tabular-nums text-primary-700">{formatSAR(myOffer.counterAmount ?? 0)}</b>
           </p>
         )}
         <div className="flex gap-2">

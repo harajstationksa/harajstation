@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Gauge, Gavel, ImagePlus, Loader2, Megaphone, Sparkles, Store, Tag, X } from "lucide-react";
@@ -16,10 +18,20 @@ import { compressImage } from "@/lib/image-compress";
 import { useLang } from "@/components/LangProvider";
 
 type SubCat = { id: string; nameAr: string; nameEn: string };
-type Cat = { id: string; slug: string; nameAr: string; nameEn: string; children: SubCat[] };
+type Cat = {
+  id: string;
+  slug: string;
+  nameAr: string;
+  nameEn: string;
+  children: SubCat[];
+};
 type StoreOpt = { id: string; name: string };
-type PriceGuide = { count: number; p25?: number; median?: number; p75?: number };
-
+type PriceGuide = {
+  count: number;
+  p25?: number;
+  median?: number;
+  p75?: number;
+};
 
 function SectionCard({
   step,
@@ -49,12 +61,15 @@ export function SellForm({
   canListing,
   canAuction,
   isPro = false,
+  aiEnabled = false,
 }: {
   categories: Cat[];
   stores: StoreOpt[];
   canListing: boolean;
   canAuction: boolean;
   isPro?: boolean;
+  /** false when the AI writer is not configured on the server — the button is hidden */
+  aiEnabled?: boolean;
 }) {
   const router = useRouter();
   const { lang, t } = useLang();
@@ -92,10 +107,15 @@ export function SellForm({
         const v = String(fd?.get(`attr_${f.key}`) ?? "").trim();
         if (v) attributes[f.label] = v;
       }
-      const res = await fetch("/api/listings/ai-describe", {
+      const res = await clientFetch("/api/listings/ai-describe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hint, categoryId, goal: goal || "SELL", attributes }),
+        body: JSON.stringify({
+          hint,
+          categoryId,
+          goal: goal || "SELL",
+          attributes,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -125,7 +145,7 @@ export function SellForm({
   // be auctioned; an auction needs a transferable good)
   const goalCategories = useMemo(
     () => (goal ? categories.filter((c) => goalAllowsCategory(goal, c.slug)) : []),
-    [goal, categories]
+    [goal, categories],
   );
 
   function pickGoal(g: ListingGoal) {
@@ -151,8 +171,7 @@ export function SellForm({
       kept.push(result);
     }
     if (compressed > 0) setImgNote(d.compressed(compressed));
-    if (rejected > 0)
-      setImgNote((n) => `${n ? n + " · " : ""}${d.rejected(rejected)}`);
+    if (rejected > 0) setImgNote((n) => `${n ? n + " · " : ""}${d.rejected(rejected)}`);
     setFiles((prev) => [...prev, ...kept].slice(0, 10));
   }
 
@@ -167,7 +186,10 @@ export function SellForm({
     fd.delete("images");
     files.forEach((f) => fd.append("images", f));
 
-    const res = await fetch("/api/listings", { method: "POST", body: fd });
+    const res = await clientFetch("/api/listings", {
+      method: "POST",
+      body: fd,
+    });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       setError(data.error ?? d.publishFail);
@@ -175,7 +197,13 @@ export function SellForm({
       setLoading(false);
       return;
     }
-    router.push(data.auctionId ? `/auctions/${data.auctionId}` : `/listings/${data.id}`);
+    router.push(
+      data.pendingReview
+        ? "/dashboard/listings?status=PENDING"
+        : data.auctionId
+          ? `/auctions/${data.auctionId}`
+          : `/listings/${data.id}`,
+    );
   }
 
   // ── price guide: what similar items go for, fetched as the seller types ──
@@ -186,8 +214,8 @@ export function SellForm({
         return;
       }
       try {
-        const res = await fetch(
-          `/api/listings/price-guide?category=${categoryId}&q=${encodeURIComponent(title)}`
+        const res = await clientFetch(
+          `/api/listings/price-guide?category=${categoryId}&q=${encodeURIComponent(title)}`,
         );
         if (res.ok) setGuide(await res.json());
       } catch {
@@ -263,9 +291,30 @@ export function SellForm({
         <p className="font-bold mb-3">{d.goalQ}</p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
-            { v: "SELL" as const, icon: Tag, title: d.sellT, sub: d.sellS, cls: "border-primary-500 bg-primary-50/50 ring-1 ring-primary-500", ic: "text-primary-500" },
-            { v: "AUCTION" as const, icon: Gavel, title: d.aucT, sub: d.aucS, cls: "border-red-500 bg-red-50/50 ring-1 ring-red-500", ic: "text-red-500" },
-            { v: "ANNOUNCE" as const, icon: Megaphone, title: d.annT, sub: d.annS, cls: "border-sky-500 bg-sky-50/50 ring-1 ring-sky-500", ic: "text-sky-500" },
+            {
+              v: "SELL" as const,
+              icon: Tag,
+              title: d.sellT,
+              sub: d.sellS,
+              cls: "border-primary-500 bg-primary-50/50 ring-1 ring-primary-500",
+              ic: "text-primary-500",
+            },
+            {
+              v: "AUCTION" as const,
+              icon: Gavel,
+              title: d.aucT,
+              sub: d.aucS,
+              cls: "border-red-500 bg-red-50/50 ring-1 ring-red-500",
+              ic: "text-red-500",
+            },
+            {
+              v: "ANNOUNCE" as const,
+              icon: Megaphone,
+              title: d.annT,
+              sub: d.annS,
+              cls: "border-sky-500 bg-sky-50/50 ring-1 ring-sky-500",
+              ic: "text-sky-500",
+            },
           ].map(({ v, icon: Icon, title, sub, cls, ic }) => (
             <button
               key={v}
@@ -273,7 +322,7 @@ export function SellForm({
               onClick={() => pickGoal(v)}
               className={cn(
                 "rounded-xl border p-4 text-right transition-all cursor-pointer",
-                goal === v ? cls : "border-neutral-200 bg-white hover:border-neutral-300"
+                goal === v ? cls : "border-neutral-200 bg-white hover:border-neutral-300",
               )}
             >
               <Icon className={cn("size-6 mb-2", goal === v ? ic : "text-neutral-400")} />
@@ -282,11 +331,7 @@ export function SellForm({
             </button>
           ))}
         </div>
-        {!goal && (
-          <p className="text-xs text-neutral-400 mt-2">
-            {d.goalFirst}
-          </p>
-        )}
+        {!goal && <p className="text-xs text-neutral-400 mt-2">{d.goalFirst}</p>}
       </div>
 
       {goal && typeBlocked && (
@@ -310,22 +355,32 @@ export function SellForm({
             onInput={(e) => setCategoryId(e.currentTarget.value)}
             onChange={(e) => setCategoryId(e.target.value)}
           >
-            <option value="" disabled>{d.pickCat}</option>
+            <option value="" disabled>
+              {d.pickCat}
+            </option>
             {goalCategories.map((cat) =>
               cat.children.length > 0 ? (
                 <optgroup key={cat.id} label={lang === "en" ? cat.nameEn : cat.nameAr}>
                   {cat.children.map((child) => (
-                    <option key={child.id} value={child.id}>{lang === "en" ? child.nameEn : child.nameAr}</option>
+                    <option key={child.id} value={child.id}>
+                      {lang === "en" ? child.nameEn : child.nameAr}
+                    </option>
                   ))}
                 </optgroup>
               ) : (
-                <option key={cat.id} value={cat.id}>{lang === "en" ? cat.nameEn : cat.nameAr}</option>
-              )
+                <option key={cat.id} value={cat.id}>
+                  {lang === "en" ? cat.nameEn : cat.nameAr}
+                </option>
+              ),
             )}
           </select>
           {!categoryId && (
             <p className="text-xs text-neutral-400">
-              {goal === "AUCTION" ? d.catHintAuction : goal === "ANNOUNCE" ? d.catHintAnnounce : d.catHintSell}
+              {goal === "AUCTION"
+                ? d.catHintAuction
+                : goal === "ANNOUNCE"
+                  ? d.catHintAnnounce
+                  : d.catHintSell}
             </p>
           )}
         </SectionCard>
@@ -335,7 +390,7 @@ export function SellForm({
       {categoryId && (
         <SectionCard step={2} title={d.details}>
           <div>
-            <label className="block text-sm font-medium mb-1.5">
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-1">
               {d.titleL} <span className="text-xs text-neutral-400 font-normal">{d.titleMin}</span>
             </label>
             <input
@@ -347,10 +402,9 @@ export function SellForm({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={d.titlePh}
+              id="a11y-sellform-1"
             />
-            {fieldErrors.title && (
-              <p className="text-xs text-red-600 mt-1">{fieldErrors.title}</p>
-            )}
+            {fieldErrors.title && <p className="text-xs text-red-600 mt-1">{fieldErrors.title}</p>}
           </div>
           <div>
             <div className="flex items-center justify-between mb-1.5">
@@ -365,7 +419,9 @@ export function SellForm({
                 }`}
               >
                 {description.length}/5000
-                {description.length > 0 && description.length < 20 && d.descLeft(20 - description.length)}
+                {description.length > 0 &&
+                  description.length < 20 &&
+                  d.descLeft(20 - description.length)}
               </span>
             </div>
             <textarea
@@ -382,64 +438,86 @@ export function SellForm({
               <p className="text-xs text-red-600 mt-1">{fieldErrors.description}</p>
             )}
             {/* AI writer: rough words in → market-ready title + description out */}
-            <div className="mt-2 flex items-center gap-2 flex-wrap">
-              {isPro ? (
-                <button
-                  type="button"
-                  onClick={aiWrite}
-                  disabled={aiBusy || (description.trim() || title.trim()).length < 5}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-primary-200 bg-primary-50 px-3.5 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-100 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default"
-                >
-                  {aiBusy ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
+            {aiEnabled && (
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
+                {isPro ? (
+                  <button
+                    type="button"
+                    onClick={aiWrite}
+                    disabled={aiBusy || (description.trim() || title.trim()).length < 5}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-primary-200 bg-primary-50 px-3.5 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-100 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default"
+                  >
+                    {aiBusy ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="size-3.5" />
+                    )}
+                    {aiBusy ? d.aiWriting : d.aiWrite}
+                  </button>
+                ) : (
+                  <a
+                    href="/pro"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-50 px-3.5 py-1.5 text-xs font-semibold text-neutral-500 hover:border-primary-300 hover:text-primary-700 transition-colors"
+                  >
                     <Sparkles className="size-3.5" />
-                  )}
-                  {aiBusy ? d.aiWriting : d.aiWrite}
-                </button>
-              ) : (
-                <a
-                  href="/pro"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-50 px-3.5 py-1.5 text-xs font-semibold text-neutral-500 hover:border-primary-300 hover:text-primary-700 transition-colors"
-                >
-                  <Sparkles className="size-3.5" />
-                  {d.aiProOnly}
-                </a>
-              )}
-              <span className="text-[11px] text-neutral-400">{d.aiHint}</span>
-            </div>
+                    {d.aiProOnly}
+                  </a>
+                )}
+                <span className="text-[11px] text-neutral-400">{d.aiHint}</span>
+              </div>
+            )}
             {aiError && <p className="text-xs text-red-600 mt-1">{aiError}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             {cfg.showCondition && (
               <div>
-                <label className="block text-sm font-medium mb-1.5">{d.condition}</label>
-                <select name="condition" className="input" defaultValue="USED">
+                <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-2">
+                  {d.condition}
+                </label>
+                <select name="condition" className="input" defaultValue="USED" id="a11y-sellform-2">
                   {Object.keys(CONDITIONS).map((k) => (
-                    <option key={k} value={k}>{t.card.conditions[k] ?? k}</option>
+                    <option key={k} value={k}>
+                      {t.card.conditions[k] ?? k}
+                    </option>
                   ))}
                 </select>
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium mb-1.5">{d.city}</label>
-              <select name="city" className="input" defaultValue="الرياض">
+              <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-3">
+                {d.city}
+              </label>
+              <select name="city" className="input" defaultValue="الرياض" id="a11y-sellform-3">
                 {CITIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">
+              <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-4">
                 {d.neighborhood} <span className="text-neutral-400">{d.optional}</span>
               </label>
-              <input name="neighborhood" className="input" placeholder={d.neighborhoodPh} />
+              <input
+                name="neighborhood"
+                className="input"
+                placeholder={d.neighborhoodPh}
+                id="a11y-sellform-4"
+              />
             </div>
             {cfg.showDelivery && (
               <div>
-                <label className="block text-sm font-medium mb-1.5">{d.delivery}</label>
-                <select name="deliveryMethod" className="input" defaultValue="PICKUP">
+                <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-5">
+                  {d.delivery}
+                </label>
+                <select
+                  name="deliveryMethod"
+                  className="input"
+                  defaultValue="PICKUP"
+                  id="a11y-sellform-5"
+                >
                   <option value="PICKUP">{d.dPickup}</option>
                   <option value="SHIPPING">{d.dShipping}</option>
                   <option value="DELIVERY">{d.dDelivery}</option>
@@ -463,13 +541,18 @@ export function SellForm({
                 {f.type === "select" ? (
                   <select
                     name={`attr_${f.key}`}
-                    className={cn("input", fieldErrors[`attr_${f.key}`] && "border-red-400 ring-2 ring-red-500/15")}
+                    className={cn(
+                      "input",
+                      fieldErrors[`attr_${f.key}`] && "border-red-400 ring-2 ring-red-500/15",
+                    )}
                     defaultValue=""
                     required={f.required}
                   >
                     <option value="">{d.pick}</option>
                     {f.options!.map((o) => (
-                      <option key={o} value={o}>{o}</option>
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
                     ))}
                   </select>
                 ) : (
@@ -479,7 +562,7 @@ export function SellForm({
                       className={cn(
                         "input",
                         f.suffix && "pe-12",
-                        fieldErrors[`attr_${f.key}`] && "border-red-400 ring-2 ring-red-500/15"
+                        fieldErrors[`attr_${f.key}`] && "border-red-400 ring-2 ring-red-500/15",
                       )}
                       required={f.required}
                       inputMode={f.type === "number" ? "numeric" : "text"}
@@ -507,19 +590,25 @@ export function SellForm({
           {!isAuction ? (
             <>
               <div>
-                <label className="block text-sm font-medium mb-1.5">
+                <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-6">
                   {cfg.priceLabel}
-                  {goal === "ANNOUNCE" && <span className="text-neutral-400">{d.priceOptional}</span>}
+                  {goal === "ANNOUNCE" && (
+                    <span className="text-neutral-400">{d.priceOptional}</span>
+                  )}
                 </label>
                 <input
                   name="price"
-                  className={cn("input", fieldErrors.price && "border-red-400 ring-2 ring-red-500/15")}
+                  className={cn(
+                    "input",
+                    fieldErrors.price && "border-red-400 ring-2 ring-red-500/15",
+                  )}
                   required={goal !== "ANNOUNCE" && goalRequiresPrice(goal || "SELL")}
                   inputMode="numeric"
                   pattern="\d*"
                   value={price}
                   onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, ""))}
                   placeholder={d.pricePh}
+                  id="a11y-sellform-6"
                 />
                 {fieldErrors.price && (
                   <p className="text-xs text-red-600 mt-1">{fieldErrors.price}</p>
@@ -538,7 +627,12 @@ export function SellForm({
                 )}
               </div>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="showPhone" defaultChecked className="size-4 accent-primary-500" />
+                <input
+                  type="checkbox"
+                  name="showPhone"
+                  defaultChecked
+                  className="size-4 accent-primary-500"
+                />
                 {d.showPhone}
               </label>
             </>
@@ -546,33 +640,74 @@ export function SellForm({
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">{d.startPrice}</label>
-                  <input name="startPrice" className="input" required inputMode="numeric" pattern="\d+" placeholder="1000" />
+                  <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-7">
+                    {d.startPrice}
+                  </label>
+                  <input
+                    name="startPrice"
+                    className="input"
+                    required
+                    inputMode="numeric"
+                    pattern="\d+"
+                    placeholder="1000"
+                    id="a11y-sellform-7"
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">{d.minIncrement}</label>
-                  <input name="minIncrement" className="input" required inputMode="numeric" pattern="\d+" defaultValue="50" />
+                  <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-8">
+                    {d.minIncrement}
+                  </label>
+                  <input
+                    name="minIncrement"
+                    className="input"
+                    required
+                    inputMode="numeric"
+                    pattern="\d+"
+                    defaultValue="50"
+                    id="a11y-sellform-8"
+                  />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">{d.duration}</label>
-                  <select name="durationHours" className="input" defaultValue="72">
+                  <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-9">
+                    {d.duration}
+                  </label>
+                  <select
+                    name="durationHours"
+                    className="input"
+                    defaultValue="72"
+                    id="a11y-sellform-9"
+                  >
                     {AUCTION_DURATIONS.map((dur) => (
-                      <option key={dur.hours} value={dur.hours}>{lang === "en" ? dur.labelEn : dur.label}</option>
+                      <option key={dur.hours} value={dur.hours}>
+                        {lang === "en" ? dur.labelEn : dur.label}
+                      </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">
+                  <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-10">
                     {d.buyNow} <span className="text-neutral-400">{d.optional}</span>
                   </label>
-                  <input name="buyNowPrice" className="input" inputMode="numeric" pattern="\d*" placeholder={d.buyNowPh} />
+                  <input
+                    name="buyNowPrice"
+                    className="input"
+                    inputMode="numeric"
+                    pattern="\d*"
+                    placeholder={d.buyNowPh}
+                    id="a11y-sellform-10"
+                  />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">
+                <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-11">
                   {d.terms} <span className="text-neutral-400">{d.optional}</span>
                 </label>
-                <textarea name="terms" className="input min-h-20 py-3" placeholder={d.termsPh} />
+                <textarea
+                  name="terms"
+                  className="input min-h-20 py-3"
+                  placeholder={d.termsPh}
+                  id="a11y-sellform-11"
+                />
               </div>
               <p className="text-xs text-neutral-500 bg-neutral-50 rounded-lg p-3 leading-relaxed">
                 {d.aucProtect}
@@ -588,14 +723,19 @@ export function SellForm({
           {stores.length > 0 && (
             <SectionCard step={storeStep} title={d.store}>
               <div>
-                <label className="block text-sm font-medium mb-1.5 flex items-center gap-1.5">
+                <label
+                  className="block text-sm font-medium mb-1.5 flex items-center gap-1.5"
+                  htmlFor="a11y-sellform-12"
+                >
                   <Store className="size-4 text-neutral-400" />
                   {d.storeL} <span className="text-neutral-400">{d.optional}</span>
                 </label>
-                <select name="storeId" className="input" defaultValue="">
+                <select name="storeId" className="input" defaultValue="" id="a11y-sellform-12">
                   <option value="">{d.noStore}</option>
                   {stores.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -605,9 +745,7 @@ export function SellForm({
           <SectionCard step={imagesStep} title={d.photos}>
             <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-neutral-200 py-8 cursor-pointer hover:border-primary-400 hover:bg-primary-50/40 transition-colors">
               <ImagePlus className="size-8 text-neutral-400" />
-              <span className="text-sm text-neutral-500">
-                {d.photosHint}
-              </span>
+              <span className="text-sm text-neutral-500">{d.photosHint}</span>
               <input
                 type="file"
                 name="images"
@@ -622,9 +760,15 @@ export function SellForm({
                 {files.map((f, i) => (
                   <div key={i} className="relative">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={URL.createObjectURL(f)} alt="" className="size-20 rounded-lg object-cover border border-neutral-200" />
+                    <img
+                      src={URL.createObjectURL(f)}
+                      alt=""
+                      className="size-20 rounded-lg object-cover border border-neutral-200"
+                    />
                     {i === 0 && (
-                      <span className="absolute bottom-1 right-1 badge bg-primary-500 text-white text-[10px]">{d.cover}</span>
+                      <span className="absolute bottom-1 right-1 badge bg-primary-500 text-white text-[10px]">
+                        {d.cover}
+                      </span>
                     )}
                     <button
                       type="button"
@@ -659,7 +803,7 @@ export function SellForm({
                   ? "bg-green-50 text-green-700"
                   : quality.pct >= 45
                     ? "bg-amber-50 text-amber-700"
-                    : "bg-red-50 text-red-600"
+                    : "bg-red-50 text-red-600",
               )}
             >
               {quality.pct >= 75 ? d.qStrong : quality.pct >= 45 ? d.qMedium : d.qWeak}
@@ -674,7 +818,7 @@ export function SellForm({
                   ? "bg-green-500"
                   : quality.pct >= 45
                     ? "bg-amber-400"
-                    : "bg-red-400"
+                    : "bg-red-400",
               )}
               style={{ width: `${quality.pct}%` }}
             />
@@ -708,11 +852,16 @@ export function SellForm({
       )}
 
       {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>
+        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+          {error}
+        </p>
       )}
 
       {categoryId && (
-        <button className="btn-primary w-full text-base" disabled={loading || typeBlocked || !accepted}>
+        <button
+          className="btn-primary w-full text-base"
+          disabled={loading || typeBlocked || !accepted}
+        >
           {loading && <Loader2 className="size-4 animate-spin" />}
           {goal === "AUCTION" ? d.submitAuc : goal === "ANNOUNCE" ? d.submitAnn : d.submitSell}
         </button>

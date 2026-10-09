@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2, Star } from "lucide-react";
@@ -25,7 +27,7 @@ export function RateForm({
     e.preventDefault();
     if (rating === 0) return;
     setState("sending");
-    const res = await fetch(`/api/transactions/${transactionId}/review`, {
+    const res = await clientFetch(`/api/transactions/${transactionId}/review`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ rating, comment }),
@@ -52,7 +54,10 @@ export function RateForm({
   }
 
   return (
-    <form onSubmit={submit} className="w-full rounded-lg border border-amber-200 bg-amber-50/60 p-3 space-y-2 mt-2">
+    <form
+      onSubmit={submit}
+      className="w-full rounded-lg border border-amber-200 bg-amber-50/60 p-3 space-y-2 mt-2"
+    >
       <div className="flex items-center gap-1" dir="ltr">
         {[1, 2, 3, 4, 5].map((n) => (
           <button
@@ -65,7 +70,7 @@ export function RateForm({
             <Star
               className={cn(
                 "size-6 transition-colors",
-                n <= rating ? "text-amber-500 fill-current" : "text-neutral-300"
+                n <= rating ? "text-amber-500 fill-current" : "text-neutral-300",
               )}
             />
           </button>
@@ -79,7 +84,10 @@ export function RateForm({
         maxLength={500}
       />
       {error && <p className="text-xs text-red-600">{error}</p>}
-      <button className="btn-primary min-h-9 text-xs" disabled={rating === 0 || state === "sending"}>
+      <button
+        className="btn-primary min-h-9 text-xs"
+        disabled={rating === 0 || state === "sending"}
+      >
         {state === "sending" && <Loader2 className="size-3 animate-spin" />}
         {t.dash.rate.submit}
       </button>

@@ -7,10 +7,7 @@ import { createHash } from "node:crypto";
  */
 export function visitorKey(req: Request): string {
   const h = req.headers;
-  const ip =
-    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    h.get("x-real-ip") ||
-    "local";
+  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "local";
   const ua = (h.get("user-agent") ?? "").slice(0, 40);
   return createHash("sha256").update(`${ip}|${ua}`).digest("hex").slice(0, 32);
 }
@@ -21,10 +18,7 @@ export function visitorKey(req: Request): string {
  * behind the same home network, count as ONE impression for a campaign.
  */
 export function subnetKey(h: { get(name: string): string | null }): string {
-  const ip =
-    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    h.get("x-real-ip") ||
-    "local";
+  const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "local";
   let net = ip;
   if (ip.includes(".")) {
     // IPv4 → zero the host octet: 203.0.113.7 → 203.0.113.0/24

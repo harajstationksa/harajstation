@@ -17,9 +17,7 @@ export default async function TrustPage() {
           <ShieldCheck className="size-7" />
         </span>
         <h1 className="font-display font-extrabold text-3xl">{d.title}</h1>
-        <p className="text-neutral-500">
-          {d.sub}
-        </p>
+        <p className="text-neutral-500">{d.sub}</p>
       </div>
 
       <div className="card p-6 space-y-4">
@@ -28,11 +26,23 @@ export default async function TrustPage() {
           {d.howTitle}
         </h2>
         <ol className="space-y-3 text-sm text-neutral-700 list-decimal pr-5 leading-relaxed">
-          <li>{d.s1a}<b>{d.s1b}</b>{d.s1c}</li>
+          <li>
+            {d.s1a}
+            <b>{d.s1b}</b>
+            {d.s1c}
+          </li>
           <li>{d.s2}</li>
-          <li>{d.s3a}<b className="text-success">{d.s3b}</b>{d.s3c}</li>
+          <li>
+            {d.s3a}
+            <b className="text-success">{d.s3b}</b>
+            {d.s3c}
+          </li>
           <li>{d.s4}</li>
-          <li>{d.s5a}<b className="text-danger">{d.s5b}</b>{d.s5c}</li>
+          <li>
+            {d.s5a}
+            <b className="text-danger">{d.s5b}</b>
+            {d.s5c}
+          </li>
         </ol>
       </div>
 
@@ -41,14 +51,22 @@ export default async function TrustPage() {
           <TimerReset className="size-6 text-amber-500" />
           <p className="font-bold">{d.ignoreTitle}</p>
           <p className="text-sm text-neutral-600 leading-relaxed">
-            {d.ignore1}<b>{d.ignore2}</b>{d.ignore3}<b>{d.ignore4}</b>{d.ignore5}
+            {d.ignore1}
+            <b>{d.ignore2}</b>
+            {d.ignore3}
+            <b>{d.ignore4}</b>
+            {d.ignore5}
           </p>
         </div>
         <div className="card p-5 space-y-2">
           <Scale className="size-6 text-red-500" />
           <p className="font-bold">{d.disputeTitle}</p>
           <p className="text-sm text-neutral-600 leading-relaxed">
-            {d.dispute1}<b>+5</b>{d.dispute2}<b>-15</b>{d.dispute3}
+            {d.dispute1}
+            <b>+5</b>
+            {d.dispute2}
+            <b>-15</b>
+            {d.dispute3}
           </p>
         </div>
       </div>
@@ -70,19 +88,24 @@ export default async function TrustPage() {
             const label = lang === "en" ? level.labelEn : level.label;
             const color = level.color;
             return (
-            <li key={label} className="flex items-center gap-3">
-              <span className="w-20 tabular-nums text-neutral-500" dir="ltr">{range as string}</span>
-              <span className="h-2 flex-1 rounded-full" style={{ backgroundColor: `${color}33` }}>
-                <span className="block h-full w-full rounded-full" style={{ backgroundColor: color, opacity: 0.85 }} />
-              </span>
-              <span className="font-bold w-20" style={{ color }}>{label}</span>
-            </li>
+              <li key={label} className="flex items-center gap-3">
+                <span className="w-20 tabular-nums text-neutral-500" dir="ltr">
+                  {range as string}
+                </span>
+                <span className="h-2 flex-1 rounded-full" style={{ backgroundColor: `${color}33` }}>
+                  <span
+                    className="block h-full w-full rounded-full"
+                    style={{ backgroundColor: color, opacity: 0.85 }}
+                  />
+                </span>
+                <span className="font-bold w-20" style={{ color }}>
+                  {label}
+                </span>
+              </li>
             );
           })}
         </ul>
-        <p className="text-xs text-neutral-400">
-          {d.startNote}
-        </p>
+        <p className="text-xs text-neutral-400">{d.startNote}</p>
       </div>
     </div>
   );

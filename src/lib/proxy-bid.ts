@@ -11,7 +11,7 @@ import { maskedBidderName } from "./utils";
  */
 export async function applyProxyBids(
   tx: Prisma.TransactionClient,
-  auctionId: string
+  auctionId: string,
 ): Promise<{ autoBids: number; topBidderId: string | null; topAmount: number | null }> {
   const auction = await tx.auction.findUnique({
     where: { id: auctionId },
@@ -27,7 +27,7 @@ export async function applyProxyBids(
   for (let i = 0; i < 50; i++) {
     const top = await tx.bid.findFirst({
       where: { auctionId },
-      orderBy: [{ amount: "desc" }, { createdAt: "asc" }],
+      orderBy: [{ amount: "desc" }, { createdAt: "asc" }, { id: "asc" }],
       select: { bidderId: true, amount: true },
     });
     const needed = top ? top.amount + auction.minIncrement : auction.startPrice;
@@ -38,8 +38,10 @@ export async function applyProxyBids(
         auctionId,
         maxAmount: { gte: needed },
         ...(top ? { bidderId: { not: top.bidderId } } : {}),
+        // banned accounts and bidders the seller blocked never bid by proxy
+        bidder: { isBanned: false, auctionBlocks: { none: { auctionId } } },
       },
-      orderBy: [{ maxAmount: "desc" }, { createdAt: "asc" }],
+      orderBy: [{ maxAmount: "desc" }, { createdAt: "asc" }, { id: "asc" }],
       take: 2,
     });
     const best = challengers[0];
@@ -51,18 +53,15 @@ export async function applyProxyBids(
       challengers[1]?.maxAmount ?? 0,
       // the current top bidder's own ceiling defends them
       top
-        ? (
+        ? ((
             await tx.proxyBid.findUnique({
               where: { auctionId_bidderId: { auctionId, bidderId: top.bidderId } },
               select: { maxAmount: true },
             })
-          )?.maxAmount ?? 0
-        : 0
+          )?.maxAmount ?? 0)
+        : 0,
     );
-    const amount = Math.min(
-      best.maxAmount,
-      Math.max(needed, rivalMax + auction.minIncrement)
-    );
+    const amount = Math.min(best.maxAmount, Math.max(needed, rivalMax + auction.minIncrement));
 
     await tx.bid.create({
       data: {
@@ -78,7 +77,7 @@ export async function applyProxyBids(
 
   const finalTop = await tx.bid.findFirst({
     where: { auctionId },
-    orderBy: [{ amount: "desc" }, { createdAt: "asc" }],
+    orderBy: [{ amount: "desc" }, { createdAt: "asc" }, { id: "asc" }],
     select: { bidderId: true, amount: true },
   });
   return {

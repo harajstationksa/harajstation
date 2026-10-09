@@ -1,3 +1,4 @@
+import { getImagePreviews } from "@/lib/image-placeholders";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Flame, Gavel, MapPin, Plus, Search, SlidersHorizontal, X, Zap } from "lucide-react";
@@ -37,11 +38,7 @@ export async function generateMetadata({
   });
 }
 
-export default async function AuctionsPage({
-  searchParams,
-}: {
-  searchParams: Promise<SP>;
-}) {
+export default async function AuctionsPage({ searchParams }: { searchParams: Promise<SP> }) {
   const { lang, t } = await getT();
   const now = new Date();
   const sp = await searchParams;
@@ -70,19 +67,16 @@ export default async function AuctionsPage({
 
   const liveWhere = {
     type: "AUCTION",
+    seller: { isBanned: false },
     status: "ACTIVE",
     auction: {
       status: "LIVE",
-      endsAt: quick === "soon"
-        ? { gt: now, lt: new Date(now.getTime() + 3600_000) }
-        : { gt: now },
+      endsAt: quick === "soon" ? { gt: now, lt: new Date(now.getTime() + 3600_000) } : { gt: now },
       ...(quick === "buynow" ? { buyNowPrice: { not: null } } : {}),
     },
     ...searchWhere,
     ...(city ? { city } : {}),
-    ...(catSlug
-      ? { category: { OR: [{ slug: catSlug }, { parent: { slug: catSlug } }] } }
-      : {}),
+    ...(catSlug ? { category: { OR: [{ slug: catSlug }, { parent: { slug: catSlug } }] } } : {}),
   };
 
   const [live, ended, catRows, soonest] = await Promise.all([
@@ -95,20 +89,54 @@ export default async function AuctionsPage({
           : { auction: { endsAt: "asc" as const } },
     }),
     db.listing.findMany({
-      where: { type: "AUCTION", auction: { status: { in: ["ENDED", "NO_SALE"] } } },
+      where: {
+        type: "AUCTION",
+        status: { in: ["ACTIVE", "SOLD", "EXPIRED"] },
+        seller: { isBanned: false },
+        auction: { status: { in: ["ENDED", "NO_SALE"] } },
+      },
       include: cardInclude,
       orderBy: { auction: { endsAt: "desc" } },
       take: 4,
     }),
     // main categories that actually have live auctions → filter chips
     db.listing.findMany({
-      where: { type: "AUCTION", status: "ACTIVE", auction: { status: "LIVE", endsAt: { gt: now } } },
-      select: { category: { select: { id: true, slug: true, nameAr: true, nameEn: true, icon: true, parent: { select: { id: true, slug: true, nameAr: true, nameEn: true, icon: true } } } } },
+      where: {
+        type: "AUCTION",
+        seller: { isBanned: false },
+        status: "ACTIVE",
+        auction: { status: "LIVE", endsAt: { gt: now } },
+      },
+      select: {
+        category: {
+          select: {
+            id: true,
+            slug: true,
+            nameAr: true,
+            nameEn: true,
+            icon: true,
+            parent: {
+              select: {
+                id: true,
+                slug: true,
+                nameAr: true,
+                nameEn: true,
+                icon: true,
+              },
+            },
+          },
+        },
+      },
     }),
     // hero fallback — the live auctions closest to their hammer, regardless of
     // filters (used only when no sponsored auctions exist)
     db.listing.findMany({
-      where: { type: "AUCTION", status: "ACTIVE", auction: { status: "LIVE", endsAt: { gt: now } } },
+      where: {
+        type: "AUCTION",
+        seller: { isBanned: false },
+        status: "ACTIVE",
+        auction: { status: "LIVE", endsAt: { gt: now } },
+      },
       include: cardInclude,
       orderBy: { auction: { endsAt: "asc" } },
       take: 3,
@@ -127,10 +155,25 @@ export default async function AuctionsPage({
   }
 
   // roll subcategories up to their main category for the chip row
-  const chipMap = new Map<string, { slug: string; nameAr: string; nameEn: string; icon: string; count: number }>();
+  const chipMap = new Map<
+    string,
+    {
+      slug: string;
+      nameAr: string;
+      nameEn: string;
+      icon: string;
+      count: number;
+    }
+  >();
   for (const row of catRows) {
     const root = row.category.parent ?? row.category;
-    const entry = chipMap.get(root.id) ?? { slug: root.slug, nameAr: root.nameAr, nameEn: root.nameEn, icon: root.icon, count: 0 };
+    const entry = chipMap.get(root.id) ?? {
+      slug: root.slug,
+      nameAr: root.nameAr,
+      nameEn: root.nameEn,
+      icon: root.icon,
+      count: 0,
+    };
     entry.count++;
     chipMap.set(root.id, entry);
   }
@@ -146,7 +189,11 @@ export default async function AuctionsPage({
         })
       ).map((c) => c.id)
     : undefined;
-  const sponsoredPool = await getSponsored({ categoryIds: chipCatIds, city, take: 12 });
+  const sponsoredPool = await getSponsored({
+    categoryIds: chipCatIds,
+    city,
+    take: 12,
+  });
   const sponsoredAuctions = sponsoredPool.filter((l) => l.type === "AUCTION");
   const sponsored = sponsoredAuctions.slice(0, 3);
   // hero carousel: up to 5 funded auctions — getSponsored reshuffles per
@@ -232,7 +279,10 @@ export default async function AuctionsPage({
             </div>
 
             {/* spotlight carousel: rotates through the sponsored live auctions */}
-            <SpotlightCarousel items={spotlightItems} />
+            <SpotlightCarousel
+              previews={await getImagePreviews(spotlightItems.map((it) => it.cover))}
+              items={spotlightItems}
+            />
           </div>
         </div>
       </section>
@@ -251,7 +301,7 @@ export default async function AuctionsPage({
                     "flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 sm:px-3.5 py-2 text-[13px] font-semibold whitespace-nowrap transition-colors",
                     quick === key
                       ? "bg-neutral-900 text-white shadow-sm"
-                      : "text-neutral-500 hover:text-neutral-900"
+                      : "text-neutral-500 hover:text-neutral-900",
                   )}
                 >
                   <Icon className="size-4 shrink-0 max-sm:hidden" />
@@ -286,10 +336,17 @@ export default async function AuctionsPage({
             </div>
             <div className="relative flex-1 min-w-36 sm:max-w-44">
               <MapPin className="size-4 text-neutral-400 absolute top-1/2 -translate-y-1/2 start-3 pointer-events-none" />
-              <select name="city" defaultValue={city ?? ""} className="input ps-9" aria-label={t.filters.allCities}>
+              <select
+                name="city"
+                defaultValue={city ?? ""}
+                className="input ps-9"
+                aria-label={t.filters.allCities}
+              >
                 <option value="">{t.filters.allCities}</option>
                 {CITIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
                 ))}
               </select>
             </div>
@@ -303,7 +360,9 @@ export default async function AuctionsPage({
                 <option value="price_asc">{t.auctionsPage.sortPriceLow}</option>
               </select>
             </div>
-            <button type="submit" className="btn-primary max-sm:flex-1">{t.filters.apply}</button>
+            <button type="submit" className="btn-primary max-sm:flex-1">
+              {t.filters.apply}
+            </button>
             {hasFilters && (
               <Link href="/auctions" className="btn-ghost !min-h-11 text-neutral-500">
                 <X className="size-4" />
@@ -324,7 +383,7 @@ export default async function AuctionsPage({
                 "shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold border transition-colors",
                 !catSlug
                   ? "bg-primary-500 text-white border-primary-500"
-                  : "bg-white text-neutral-600 border-neutral-200 hover:border-primary-300 hover:text-primary-600"
+                  : "bg-white text-neutral-600 border-neutral-200 hover:border-primary-300 hover:text-primary-600",
               )}
             >
               {t.nav.all}
@@ -337,12 +396,17 @@ export default async function AuctionsPage({
                   "shrink-0 inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold border transition-colors",
                   catSlug === c.slug
                     ? "bg-primary-500 text-white border-primary-500"
-                    : "bg-white text-neutral-600 border-neutral-200 hover:border-primary-300 hover:text-primary-600"
+                    : "bg-white text-neutral-600 border-neutral-200 hover:border-primary-300 hover:text-primary-600",
                 )}
               >
                 <CategoryIcon name={c.icon} className="size-4" />
                 {lang === "en" ? c.nameEn : c.nameAr}
-                <span className={cn("text-[11px]", catSlug === c.slug ? "text-white/70" : "text-neutral-400")}>
+                <span
+                  className={cn(
+                    "text-[11px]",
+                    catSlug === c.slug ? "text-white/70" : "text-neutral-400",
+                  )}
+                >
                   {c.count}
                 </span>
               </Link>
@@ -380,10 +444,7 @@ export default async function AuctionsPage({
             }
           />
           {liveRest.length === 0 && sponsored.length === 0 ? (
-            <EmptyState
-              title={t.auctionsPage.emptyTitle}
-              hint={t.auctionsPage.emptyHint}
-            />
+            <EmptyState title={t.auctionsPage.emptyTitle} hint={t.auctionsPage.emptyHint} />
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {liveRest.map((listing) => (

@@ -1,10 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { ImageResponse } from "next/og";
 import QRCode from "qrcode";
 import sharp from "sharp";
+import { SAFE_IMAGE_OPTIONS, withImageSlot } from "@/lib/image-safety";
+import { SITE } from "@/lib/seo";
 import { db } from "@/lib/db";
 import { formatSAR, parseImages } from "@/lib/utils";
 import { rateLimitGuard } from "@/lib/rate-limit";
@@ -59,9 +60,7 @@ function RtlRow({
  */
 function wrapRtl(text: string, charsPerLine: number, maxLines: number): string[] {
   const capped =
-    text.length > charsPerLine * maxLines
-      ? `${text.slice(0, charsPerLine * maxLines)}…`
-      : text;
+    text.length > charsPerLine * maxLines ? `${text.slice(0, charsPerLine * maxLines)}…` : text;
 
   const words = capped.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
@@ -88,10 +87,7 @@ function wrapRtl(text: string, charsPerLine: number, maxLines: number): string[]
  * SVG), neither of which the OG renderer accepts — re-encoded to JPEG and
  * inlined as a data URL.
  */
-export async function GET(
-  req: Request,
-  ctx: { params: Promise<{ id: string }> }
-) {
+export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const limited = await rateLimitGuard(req, "share-card", 10, 60_000);
   if (limited) return limited;
 
@@ -111,15 +107,9 @@ export async function GET(
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  // Behind nginx the app binds 127.0.0.1:3000, so req.url's host is the
-  // internal address — the QR would point at localhost. Resolve the public
-  // origin from the proxy's forwarded headers, same as SharePanel does.
-  const h = await headers();
-  const host =
-    h.get("x-forwarded-host") ?? h.get("host") ?? new URL(req.url).host;
-  const proto =
-    h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  const listingUrl = `${proto}://${host}/listings/${id}`;
+  // The QR must always point at the canonical site — never at a Host header
+  // a client chose (the card is cached publicly for five minutes).
+  const listingUrl = `${SITE}/listings/${id}`;
 
   // ── product photo → JPEG data URL ──
   let photo: string | null = null;
@@ -135,11 +125,13 @@ export async function GET(
         raw = Buffer.from("");
       }
       if (raw.length > 0) {
-        const jpeg = await sharp(raw)
-          .resize(1080, 760, { fit: "cover" })
-          .flatten({ background: "#f5f5f4" })
-          .jpeg({ quality: 82 })
-          .toBuffer();
+        const jpeg = await withImageSlot(() =>
+          sharp(raw, SAFE_IMAGE_OPTIONS)
+            .resize(1080, 760, { fit: "cover" })
+            .flatten({ background: "#f5f5f4" })
+            .jpeg({ quality: 82 })
+            .toBuffer(),
+        );
         photo = `data:image/jpeg;base64,${jpeg.toString("base64")}`;
       }
     }
@@ -152,115 +144,108 @@ export async function GET(
     QRCode.toDataURL(listingUrl, { width: 240, margin: 1 }),
   ]);
 
-  const priceText =
-    listing.price != null ? formatSAR(listing.price) : "على السوم";
+  const priceText = listing.price != null ? formatSAR(listing.price) : "على السوم";
   // pre-split into lines ourselves — see wrapRtl's doc comment for why
   const titleLines = wrapRtl(listing.title, 34, 2);
 
   return new ImageResponse(
-    (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          background: "#1a1614",
-          color: "#fff",
-          fontFamily: "Tajawal",
-        }}
-      >
-        {photo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={photo}
-            alt=""
-            width={1080}
-            height={760}
-            style={{ width: 1080, height: 760, objectFit: "cover" }}
-          />
-        ) : (
-          <div
-            style={{
-              width: 1080,
-              height: 760,
-              display: "flex",
-              // the renderer lays sibling spans LTR even for Arabic — reverse
-              // by hand, same trick as opengraph-image.tsx
-              flexDirection: "row-reverse",
-              gap: 24,
-              alignItems: "center",
-              justifyContent: "center",
-              background: "linear-gradient(135deg, #2d2320 0%, #7c3f24 100%)",
-              fontSize: 90,
-              color: "#f97316",
-            }}
-          >
-            <span>حراج</span>
-            <span>ستيشن</span>
-          </div>
-        )}
-
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        background: "#1a1614",
+        color: "#fff",
+        fontFamily: "Tajawal",
+      }}
+    >
+      {photo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={photo}
+          alt=""
+          width={1080}
+          height={760}
+          style={{ width: 1080, height: 760, objectFit: "cover" }}
+        />
+      ) : (
         <div
           style={{
-            flex: 1,
+            width: 1080,
+            height: 760,
             display: "flex",
+            // the renderer lays sibling spans LTR even for Arabic — reverse
+            // by hand, same trick as opengraph-image.tsx
+            flexDirection: "row-reverse",
+            gap: 24,
             alignItems: "center",
-            justifyContent: "space-between",
-            padding: "28px 44px",
-            gap: 32,
+            justifyContent: "center",
+            background: "linear-gradient(135deg, #2d2320 0%, #7c3f24 100%)",
+            fontSize: 90,
+            color: "#f97316",
           }}
         >
+          <span>حراج</span>
+          <span>ستيشن</span>
+        </div>
+      )}
+
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "28px 44px",
+          gap: 32,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-end",
+            flex: 1,
+            minWidth: 0,
+          }}
+        >
+          <RtlRow text={priceText} gap={14} style={{ fontSize: 64, color: "#f97316" }} />
           <div
             style={{
               display: "flex",
               flexDirection: "column",
               alignItems: "flex-end",
-              flex: 1,
-              minWidth: 0,
+              marginTop: 6,
+              maxWidth: 760,
             }}
           >
-            <RtlRow
-              text={priceText}
-              gap={14}
-              style={{ fontSize: 64, color: "#f97316" }}
-            />
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-end",
-                marginTop: 6,
-                maxWidth: 760,
-              }}
-            >
-              {titleLines.map((line, i) => (
-                <RtlRow key={i} text={line} style={{ fontSize: 38, color: "#fff" }} />
-              ))}
-            </div>
-            <RtlRow
-              text={`${listing.city} · حراج ستيشن${listing.ref ? ` · ${listing.ref}` : ""}`}
-              gap={8}
-              style={{ fontSize: 26, color: "#c9beb8", marginTop: 10 }}
-            />
+            {titleLines.map((line, i) => (
+              <RtlRow key={i} text={line} style={{ fontSize: 38, color: "#fff" }} />
+            ))}
           </div>
-
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={qr}
-            alt=""
-            width={200}
-            height={200}
-            style={{
-              width: 200,
-              height: 200,
-              borderRadius: 16,
-              background: "#fff",
-            }}
+          <RtlRow
+            text={`${listing.city} · حراج ستيشن${listing.ref ? ` · ${listing.ref}` : ""}`}
+            gap={8}
+            style={{ fontSize: 26, color: "#c9beb8", marginTop: 10 }}
           />
         </div>
+
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={qr}
+          alt=""
+          width={200}
+          height={200}
+          style={{
+            width: 200,
+            height: 200,
+            borderRadius: 16,
+            background: "#fff",
+          }}
+        />
       </div>
-    ),
+    </div>,
     {
       width: 1080,
       height: 1080,
@@ -270,6 +255,6 @@ export async function GET(
         "Cache-Control": "public, max-age=300",
         "Content-Disposition": `inline; filename="haraj-${listing.ref ?? id}.png"`,
       },
-    }
+    },
   );
 }

@@ -16,7 +16,7 @@ export function redis(): Redis | null {
   if (!url) return null;
   if (!client) {
     client = new Redis(url, {
-      // never queue forever if Redis is down — guards fail open instead
+      // never queue forever if Redis is down — callers apply their bounded fallback
       maxRetriesPerRequest: 1,
       enableOfflineQueue: false,
       connectTimeout: 2_000,

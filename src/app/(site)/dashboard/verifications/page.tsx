@@ -96,9 +96,7 @@ export default async function VerificationsPage() {
         </span>
         <div>
           <h1 className="section-title">{d.title}</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">
-            {d.sub}
-          </p>
+          <p className="text-sm text-neutral-500 mt-0.5">{d.sub}</p>
         </div>
       </div>
 
@@ -161,14 +159,13 @@ export default async function VerificationsPage() {
           </span>
           {d.openTitle}
           {open.length > 0 && (
-            <span className="tag bg-amber-50 text-amber-700 border border-amber-100">{open.length}</span>
+            <span className="tag bg-amber-50 text-amber-700 border border-amber-100">
+              {open.length}
+            </span>
           )}
         </h2>
         {open.length === 0 ? (
-          <EmptyState
-            title={d.openEmpty}
-            hint={d.openEmptyHint}
-          />
+          <EmptyState title={d.openEmpty} hint={d.openEmptyHint} />
         ) : (
           <div className="grid gap-4">
             {open.map((t) => {
@@ -209,15 +206,23 @@ export default async function VerificationsPage() {
               <History className="size-4" />
             </span>
             {d.historyTitle}
-            <span className="tag bg-neutral-100 text-neutral-500 border border-neutral-200">{history.length}</span>
+            <span className="tag bg-neutral-100 text-neutral-500 border border-neutral-200">
+              {history.length}
+            </span>
           </h2>
           <div className="card overflow-hidden">
             <ul className="divide-y divide-neutral-50">
               {history.map((t) => {
-                const [label, cls] = STATUS_LABEL[t.status] ?? [t.status, "bg-neutral-100 border-neutral-200"];
+                const [label, cls] = STATUS_LABEL[t.status] ?? [
+                  t.status,
+                  "bg-neutral-100 border-neutral-200",
+                ];
                 const other = t.sellerId === user.id ? t.buyer : t.seller;
                 return (
-                  <li key={t.id} className="px-4 py-3 text-sm hover:bg-neutral-50/60 transition-colors">
+                  <li
+                    key={t.id}
+                    className="px-4 py-3 text-sm hover:bg-neutral-50/60 transition-colors"
+                  >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
                         <Avatar

@@ -1,3 +1,4 @@
+import { getImagePreviews } from "@/lib/image-placeholders";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -8,6 +9,8 @@ import { getT } from "@/lib/i18n";
 import { getSponsored, recordImpressions } from "@/lib/campaigns";
 import { getSetting } from "@/lib/settings";
 import { cached } from "@/lib/page-cache";
+import { bannerOrder, visibleBannerWhere } from "@/lib/visible-banners";
+import { HomeLiveSync } from "@/components/HomeLiveSync";
 import { AuctionCard } from "@/components/AuctionCard";
 import { BannerCarousel } from "@/components/BannerCarousel";
 import { CategoryIcon } from "@/components/CategoryIcon";
@@ -41,6 +44,7 @@ export default async function HomePage() {
 
   return (
     <div className="pb-8">
+      <HomeLiveSync />
       <div className="container-page pt-4 sm:pt-6">
         <Suspense fallback={null}>
           <HeroBanner />
@@ -122,25 +126,47 @@ export default async function HomePage() {
 
 async function HeroBanner() {
   const banners = await cached("home:banner:top", 60_000, () =>
-    db.banner.findMany({ where: { status: "ACTIVE", position: "HOME_TOP" } })
+    db.banner.findMany({ where: visibleBannerWhere(new Date(), "HOME_TOP"), orderBy: bannerOrder }),
   );
   if (banners.length === 0) return null;
-  return <BannerCarousel banners={banners} hero />;
+  return (
+    <BannerCarousel
+      previews={await getImagePreviews(
+        banners.flatMap((b) =>
+          [b.imageUrl, b.mobileImageUrl].filter((url): url is string => !!url),
+        ),
+      )}
+      banners={banners}
+      hero
+    />
+  );
 }
 
 async function MiddleBanner() {
   const banners = await cached("home:banner:middle", 60_000, () =>
-    db.banner.findMany({ where: { status: "ACTIVE", position: "HOME_MIDDLE" } })
+    db.banner.findMany({
+      where: visibleBannerWhere(new Date(), "HOME_MIDDLE"),
+      orderBy: bannerOrder,
+    }),
   );
   if (banners.length === 0) return null;
-  return <BannerCarousel banners={banners} />;
+  return (
+    <BannerCarousel
+      previews={await getImagePreviews(
+        banners.flatMap((b) =>
+          [b.imageUrl, b.mobileImageUrl].filter((url): url is string => !!url),
+        ),
+      )}
+      banners={banners}
+    />
+  );
 }
 
 async function Categories() {
   const { lang } = await getT();
   // full tree: every main category with its children laid out beneath it
   const categories = await cached("home:categories-tree", 300_000, () =>
-    db.category.findMany({ orderBy: { sortOrder: "asc" } })
+    db.category.findMany({ orderBy: { sortOrder: "asc" } }),
   );
   const mains = categories.filter((c) => c.parentId === null);
 
@@ -150,10 +176,7 @@ async function Categories() {
         const subs = categories.filter((c) => c.parentId === cat.id);
         return (
           <div key={cat.id} className="min-w-0">
-            <Link
-              href={`/category/${cat.slug}`}
-              className="group flex items-center gap-3"
-            >
+            <Link href={`/category/${cat.slug}`} className="group flex items-center gap-3">
               <span className="flex size-11 shrink-0 items-center justify-center bg-neutral-50 ring-1 ring-neutral-100 transition-colors duration-200 group-hover:bg-primary-50 group-hover:ring-primary-100">
                 <CategoryIcon
                   name={cat.icon}
@@ -207,7 +230,7 @@ async function LiveAuctions() {
       include: cardInclude,
       orderBy: { auction: { endsAt: "asc" } },
       take: 8,
-    })
+    }),
   );
 
   if (auctions.length === 0) {
@@ -234,7 +257,7 @@ async function Promoted() {
       include: cardInclude,
       orderBy: { bumpedAt: "desc" },
       take: 8,
-    })
+    }),
   );
   if (promoted.length === 0) return null;
 
@@ -250,7 +273,7 @@ async function Promoted() {
             <AuctionCard key={listing.id} listing={listing} />
           ) : (
             <ListingCard key={listing.id} listing={listing} />
-          )
+          ),
         )}
       </div>
     </section>
@@ -260,11 +283,16 @@ async function Promoted() {
 async function Featured() {
   const featured = await cached("home:featured", 60_000, () =>
     db.listing.findMany({
-      where: { status: "ACTIVE", isFeatured: true },
+      where: {
+        status: "ACTIVE",
+        seller: { isBanned: false },
+        isFeatured: true,
+        OR: [{ featuredUntil: null }, { featuredUntil: { gt: new Date() } }],
+      },
       include: cardInclude,
       orderBy: { bumpedAt: "desc" },
       take: 8,
-    })
+    }),
   );
 
   return (
@@ -274,7 +302,7 @@ async function Featured() {
           <AuctionCard key={listing.id} listing={listing} />
         ) : (
           <ListingCard key={listing.id} listing={listing} />
-        )
+        ),
       )}
     </div>
   );
@@ -287,7 +315,7 @@ async function Latest() {
       include: cardInclude,
       orderBy: { bumpedAt: "desc" },
       take: 12,
-    })
+    }),
   );
 
   return (
@@ -326,7 +354,7 @@ async function CategorySections() {
       (cat) =>
         (countByCat[cat.id] ?? 0) +
           cat.children.reduce((sum, ch) => sum + (countByCat[ch.id] ?? 0), 0) >
-        0
+        0,
     );
 
     return Promise.all(
@@ -342,16 +370,14 @@ async function CategorySections() {
           }),
         ]);
         return { cat, pinned, regular: regular.slice(0, 8 - pinned.length) };
-      })
+      }),
     );
   });
 
   // ad analytics: one impression per unique visitor network — reloads don't
   // count. Fire-and-forget: reads request headers, so it must stay outside the
   // cached closure, and it must never hold up the render.
-  void recordImpressions(
-    sections.flatMap((s) => s.pinned).map((l) => l.campaigns[0]?.id ?? "")
-  );
+  void recordImpressions(sections.flatMap((s) => s.pinned).map((l) => l.campaigns[0]?.id ?? ""));
 
   return (
     <>
@@ -375,7 +401,7 @@ async function CategorySections() {
                 <AuctionCard key={listing.id} listing={listing} />
               ) : (
                 <ListingCard key={listing.id} listing={listing} />
-              )
+              ),
             )}
           </div>
         </section>
@@ -389,15 +415,12 @@ async function Stats() {
   if ((await getSetting("HOME_STATS_VISIBLE")) !== "1") return null;
 
   const { t } = await getT();
-  const [activeListings, liveCount, userCount] = await cached(
-    "home:stats",
-    300_000,
-    () =>
-      Promise.all([
-        db.listing.count({ where: { status: "ACTIVE" } }),
-        db.auction.count({ where: { status: "LIVE", endsAt: { gt: new Date() } } }),
-        db.user.count(),
-      ])
+  const [activeListings, liveCount, userCount] = await cached("home:stats", 300_000, () =>
+    Promise.all([
+      db.listing.count({ where: { status: "ACTIVE" } }),
+      db.auction.count({ where: { status: "LIVE", endsAt: { gt: new Date() } } }),
+      db.user.count(),
+    ]),
   );
 
   return (

@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -46,7 +48,12 @@ export function UserMenu({
   }, []);
 
   async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
+    const response = await clientFetch("/api/auth/logout", { method: "POST" });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      window.alert(data.error);
+      return;
+    }
     router.push("/");
     router.refresh();
   }
@@ -54,10 +61,22 @@ export function UserMenu({
   const items = [
     { href: "/dashboard", label: t.menu.dashboard, icon: LayoutDashboard },
     { href: "/dashboard/listings", label: t.menu.myListings, icon: ListChecks },
-    { href: "/dashboard/messages", label: t.menu.messages, icon: MessageSquare },
-    { href: "/dashboard/verifications", label: t.menu.verifications, icon: ShieldCheck },
+    {
+      href: "/dashboard/messages",
+      label: t.menu.messages,
+      icon: MessageSquare,
+    },
+    {
+      href: "/dashboard/verifications",
+      label: t.menu.verifications,
+      icon: ShieldCheck,
+    },
     { href: "/dashboard/favorites", label: t.menu.favorites, icon: Heart },
-    { href: "/dashboard/notifications", label: t.menu.notifications, icon: Bell },
+    {
+      href: "/dashboard/notifications",
+      label: t.menu.notifications,
+      icon: Bell,
+    },
     { href: "/dashboard/settings", label: t.menu.settings, icon: Settings },
   ];
 
@@ -90,12 +109,18 @@ export function UserMenu({
               // mobile: floating glass sheet
               "max-sm:fixed max-sm:inset-x-3 max-sm:bottom-24 max-sm:rounded-3xl max-sm:border max-sm:border-white/60 max-sm:bg-white/85 max-sm:backdrop-blur-2xl max-sm:backdrop-saturate-150 max-sm:shadow-2xl max-sm:shadow-black/20 max-sm:p-3",
               // desktop: anchored dropdown
-              "sm:absolute sm:left-0 sm:top-full sm:mt-2 sm:w-64 sm:rounded-2xl sm:border sm:border-neutral-100 sm:bg-white sm:shadow-xl sm:shadow-black/8 sm:p-2"
+              "sm:absolute sm:left-0 sm:top-full sm:mt-2 sm:w-64 sm:rounded-2xl sm:border sm:border-neutral-100 sm:bg-white sm:shadow-xl sm:shadow-black/8 sm:p-2",
             )}
           >
             {/* identity header */}
             <div className="flex items-center gap-3 rounded-2xl bg-neutral-50 max-sm:bg-white/60 p-3 mb-1.5">
-              <Avatar name={name} color={color} src={avatarUrl} pro={isPro} className="size-11 text-base" />
+              <Avatar
+                name={name}
+                color={color}
+                src={avatarUrl}
+                pro={isPro}
+                className="size-11 text-base"
+              />
               <div className="min-w-0">
                 <p className="font-bold text-sm truncate">{name}</p>
                 <div className="flex items-center gap-1.5 mt-1">

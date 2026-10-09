@@ -33,7 +33,7 @@ export async function nudgePriceDrops() {
       "SYSTEM",
       "إعلانك يُشاهد ولا يُشترى 👀",
       `"${listing.title}" شاهده ${listing.views} شخص دون أي رسالة أو عرض سعر — غالباً السعر أعلى من السوق. جرّب تخفيضه قليلاً أو حسّن الصور، ثم جدّد الإعلان ليعود لأول القائمة.`,
-      `/dashboard/listings/${listing.id}/edit`
+      `/dashboard/listings/${listing.id}/edit`,
     );
   }
 }

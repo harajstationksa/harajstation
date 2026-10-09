@@ -5,19 +5,10 @@
  * instagram.com — never a lookalike domain).
  */
 
-export const SOCIAL_PLATFORMS = [
-  "twitter",
-  "instagram",
-  "tiktok",
-  "snapchat",
-  "youtube",
-] as const;
+export const SOCIAL_PLATFORMS = ["twitter", "instagram", "tiktok", "snapchat", "youtube"] as const;
 export type SocialPlatform = (typeof SOCIAL_PLATFORMS)[number];
 
-const PLATFORM_RULES: Record<
-  SocialPlatform,
-  { hosts: string[]; base: string }
-> = {
+const PLATFORM_RULES: Record<SocialPlatform, { hosts: string[]; base: string }> = {
   twitter: { hosts: ["x.com", "twitter.com"], base: "https://x.com/" },
   instagram: { hosts: ["instagram.com"], base: "https://instagram.com/" },
   tiktok: { hosts: ["tiktok.com"], base: "https://tiktok.com/@" },
@@ -38,7 +29,7 @@ function hostAllowed(host: string, allowed: string[]) {
  */
 export function normalizeSocial(
   platform: SocialPlatform,
-  raw: string | undefined | null
+  raw: string | undefined | null,
 ): string | null | { error: string } {
   const value = (raw ?? "").trim();
   if (!value) return null;
@@ -68,7 +59,7 @@ export function normalizeSocial(
 
 /** Website: any https URL (http is upgraded). */
 export function normalizeWebsite(
-  raw: string | undefined | null
+  raw: string | undefined | null,
 ): string | null | { error: string } {
   const value = (raw ?? "").trim();
   if (!value) return null;
@@ -85,7 +76,7 @@ export function normalizeWebsite(
 
 /** WhatsApp: international number, digits only (strip +, spaces, dashes). */
 export function normalizeWhatsapp(
-  raw: string | undefined | null
+  raw: string | undefined | null,
 ): string | null | { error: string } {
   const value = (raw ?? "").trim();
   if (!value) return null;

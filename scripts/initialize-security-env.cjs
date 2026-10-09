@@ -27,7 +27,8 @@ setValue("CHAT_SECRET_PREVIOUS", current("CHAT_SECRET_PREVIOUS") || "");
 setValue("BACKUP_AGE_RECIPIENT", recipient);
 setValue("BACKUP_REMOTE", current("BACKUP_REMOTE") || "");
 setValue("REDIS_URL", current("REDIS_URL") || "redis://127.0.0.1:6379");
-setValue("NEXT_PUBLIC_GA_ID", current("NEXT_PUBLIC_GA_ID") || "G-C3WN5PRQKT");
+setValue("NEXT_PUBLIC_GA_ID", current("NEXT_PUBLIC_GA_ID") || "");
+setValue("NEXT_PUBLIC_GA_ENABLED", current("NEXT_PUBLIC_GA_ENABLED") || "false");
 
 writeFileSync(envPath, source, { mode: 0o600 });
 chmodSync(envPath, 0o600);

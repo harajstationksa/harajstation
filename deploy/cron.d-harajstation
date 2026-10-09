@@ -1,9 +1,15 @@
 # /etc/cron.d/harajstation — runs the finalizers every minute.
 # (cron.d files need the user column and a trailing newline.)
+# Installed/updated by deploy/install-ops.sh; after ANY edit verify with
+#   grep cron.d/harajstation /var/log/syslog | tail
+# that the RELOAD line is not followed by an Error (one bad line disables the file).
 SHELL=/bin/sh
 PATH=/usr/local/bin:/usr/bin:/bin
 
 * * * * * root /usr/local/bin/haraj-cron.sh
 
-# daily encrypted DB + private-files backup
-17 3 * * * haraj /var/www/harajstation/deploy/backup.sh >> /var/backups/harajstation/backup.log 2>&1
+# daily encrypted DB + private-files backup (independently versioned ops tools)
+17 3 * * * haraj /bin/bash /var/www/harajstation-ops/current/backup.sh >> /var/backups/harajstation/backup.log 2>&1
+
+# weekly orphaned-avatar cleanup in R2
+47 3 * * 0 haraj /usr/bin/node --env-file=/var/www/harajstation/.env /var/www/harajstation-ops/current/r2-cleanup.mjs --delete --avatars-only >> /var/backups/harajstation/avatar-cleanup.log 2>&1

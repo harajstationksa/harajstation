@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
@@ -41,11 +43,10 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
   const { t } = useLang();
   const d = t.dash.confirmCard;
   const router = useRouter();
-  const [loading, setLoading] = useState<
-    "YES" | "NO" | "EVIDENCE" | "EXT" | null
-  >(null);
+  const [loading, setLoading] = useState<"YES" | "NO" | "EVIDENCE" | "EXT" | null>(null);
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
+  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
   const [extOpen, setExtOpen] = useState(false);
   const [extDays, setExtDays] = useState(EXTENSION_DAY_OPTIONS[0]);
   const [extNote, setExtNote] = useState("");
@@ -55,7 +56,7 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
     if (!confirm(d.confirmQ(q, value === "YES" ? d.yes : d.no))) return;
     setLoading(value);
     setError("");
-    const res = await fetch(`/api/transactions/${tx.id}/confirm`, {
+    const res = await clientFetch(`/api/transactions/${tx.id}/confirm`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ answer: value }),
@@ -73,10 +74,12 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
     e.preventDefault();
     setLoading("EVIDENCE");
     setError("");
-    const res = await fetch(`/api/transactions/${tx.id}/evidence`, {
+    const body = new FormData();
+    body.set("note", note);
+    if (evidenceFile) body.set("image", evidenceFile);
+    const res = await clientFetch(`/api/transactions/${tx.id}/evidence`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ note }),
+      body,
     });
     setLoading(null);
     if (!res.ok) {
@@ -85,16 +88,17 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
       return;
     }
     setNote("");
+    setEvidenceFile(null);
     router.refresh();
   }
 
   /** buyer asks for more time, or seller answers that ask */
   async function extension(
-    body: { days: number; note?: string } | { decision: "APPROVE" | "REJECT" }
+    body: { days: number; note?: string } | { decision: "APPROVE" | "REJECT" },
   ) {
     setLoading("EXT");
     setError("");
-    const res = await fetch(`/api/transactions/${tx.id}/extension`, {
+    const res = await clientFetch(`/api/transactions/${tx.id}/extension`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -114,8 +118,7 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
     tx.role === "SELLER" ? d.qSeller(tx.counterpart.name) : d.qBuyer(tx.counterpart.name);
   const isBuyer = tx.role === "BUYER";
   // one extension per transaction, and only while the buyer still owes an answer
-  const canAskExtension =
-    isBuyer && tx.status === "PENDING" && !tx.myAnswer && !tx.extStatus;
+  const canAskExtension = isBuyer && tx.status === "PENDING" && !tx.myAnswer && !tx.extStatus;
   const extDaysValue = tx.extDays ?? 0;
 
   return (
@@ -165,7 +168,10 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
                 <MessageCircle className="size-3.5" />
                 {d.whatsapp}
               </a>
-              <a href={`tel:${tx.counterpart.phone}`} className="badge bg-neutral-200 text-neutral-700">
+              <a
+                href={`tel:${tx.counterpart.phone}`}
+                className="badge bg-neutral-200 text-neutral-700"
+              >
                 <Phone className="size-3.5" />
                 {d.call}
               </a>
@@ -191,15 +197,19 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
               disabled={loading !== null}
               className="btn bg-green-600 text-white hover:bg-green-700"
             >
-              {loading === "YES" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+              {loading === "YES" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Check className="size-4" />
+              )}
               {tx.role === "SELLER" ? d.yesDelivered : d.yesReceived}
             </button>
-            <button
-              onClick={() => answer("NO")}
-              disabled={loading !== null}
-              className="btn-danger"
-            >
-              {loading === "NO" ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
+            <button onClick={() => answer("NO")} disabled={loading !== null} className="btn-danger">
+              {loading === "NO" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <X className="size-4" />
+              )}
               {tx.role === "SELLER" ? d.noDelivered : d.noReceived}
             </button>
           </div>
@@ -232,11 +242,14 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
           {canAskExtension && extOpen && (
             <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-2.5">
               <p className="text-xs text-neutral-500">{d.extHint}</p>
-              <label className="block text-sm font-semibold">{d.extDays}</label>
+              <label className="block text-sm font-semibold" htmlFor="a11y-confirmcard-1">
+                {d.extDays}
+              </label>
               <select
                 className="input"
                 value={extDays}
                 onChange={(e) => setExtDays(Number(e.target.value))}
+                id="a11y-confirmcard-1"
               >
                 {EXTENSION_DAY_OPTIONS.map((n) => (
                   <option key={n} value={n}>
@@ -254,7 +267,10 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() =>
-                    extension({ days: extDays, note: extNote.trim() || undefined })
+                    extension({
+                      days: extDays,
+                      note: extNote.trim() || undefined,
+                    })
                   }
                   disabled={loading !== null}
                   className="btn-primary"
@@ -291,8 +307,7 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
               </p>
               {tx.extNote && (
                 <p className="text-sm text-neutral-600">
-                  <span className="text-neutral-500">{d.extNoteLabel}</span>{" "}
-                  {tx.extNote}
+                  <span className="text-neutral-500">{d.extNoteLabel}</span> {tx.extNote}
                 </p>
               )}
               <p className="text-xs text-neutral-500">{d.extAutoNote}</p>
@@ -329,9 +344,7 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
 
           {tx.extStatus === "APPROVED" && (
             <p className="text-sm text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2">
-              {isBuyer
-                ? d.extApprovedBuyer(extDaysValue)
-                : d.extApprovedSeller(extDaysValue)}
+              {isBuyer ? d.extApprovedBuyer(extDaysValue) : d.extApprovedSeller(extDaysValue)}
             </p>
           )}
 
@@ -363,6 +376,15 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
               minLength={10}
               required
             />
+            <label className="block text-xs text-neutral-500">
+              {d.evidencePhoto}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="block w-full mt-1 text-xs"
+                onChange={(e) => setEvidenceFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
             <button className="btn-secondary w-full" disabled={loading !== null}>
               {loading === "EVIDENCE" ? (
                 <Loader2 className="size-4 animate-spin" />

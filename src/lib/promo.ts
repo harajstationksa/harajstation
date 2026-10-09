@@ -11,9 +11,7 @@ export function normalizePromoCode(raw: string): string {
   return raw.trim().toUpperCase().replace(/\s+/g, "");
 }
 
-export type PromoCheck =
-  | { ok: true; promo: PromoCode }
-  | { ok: false; error: string };
+export type PromoCheck = { ok: true; promo: PromoCode } | { ok: false; error: string };
 
 /** Full eligibility check for `userId` applying `code` right now. */
 export async function validatePromo(rawCode: string, userId: string): Promise<PromoCheck> {

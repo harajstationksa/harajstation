@@ -1,3 +1,4 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -21,10 +22,7 @@ const schema = z.union([
   z.object({ decision: z.enum(["APPROVE", "REJECT"]) }),
 ]);
 
-export async function POST(
-  req: Request,
-  ctx: { params: Promise<{ id: string }> }
-) {
+export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const limited = await rateLimitGuard(req, "tx-extension", 10, 10 * 60_000);
   if (limited) return limited;
   const { id } = await ctx.params;
@@ -35,7 +33,7 @@ export async function POST(
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: "طلب غير صالح" }, { status: 400 });
+    return NextResponse.json({ error: apiMessage(req, "طلب غير صالح") }, { status: 400 });
   }
 
   const t = await db.transaction.findUnique({
@@ -43,10 +41,10 @@ export async function POST(
     include: { listing: { select: { title: true } } },
   });
   if (!t) {
-    return NextResponse.json({ error: "المعاملة غير موجودة" }, { status: 404 });
+    return NextResponse.json({ error: apiMessage(req, "المعاملة غير موجودة") }, { status: 404 });
   }
   if (t.status !== "PENDING") {
-    return NextResponse.json({ error: "المعاملة مغلقة" }, { status: 409 });
+    return NextResponse.json({ error: apiMessage(req, "المعاملة مغلقة") }, { status: 409 });
   }
 
   const isSeller = t.sellerId === session.sub;
@@ -59,24 +57,24 @@ export async function POST(
   if ("days" in parsed.data) {
     if (!isBuyer) {
       return NextResponse.json(
-        { error: "طلب التمديد متاح للمشتري فقط" },
-        { status: 403 }
+        { error: apiMessage(req, "طلب التمديد متاح للمشتري فقط") },
+        { status: 403 },
       );
     }
     if (t.buyerAnswer) {
       return NextResponse.json(
-        { error: "سبق أن أجبت على هذه المعاملة" },
-        { status: 409 }
+        { error: apiMessage(req, "سبق أن أجبت على هذه المعاملة") },
+        { status: 409 },
       );
     }
     if (t.extStatus) {
       return NextResponse.json(
-        { error: "لا يمكن طلب التمديد أكثر من مرة" },
-        { status: 409 }
+        { error: apiMessage(req, "لا يمكن طلب التمديد أكثر من مرة") },
+        { status: 409 },
       );
     }
     if (t.deadline.getTime() <= Date.now()) {
-      return NextResponse.json({ error: "انتهت المهلة" }, { status: 409 });
+      return NextResponse.json({ error: apiMessage(req, "انتهت المهلة") }, { status: 409 });
     }
 
     await db.transaction.update({
@@ -93,22 +91,19 @@ export async function POST(
       "CONFIRM",
       "طلب تمديد مهلة التحقق",
       `طلب المشتري تمديد مهلة تأكيد "${t.listing.title}" ${parsed.data.days} أيام إضافية. وافق أو ارفض من صفحة التحقق.`,
-      "/dashboard/verifications"
+      "/dashboard/verifications",
     );
     return NextResponse.json({ ok: true });
   }
 
   // ── seller decides ──
   if (!isSeller) {
-    return NextResponse.json(
-      { error: "القرار للبائع فقط" },
-      { status: 403 }
-    );
+    return NextResponse.json({ error: apiMessage(req, "القرار للبائع فقط") }, { status: 403 });
   }
   if (t.extStatus !== "PENDING") {
     return NextResponse.json(
-      { error: "لا يوجد طلب تمديد قيد الانتظار" },
-      { status: 409 }
+      { error: apiMessage(req, "لا يوجد طلب تمديد قيد الانتظار") },
+      { status: 409 },
     );
   }
 
@@ -120,9 +115,7 @@ export async function POST(
     where: { id },
     data: {
       extStatus: approved ? "APPROVED" : "REJECTED",
-      ...(approved
-        ? { deadline: new Date(t.deadline.getTime() + days * 86_400_000) }
-        : {}),
+      ...(approved ? { deadline: new Date(t.deadline.getTime() + days * 86_400_000) } : {}),
     },
   });
   await notify(
@@ -132,7 +125,7 @@ export async function POST(
     approved
       ? `وافق البائع على تمديد مهلة تأكيد "${t.listing.title}" ${days} أيام إضافية.`
       : `رفض البائع تمديد مهلة تأكيد "${t.listing.title}" — أكّد الاستلام قبل انتهاء المهلة الحالية.`,
-    "/dashboard/verifications"
+    "/dashboard/verifications",
   );
 
   return NextResponse.json({ ok: true });

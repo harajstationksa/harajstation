@@ -1,5 +1,15 @@
 import { NextResponse } from "next/server";
-import { consentUrl, googleConfigured, newState, siteUrl, STATE_COOKIE } from "@/lib/google-oauth";
+import {
+  consentUrl,
+  googleConfigured,
+  newState,
+  newVerifier,
+  siteUrl,
+  STATE_COOKIE,
+  VERIFIER_COOKIE,
+  NONCE_COOKIE,
+  oauthCookieOptions,
+} from "@/lib/google-oauth";
 import { rateLimitGuard } from "@/lib/rate-limit";
 
 /** Send the visitor to Google's consent screen. */
@@ -14,13 +24,11 @@ export async function GET(req: Request) {
   // random state, echoed back by Google and checked in the callback, so a
   // third party can't feed us an authorization code of their choosing
   const state = newState();
-  const res = NextResponse.redirect(consentUrl(state));
-  res.cookies.set(STATE_COOKIE, state, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 10 * 60,
-  });
+  const verifier = newVerifier(),
+    nonce = newState();
+  const res = NextResponse.redirect(consentUrl(state, verifier, nonce));
+  res.cookies.set(STATE_COOKIE, state, oauthCookieOptions);
+  res.cookies.set(VERIFIER_COOKIE, verifier, oauthCookieOptions);
+  res.cookies.set(NONCE_COOKIE, nonce, oauthCookieOptions);
   return res;
 }

@@ -1,3 +1,4 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -15,21 +16,21 @@ export async function POST(req: Request) {
   if (limited) return limited;
   const session = await getSession();
   if (!session) {
-    return NextResponse.json({ error: "سجّل دخولك للإبلاغ" }, { status: 401 });
+    return NextResponse.json({ error: apiMessage(req, "سجّل دخولك للإبلاغ") }, { status: 401 });
   }
   // per-account daily budget — reports feed the moderation queue
   if (await isRateLimited(`report:u:${session.sub}`, 20, 24 * 60 * 60_000)) {
     return NextResponse.json(
-      { error: "تجاوزت حد البلاغات اليومي — حاول غداً" },
-      { status: 429 }
+      { error: apiMessage(req, "تجاوزت حد البلاغات اليومي — حاول غداً") },
+      { status: 429 },
     );
   }
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "اكتب سبب البلاغ (5 أحرف على الأقل)" },
-      { status: 400 }
+      { error: apiMessage(req, "اكتب سبب البلاغ (5 أحرف على الأقل)") },
+      { status: 400 },
     );
   }
 
@@ -43,7 +44,10 @@ export async function POST(req: Request) {
     },
   });
   if (dup) {
-    return NextResponse.json({ error: "سبق أن أبلغت عن هذا المحتوى" }, { status: 409 });
+    return NextResponse.json(
+      { error: apiMessage(req, "سبق أن أبلغت عن هذا المحتوى") },
+      { status: 409 },
+    );
   }
 
   await db.report.create({

@@ -1,4 +1,6 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
+import { parsePage } from "@/lib/pagination";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
@@ -6,10 +8,12 @@ import { getSession } from "@/lib/auth";
 /** Notification feed, newest first. */
 export async function GET(req: Request) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "غير مسجل" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: apiMessage(req, "غير مسجل") }, { status: 401 });
 
   const url = new URL(req.url);
-  const page = Math.max(1, Number(url.searchParams.get("page")) || 1);
+  const page = parsePage(url.searchParams.get("page"));
+  if (page === null)
+    return NextResponse.json({ error: apiMessage(req, "رقم الصفحة غير صالح") }, { status: 400 });
   const pageSize = 30;
 
   const [total, rows] = await Promise.all([
@@ -43,7 +47,7 @@ const schema = z.object({ ids: z.array(z.string()).optional() });
 /** Mark notifications as read — specific ids, or all when omitted. */
 export async function POST(req: Request) {
   const session = await getSession();
-  if (!session) return NextResponse.json({ error: "غير مسجل" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: apiMessage(req, "غير مسجل") }, { status: 401 });
 
   const parsed = schema.safeParse(await req.json().catch(() => ({})));
   const ids = parsed.success ? parsed.data.ids : undefined;

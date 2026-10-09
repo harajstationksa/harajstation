@@ -1,3 +1,4 @@
+import { PublicImage } from "@/components/PublicImage";
 import Link from "next/link";
 import { Gavel, MapPin } from "lucide-react";
 import type { CardListing } from "@/lib/types";
@@ -26,12 +27,11 @@ export async function AuctionCard({
       href={`/auctions/${auction.id}`}
       className={cn(
         "group overflow-hidden bg-white border border-neutral-100 shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5",
-        className
+        className,
       )}
     >
       <div className="relative aspect-4/3 overflow-hidden bg-neutral-100">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <PublicImage
           src={cover}
           alt={listing.title}
           loading="lazy"

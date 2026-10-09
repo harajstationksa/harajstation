@@ -39,6 +39,7 @@ export async function generateMetadata() {
 const STATUS_CLS: Record<string, string> = {
   ACTIVE: "bg-green-50 text-green-700",
   PENDING: "bg-amber-50 text-amber-700",
+  AWAITING_INFO: "bg-amber-50 text-amber-700",
   SOLD: "bg-blue-50 text-blue-700",
   EXPIRED: "bg-neutral-100 text-neutral-500",
   REMOVED: "bg-red-50 text-red-600",
@@ -50,7 +51,7 @@ const STATUS_CLS: Record<string, string> = {
 export default async function MyListingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; type?: string }>;
+  searchParams: Promise<{ status?: string; type?: string; error?: string }>;
 }) {
   const user = await requireUser();
   const { lang, t } = await getT();
@@ -58,6 +59,8 @@ export default async function MyListingsPage({
   const STATUS_FILTERS = [
     ["", d.fAll],
     ["ACTIVE", d.fActive],
+    ["PENDING", t.dash.listingStatus.PENDING],
+    ["AWAITING_INFO", t.dash.listingStatus.AWAITING_INFO],
     ["SOLD", d.fSold],
     ["EXPIRED", d.fExpired],
   ] as const;
@@ -68,9 +71,21 @@ export default async function MyListingsPage({
     ["ANNOUNCE", d.tAnnounce],
   ] as const;
   const TYPE_BADGE: Record<string, { label: string; icon: typeof Tag; cls: string }> = {
-    STANDARD: { label: d.badgeSale, icon: Tag, cls: "bg-primary-50 text-primary-700" },
-    AUCTION: { label: d.badgeAuction, icon: Gavel, cls: "bg-red-50 text-red-600" },
-    ANNOUNCE: { label: d.badgeAnnounce, icon: Megaphone, cls: "bg-sky-50 text-sky-700" },
+    STANDARD: {
+      label: d.badgeSale,
+      icon: Tag,
+      cls: "bg-primary-50 text-primary-700",
+    },
+    AUCTION: {
+      label: d.badgeAuction,
+      icon: Gavel,
+      cls: "bg-red-50 text-red-600",
+    },
+    ANNOUNCE: {
+      label: d.badgeAnnounce,
+      icon: Megaphone,
+      cls: "bg-sky-50 text-sky-700",
+    },
   };
   const sp = await searchParams;
   const status = sp.status ?? "";
@@ -88,7 +103,12 @@ export default async function MyListingsPage({
         ...(type ? { type } : {}),
       },
       include: {
-        auction: { include: { _count: { select: { bids: true } }, bids: { orderBy: { amount: "desc" }, take: 1 } } },
+        auction: {
+          include: {
+            _count: { select: { bids: true } },
+            bids: { orderBy: { amount: "desc" }, take: 1 },
+          },
+        },
         _count: { select: { favorites: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -127,7 +147,7 @@ export default async function MyListingsPage({
     },
   ];
 
-  const filterLink = (next: { status?: string; type?: string }) => {
+  const filterLink = (next: { status?: string; type?: string; error?: string }) => {
     const merged = { status, type, ...next };
     const qs = new URLSearchParams();
     if (merged.status) qs.set("status", merged.status);
@@ -137,6 +157,11 @@ export default async function MyListingsPage({
 
   return (
     <div className="space-y-5">
+      {sp.error && (
+        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+          {sp.error.slice(0, 300)}
+        </p>
+      )}
       <div className="flex items-center justify-between">
         <h1 className="section-title">{d.title}</h1>
         <Link href="/sell" className="btn-primary">
@@ -172,7 +197,7 @@ export default async function MyListingsPage({
                 "rounded-full px-3.5 py-1.5 text-xs font-semibold border transition-colors",
                 status === v
                   ? "bg-neutral-900 text-white border-neutral-900"
-                  : "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400"
+                  : "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400",
               )}
             >
               {label}
@@ -189,7 +214,7 @@ export default async function MyListingsPage({
                 "rounded-full px-3.5 py-1.5 text-xs font-semibold border transition-colors",
                 type === v
                   ? "bg-neutral-900 text-white border-neutral-900"
-                  : "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400"
+                  : "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400",
               )}
             >
               {label}
@@ -204,16 +229,16 @@ export default async function MyListingsPage({
       {listings.length === 0 ? (
         <EmptyState
           title={status || type ? d.emptyFiltered : d.emptyTitle}
-          hint={
-            status || type
-              ? d.emptyFilteredHint
-              : d.emptyHint
-          }
+          hint={status || type ? d.emptyFilteredHint : d.emptyHint}
           action={
             status || type ? (
-              <Link href="/dashboard/listings" className="btn-secondary mt-2">{d.showAll}</Link>
+              <Link href="/dashboard/listings" className="btn-secondary mt-2">
+                {d.showAll}
+              </Link>
             ) : (
-              <Link href="/sell" className="btn-primary mt-2">{d.addFirst}</Link>
+              <Link href="/sell" className="btn-primary mt-2">
+                {d.addFirst}
+              </Link>
             )
           }
         />
@@ -221,7 +246,11 @@ export default async function MyListingsPage({
         <div className="card overflow-hidden divide-y divide-neutral-100">
           {listings.map((l) => {
             const cover = parseImages(l.images)[0];
-            const href = l.auction ? `/auctions/${l.auction.id}` : `/listings/${l.id}`;
+            const href = ["PENDING", "AWAITING_INFO"].includes(l.status)
+              ? `/dashboard/listings/${l.id}/edit`
+              : l.auction
+                ? `/auctions/${l.auction.id}`
+                : `/listings/${l.id}`;
             const isAuction = l.type === "AUCTION";
             const liveAuction =
               isAuction && l.auction?.status === "LIVE" && l.auction.endsAt.getTime() > now;
@@ -236,15 +265,14 @@ export default async function MyListingsPage({
               ? (l.auction?.bids[0]?.amount ?? l.auction?.startPrice ?? 0)
               : l.price;
             const canFeature = isActive && !l.isFeatured && user.points >= featureCost;
-            const canEdit = isActive && !liveAuction;
+            const canEdit =
+              (isActive && !liveAuction) || ["PENDING", "AWAITING_INFO"].includes(l.status);
             const canPromote = isActive && !l.isPromoted;
             const canSell = isActive && !liveAuction;
             // auctions are never relisted — the seller starts a fresh auction
             // instead, so the old bid history/end time can't be reused
-            const canRelist =
-              !isAuction && (l.status === "SOLD" || l.status === "EXPIRED");
-            const bumpIsFree =
-              now - l.bumpedAt.getTime() >= bumpFreeHours * 3_600_000;
+            const canRelist = !isAuction && (l.status === "SOLD" || l.status === "EXPIRED");
+            const bumpIsFree = now - l.bumpedAt.getTime() >= bumpFreeHours * 3_600_000;
             const canBump = isActive && (bumpIsFree || user.points >= bumpCost);
 
             return (
@@ -252,11 +280,17 @@ export default async function MyListingsPage({
                 <div className="flex items-center gap-3">
                   <Link href={href} className="flex items-center gap-3 min-w-0 flex-1">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={cover} alt="" className="size-16 rounded-lg object-cover border border-neutral-100 shrink-0" />
+                    <img
+                      src={cover}
+                      alt=""
+                      className="size-16 rounded-lg object-cover border border-neutral-100 shrink-0"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-sm line-clamp-1">{l.title}</p>
                       <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                        <span className={`badge ${TYPE_BADGE[l.type]?.cls ?? TYPE_BADGE.STANDARD.cls}`}>
+                        <span
+                          className={`badge ${TYPE_BADGE[l.type]?.cls ?? TYPE_BADGE.STANDARD.cls}`}
+                        >
                           {(() => {
                             const Icon = (TYPE_BADGE[l.type] ?? TYPE_BADGE.STANDARD).icon;
                             return <Icon className="size-3" />;
@@ -266,8 +300,12 @@ export default async function MyListingsPage({
                         <span className={`badge ${STATUS_CLS[shownStatus] ?? "bg-neutral-100"}`}>
                           {t.dash.listingStatus[shownStatus] ?? shownStatus}
                         </span>
-                        {l.isFeatured && <span className="badge bg-primary-500 text-white">{d.featured}</span>}
-                        {l.isPromoted && <span className="badge bg-amber-500 text-white">{d.promoted}</span>}
+                        {l.isFeatured && (
+                          <span className="badge bg-primary-500 text-white">{d.featured}</span>
+                        )}
+                        {l.isPromoted && (
+                          <span className="badge bg-amber-500 text-white">{d.promoted}</span>
+                        )}
                       </div>
                     </div>
                   </Link>
@@ -286,10 +324,27 @@ export default async function MyListingsPage({
                   </div>
                 </div>
 
+                {l.status === "PENDING" && (
+                  <p className="mt-2 ps-19 text-xs text-amber-800">
+                    {lang === "ar"
+                      ? "الإعلان ينتظر مراجعة المشرف قبل ظهوره للآخرين."
+                      : "A reviewer will check this listing before it appears publicly."}
+                  </p>
+                )}
+                {l.status === "AWAITING_INFO" && l.requestMessage && (
+                  <p className="mt-2 ps-19 text-xs text-amber-800">
+                    {lang === "ar" ? "مطلوب معلومات: " : "Information requested: "}
+                    {l.requestMessage}
+                  </p>
+                )}
+
                 {/* management actions */}
                 <div className="flex items-center gap-1.5 flex-wrap mt-2.5 ps-19">
                   {canEdit && (
-                    <Link href={`/dashboard/listings/${l.id}/edit`} className="act-btn bg-neutral-100 text-neutral-700 hover:bg-neutral-200">
+                    <Link
+                      href={`/dashboard/listings/${l.id}/edit`}
+                      className="act-btn bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+                    >
                       <Pencil className="size-3.5" />
                       {d.edit}
                     </Link>
@@ -303,7 +358,7 @@ export default async function MyListingsPage({
                           "act-btn",
                           bumpIsFree
                             ? "bg-green-50 text-green-700 hover:bg-green-100"
-                            : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+                            : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200",
                         )}
                       >
                         <ArrowUpToLine className="size-3.5" />
@@ -312,7 +367,10 @@ export default async function MyListingsPage({
                     </form>
                   )}
                   {canPromote && (
-                    <Link href={`/dashboard/campaigns/new?listing=${l.id}`} className="act-btn bg-primary-50 text-primary-700 hover:bg-primary-100">
+                    <Link
+                      href={`/dashboard/campaigns/new?listing=${l.id}`}
+                      className="act-btn bg-primary-50 text-primary-700 hover:bg-primary-100"
+                    >
                       <Megaphone className="size-3.5" />
                       {d.campaign}
                     </Link>

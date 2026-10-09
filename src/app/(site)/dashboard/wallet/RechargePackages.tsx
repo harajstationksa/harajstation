@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { useState } from "react";
 import { BadgePercent, CheckCircle2, Gift, Loader2, XCircle } from "lucide-react";
 import { ConfirmSubmit } from "@/components/ConfirmSubmit";
@@ -25,9 +27,7 @@ export function RechargePackages({
   const [promo, setPromo] = useState("");
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<
-    | { state: "idle" }
-    | { state: "valid"; percent: number }
-    | { state: "invalid"; error: string }
+    { state: "idle" } | { state: "valid"; percent: number } | { state: "invalid"; error: string }
   >(promoError ? { state: "invalid", error: promoError } : { state: "idle" });
 
   const applied = result.state === "valid" ? result.percent : 0;
@@ -37,7 +37,7 @@ export function RechargePackages({
     if (!code) return;
     setChecking(true);
     try {
-      const res = await fetch("/api/promo/validate", {
+      const res = await clientFetch("/api/promo/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),

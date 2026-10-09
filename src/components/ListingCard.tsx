@@ -1,3 +1,4 @@
+import { PublicImage } from "@/components/PublicImage";
 import Link from "next/link";
 import { BadgeCheck, MapPin, Star } from "lucide-react";
 import type { CardListing } from "@/lib/types";
@@ -15,19 +16,19 @@ export async function ListingCard({ listing }: { listing: CardListing }) {
       className="group overflow-hidden bg-white border border-neutral-100 shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5"
     >
       <div className="relative aspect-4/3 overflow-hidden bg-neutral-100">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <PublicImage
           src={cover}
           alt={listing.title}
           loading="lazy"
           className="size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
         />
-        {listing.isFeatured && (
-          <span className="tag absolute top-2.5 right-2.5 bg-neutral-900/90 text-primary-400 shadow-md backdrop-blur-sm">
-            <Star className="size-3 fill-current" />
-            {t.card.featured}
-          </span>
-        )}
+        {listing.isFeatured &&
+          (!listing.featuredUntil || new Date(listing.featuredUntil) > new Date()) && (
+            <span className="tag absolute top-2.5 right-2.5 bg-neutral-900/90 text-primary-400 shadow-md backdrop-blur-sm">
+              <Star className="size-3 fill-current" />
+              {t.card.featured}
+            </span>
+          )}
       </div>
 
       <div className="p-4 space-y-1.5">

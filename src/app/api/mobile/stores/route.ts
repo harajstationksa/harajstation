@@ -7,7 +7,10 @@ export async function GET(req: Request) {
   const q = url.searchParams.get("q")?.trim();
 
   const stores = await db.store.findMany({
-    where: q ? { name: { contains: q, mode: "insensitive" } } : {},
+    where: {
+      user: { isBanned: false },
+      ...(q ? { name: { contains: q.slice(0, 200), mode: "insensitive" as const } } : {}),
+    },
     orderBy: [{ isVerified: "desc" }, { createdAt: "desc" }],
     take: 60,
     include: {

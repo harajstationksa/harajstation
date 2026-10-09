@@ -1,3 +1,5 @@
+import { Pagination } from "@/components/Pagination";
+import { pageNumber } from "@/lib/pagination";
 import { Coins, Gift, UserPlus, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
@@ -13,14 +15,16 @@ export async function generateMetadata() {
   return { title: t.dash.referrals.title };
 }
 
-export default async function ReferralsPage() {
+export default async function ReferralsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const page = pageNumber((await searchParams).page);
   const user = await requireUser();
   const { lang, t } = await getT();
   const d = t.dash.referrals;
-  const [code, config] = await Promise.all([
-    getOrCreateReferralCode(user.id),
-    getReferralConfig(),
-  ]);
+  const [code, config] = await Promise.all([getOrCreateReferralCode(user.id), getReferralConfig()]);
 
   const [referralsCount, earnedAgg, earnings] = await Promise.all([
     db.user.count({ where: { referredById: user.id } }),
@@ -30,8 +34,9 @@ export default async function ReferralsPage() {
     }),
     db.referralEarning.findMany({
       where: { referrerId: user.id },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 15,
+      skip: (page - 1) * 15,
       include: { referred: { select: { name: true } } },
     }),
   ]);
@@ -40,6 +45,9 @@ export default async function ReferralsPage() {
   const site = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const shareLink = `${site}/register?ref=${code}`;
 
+  const total = await db.referralEarning.count({
+    where: { referrerId: user.id },
+  });
   return (
     <div className="space-y-6">
       <h1 className="section-title flex items-center gap-2">
@@ -68,31 +76,41 @@ export default async function ReferralsPage() {
       <div className="grid grid-cols-2 gap-3">
         <div className="card p-4 text-center">
           <Users className="size-6 text-primary-500 mx-auto mb-1" />
-          <p className="font-display font-extrabold text-3xl">{referralsCount.toLocaleString("en-US")}</p>
+          <p className="font-display font-extrabold text-3xl">
+            {referralsCount.toLocaleString("en-US")}
+          </p>
           <p className="text-xs text-neutral-500 mt-1">{d.statFriends}</p>
         </div>
         <div className="card p-4 text-center">
           <Coins className="size-6 text-primary-500 mx-auto mb-1" />
-          <p className="font-display font-extrabold text-3xl">{totalEarned.toLocaleString("en-US")}</p>
+          <p className="font-display font-extrabold text-3xl">
+            {totalEarned.toLocaleString("en-US")}
+          </p>
           <p className="text-xs text-neutral-500 mt-1">{d.statPoints}</p>
         </div>
       </div>
 
       {/* earnings ledger */}
       <div className="card overflow-hidden">
-        <div className="px-4 py-3 border-b border-neutral-100 font-bold text-sm">{d.ledgerTitle}</div>
+        <div className="px-4 py-3 border-b border-neutral-100 font-bold text-sm">
+          {d.ledgerTitle}
+        </div>
         {earnings.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-neutral-400 text-center">
-            {d.ledgerEmpty}
-          </p>
+          <p className="px-4 py-6 text-sm text-neutral-400 text-center">{d.ledgerEmpty}</p>
         ) : (
           <ul className="divide-y divide-neutral-50">
             {earnings.map((e) => (
-              <li key={e.id} className="px-4 py-2.5 flex items-center justify-between gap-3 text-sm">
+              <li
+                key={e.id}
+                className="px-4 py-2.5 flex items-center justify-between gap-3 text-sm"
+              >
                 <span className="text-neutral-600 line-clamp-1">{d.topupBy(e.referred.name)}</span>
                 <span className="flex items-center gap-3 shrink-0">
                   <span className="text-success font-bold">+{e.points}</span>
-                  <span className="text-xs text-neutral-400 w-16 text-left" suppressHydrationWarning>
+                  <span
+                    className="text-xs text-neutral-400 w-16 text-left"
+                    suppressHydrationWarning
+                  >
                     {timeAgo(e.createdAt, lang)}
                   </span>
                 </span>
@@ -101,6 +119,7 @@ export default async function ReferralsPage() {
           </ul>
         )}
       </div>
+      <Pagination page={page} total={total} size={15} path="/dashboard/referrals" lang={lang} />
     </div>
   );
 }

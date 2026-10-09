@@ -11,9 +11,10 @@ import type { Metadata } from "next";
  * indexed (but still to be followed, so the listings behind it are found).
  */
 
-export const SITE = (
-  process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
-).replace(/\/$/, "");
+export const SITE = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(
+  /\/$/,
+  "",
+);
 
 export const BRAND = "حراج ستيشن";
 
@@ -175,9 +176,7 @@ export function productLd(listing: {
   path: string;
 }): Json {
   const available =
-    listing.status === "ACTIVE"
-      ? "https://schema.org/InStock"
-      : "https://schema.org/SoldOut";
+    listing.status === "ACTIVE" ? "https://schema.org/InStock" : "https://schema.org/SoldOut";
   return {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -235,9 +234,7 @@ export function auctionLd(a: {
       priceCurrency: "SAR",
       priceValidUntil: a.endsAt.toISOString().slice(0, 10),
       availability:
-        a.status === "LIVE"
-          ? "https://schema.org/InStock"
-          : "https://schema.org/SoldOut",
+        a.status === "LIVE" ? "https://schema.org/InStock" : "https://schema.org/SoldOut",
       url: abs(a.path),
       areaServed: a.city,
     },

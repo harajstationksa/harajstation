@@ -1,134 +1,60 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { adjustPoints } from "@/lib/points";
-import { getSettingInt } from "@/lib/settings";
-import { getPlanLimits } from "@/lib/limits";
-import { notify } from "@/lib/notify";
 import { isRateLimited } from "@/lib/rate-limit";
-import { deleteImages, deletePrivateImage } from "@/lib/uploads";
-import { parseJson } from "../../../../_lib/serialize";
+import { featureListing, relistListing, removeOwnListing, lockListing } from "@/lib/listing-policy";
 
-const schema = z.object({
-  action: z.enum(["feature", "sold", "relist", "delete"]),
-});
-
-/**
- * Owner actions on a listing — the JSON twin of the dashboard server actions
- * (feature with points / mark sold / relist / delete), same rules.
- */
-export async function POST(
-  req: Request,
-  ctx: { params: Promise<{ id: string }> }
-) {
+const schema = z.object({ action: z.enum(["feature", "sold", "relist", "delete"]) });
+export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "غير مسجل" }, { status: 401 });
-
+  if (!user) return NextResponse.json({ error: apiMessage(req, "غير مسجل") }, { status: 401 });
   const { id } = await ctx.params;
   const parsed = schema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) {
-    return NextResponse.json({ error: "طلب غير صالح" }, { status: 400 });
-  }
-
-  const listing = await db.listing.findUnique({
-    where: { id },
-    include: { auction: true },
-  });
-  if (!listing || listing.sellerId !== user.id) {
-    return NextResponse.json({ error: "غير مصرح" }, { status: 403 });
-  }
-
+  if (!parsed.success)
+    return NextResponse.json({ error: apiMessage(req, "طلب غير صالح") }, { status: 400 });
+  let ok = false;
   switch (parsed.data.action) {
-    case "feature": {
-      const cost = await getSettingInt("FEATURE_POINT_COST", 100);
-      if (listing.status !== "ACTIVE" || listing.isFeatured) {
-        return NextResponse.json({ error: "الإعلان غير مؤهل للتمييز" }, { status: 400 });
-      }
-      if (user.points < cost) {
-        return NextResponse.json(
-          { error: `تحتاج ${cost} نقطة — رصيدك ${user.points}` },
-          { status: 400 }
-        );
-      }
-      const ok = await adjustPoints(user.id, -cost, "تمييز إعلان (7 أيام)");
-      if (ok === null) {
-        return NextResponse.json({ error: "رصيد النقاط غير كافٍ" }, { status: 400 });
-      }
-      await db.listing.update({
-        where: { id },
-        data: { isFeatured: true, featuredUntil: new Date(Date.now() + 7 * 86_400_000) },
+    case "feature":
+      ok = await featureListing(id, user.id);
+      break;
+    case "relist":
+      if (await isRateLimited(`relist:${user.id}`, 20, 24 * 3600000))
+        return NextResponse.json({ error: apiMessage(req, "محاولات كثيرة") }, { status: 429 });
+      ok = await relistListing(id, user);
+      break;
+    case "delete":
+      ok = await removeOwnListing(id, user.id);
+      break;
+    case "sold":
+      ok = await db.$transaction(async (tx) => {
+        await lockListing(tx, id);
+        const listing = await tx.listing.findUnique({ where: { id }, include: { auction: true } });
+        if (
+          !listing ||
+          listing.sellerId !== user.id ||
+          listing.status !== "ACTIVE" ||
+          listing.auction?.status === "LIVE"
+        )
+          return false;
+        await tx.listing.update({
+          where: { id },
+          data: { status: "SOLD", isFeatured: false, isPromoted: false },
+        });
+        return true;
       });
-      await notify(
-        user.id,
-        "SYSTEM",
-        "تم تمييز إعلانك",
-        `أصبح "${listing.title}" إعلاناً مميزاً لمدة 7 أيام مقابل ${cost} نقطة.`,
-        `/dashboard/listings`
-      );
-      return NextResponse.json({ ok: true });
-    }
-
-    case "sold": {
-      if (listing.auction && listing.auction.status === "LIVE") {
-        return NextResponse.json({ error: "لا يمكن إنهاء مزاد جارٍ يدوياً" }, { status: 400 });
-      }
-      await db.listing.update({
-        where: { id },
-        data: { status: "SOLD", isFeatured: false, isPromoted: false },
-      });
-      return NextResponse.json({ ok: true });
-    }
-
-    case "relist": {
-      if (await isRateLimited(`relist:${user.id}`, 20, 24 * 3_600_000)) {
-        return NextResponse.json({ error: "محاولات كثيرة — حاول لاحقاً" }, { status: 429 });
-      }
-      if (!["SOLD", "EXPIRED"].includes(listing.status)) {
-        return NextResponse.json({ error: "الإعلان غير قابل لإعادة النشر" }, { status: 400 });
-      }
-      // auctions aren't relistable — the seller starts a new auction instead
-      if (listing.type === "AUCTION") {
-        return NextResponse.json(
-          { error: "المزادات لا يمكن إعادة نشرها — أنشئ مزاداً جديداً" },
-          { status: 400 }
-        );
-      }
-      const limits = await getPlanLimits(user.isPro);
-      const activeCount = await db.listing.count({
-        where: { sellerId: user.id, status: "ACTIVE", type: listing.type },
-      });
-      if (activeCount >= limits.maxListings) {
-        return NextResponse.json({ error: "وصلت الحد الأقصى للإعلانات النشطة" }, { status: 403 });
-      }
-      await db.listing.update({
-        where: { id },
-        data: { status: "ACTIVE", createdAt: new Date() },
-      });
-      return NextResponse.json({ ok: true });
-    }
-
-    case "delete": {
-      if (listing.auction && listing.auction.status === "LIVE" && listing.auction.winnerId) {
-        return NextResponse.json({ error: "لا يمكن حذف مزاد له فائز" }, { status: 400 });
-      }
-      // collect stored files before the cascade removes the referencing rows
-      const chatImages = await db.message.findMany({
-        where: { conversation: { listingId: id }, imageUrl: { not: null } },
-        select: { imageUrl: true },
-      });
-      const files = [
-        ...parseJson<string[]>(listing.images, []),
-        ...chatImages.map((m) => m.imageUrl!).filter((url) => !url.startsWith("private:")),
-      ];
-      const privateFiles = chatImages
-        .map((m) => m.imageUrl!)
-        .filter((url) => url.startsWith("private:"))
-        .map((url) => url.slice("private:".length));
-      await db.listing.delete({ where: { id } });
-      deleteImages(files).catch(() => {}); // best-effort storage cleanup
-      Promise.all(privateFiles.map((path) => deletePrivateImage(path))).catch(() => {});
-      return NextResponse.json({ ok: true });
-    }
+      break;
   }
+  return ok
+    ? NextResponse.json({ ok: true })
+    : NextResponse.json(
+        {
+          error: apiMessage(
+            req,
+            "الإعلان غير مؤهل لهذا الإجراء أو الرصيد/الحصة غير كافٍ. لا يمكن حذف مزاد به مشاركات أو معاملة.",
+          ),
+        },
+        { status: 409 },
+      );
 }

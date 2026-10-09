@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { hashSync } from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
-import { LOCK_AFTER, hashOtp } from "@/lib/login-guard";
+import { ACCOUNT_LOCK_AFTER, LOCK_AFTER, hashOtp } from "@/lib/login-guard";
 import { POST as loginPost } from "@/app/api/auth/login/route";
 import { POST as otpPost } from "@/app/api/auth/login/otp/route";
 
@@ -17,16 +17,16 @@ let userId = "";
 
 // unique IP per request so the per-IP guard never masks the per-account logic
 let ipCounter = 1;
-function login(identifier: string, password: string) {
+function login(identifier: string, password: string, ip?: string) {
   return loginPost(
     new Request("http://localhost/api/auth/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-real-ip": `10.9.${Math.floor(ipCounter / 250)}.${ipCounter++ % 250}`,
+        "x-real-ip": ip ?? `10.9.${Math.floor(ipCounter / 250)}.${ipCounter++ % 250}`,
       },
       body: JSON.stringify({ identifier, password }),
-    })
+    }),
   );
 }
 
@@ -39,7 +39,7 @@ function verifyOtp(challenge: string, code: string) {
         "x-real-ip": `10.9.${Math.floor(ipCounter / 250)}.${ipCounter++ % 250}`,
       },
       body: JSON.stringify({ challenge, code }),
-    })
+    }),
   );
 }
 
@@ -62,27 +62,42 @@ afterAll(async () => {
 });
 
 describe("brute-force lockout", () => {
-  it("escalates from generic error to teasing to a lock, then rejects even the right password", async () => {
+  it("escalates from generic error to teasing to a lock for the guessing network", async () => {
+    const attacker = "10.66.0.1";
     for (let n = 1; n < LOCK_AFTER; n++) {
-      const res = await login(EMAIL, "totally-wrong");
+      const res = await login(EMAIL, "totally-wrong", attacker);
       const data = await res.json();
       expect(res.status).toBe(401);
       expect(data.suggestReset).toBe(n >= 3);
     }
 
-    const lockRes = await login(EMAIL, "totally-wrong");
+    const lockRes = await login(EMAIL, "totally-wrong", attacker);
     expect(lockRes.status).toBe(423);
     expect((await lockRes.json()).locked).toBe(true);
 
-    // the whole point of the lock: the right password is refused too
-    const rightWhileLocked = await login(EMAIL, PASSWORD);
-    expect(rightWhileLocked.status).toBe(423);
+    // the guessing network is refused even with the right password…
+    // (the per-IP request limiter may answer first with 429 — either way, refused)
+    const rightWhileLocked = await login(EMAIL, PASSWORD, attacker);
+    expect([423, 429]).toContain(rightWhileLocked.status);
+    // …but the owner on another network is not locked out by a stranger
+    const owner = await login(EMAIL, PASSWORD, "10.77.0.1");
+    expect(owner.status).toBe(200);
+  });
+
+  it("locks the whole account only after distributed guessing", async () => {
+    for (let n = 1; n < ACCOUNT_LOCK_AFTER; n++) {
+      expect((await login(EMAIL, "totally-wrong")).status).toBe(401);
+    }
+    expect((await login(EMAIL, "totally-wrong")).status).toBe(423);
+    expect((await login(EMAIL, PASSWORD)).status).toBe(423);
+    const locked = await db.user.findUniqueOrThrow({ where: { id: userId } });
+    expect(locked.lockUntil!.getTime()).toBeGreaterThan(Date.now());
   });
 
   it("unlocks after expiry and a successful login clears the counters", async () => {
     await db.user.update({
       where: { id: userId },
-      data: { lockUntil: new Date(Date.now() - 1000) },
+      data: { lockUntil: new Date(Date.now() - 1000), failedLogins: 3 },
     });
 
     const res = await login(EMAIL, PASSWORD);
@@ -98,7 +113,7 @@ describe("brute-force lockout", () => {
     const ghost = `no-such-${Date.now()}@test.local`;
     let last = { suggestReset: false };
     for (let n = 1; n <= 3; n++) {
-      const res = await login(ghost, "x");
+      const res = await login(ghost, "x", "10.88.0.1");
       expect(res.status).toBe(401);
       last = await res.json();
     }
@@ -107,10 +122,51 @@ describe("brute-force lockout", () => {
 });
 
 describe("email 2FA", () => {
-  it("without SMTP configured the 2FA branch is skipped — password still logs in", async () => {
-    await db.user.update({ where: { id: userId }, data: { twoFactorEmail: true } });
+  it("consumes a correct OTP once under concurrent requests", async () => {
+    const challenge = randomBytes(32).toString("hex");
+    await db.loginOtp.create({
+      data: {
+        userId,
+        challenge,
+        purpose: "SITE_LOGIN",
+        sessionVersion: 0,
+        issuedEmail: EMAIL,
+        deliveredAt: new Date(),
+        codeHash: hashOtp("456789", challenge),
+        expiresAt: new Date(Date.now() + 600000),
+      },
+    });
+    const responses = await Promise.all(
+      Array.from({ length: 8 }, () => verifyOtp(challenge, "456789")),
+    );
+    expect(responses.filter((r) => r.status === 200)).toHaveLength(1);
+  });
+  it("never loses failed OTP attempts under concurrency", async () => {
+    const challenge = randomBytes(32).toString("hex");
+    await db.loginOtp.create({
+      data: {
+        userId,
+        challenge,
+        purpose: "SITE_LOGIN",
+        sessionVersion: 0,
+        issuedEmail: EMAIL,
+        deliveredAt: new Date(),
+        codeHash: hashOtp("456789", challenge),
+        expiresAt: new Date(Date.now() + 600000),
+      },
+    });
+    await Promise.all(Array.from({ length: 12 }, () => verifyOtp(challenge, "000000")));
+    expect((await db.loginOtp.findUniqueOrThrow({ where: { challenge } })).attempts).toBe(5);
+    expect((await verifyOtp(challenge, "456789")).status).toBe(400);
+  });
+  it("without SMTP a two-factor account fails closed", async () => {
+    await db.user.update({
+      where: { id: userId },
+      data: { twoFactorEmail: true },
+    });
     const res = await login(EMAIL, PASSWORD);
-    expect(res.status).toBe(200); // documented fallback: no mail server → no code gate
+    expect(res.status).toBe(503);
+    expect(res.headers.get("set-cookie")).toBeNull();
   });
 
   it("verifies a planted code once and only once, counting wrong attempts", async () => {
@@ -118,6 +174,10 @@ describe("email 2FA", () => {
     await db.loginOtp.create({
       data: {
         userId,
+        purpose: "SITE_LOGIN",
+        sessionVersion: 0,
+        issuedEmail: EMAIL,
+        deliveredAt: new Date(),
         challenge,
         codeHash: hashOtp("123456", challenge),
         expiresAt: new Date(Date.now() + 10 * 60_000),
@@ -142,6 +202,10 @@ describe("email 2FA", () => {
     await db.loginOtp.create({
       data: {
         userId,
+        purpose: "SITE_LOGIN",
+        sessionVersion: 0,
+        issuedEmail: EMAIL,
+        deliveredAt: new Date(),
         challenge,
         codeHash: hashOtp("123456", challenge),
         expiresAt: new Date(Date.now() + 10 * 60_000),

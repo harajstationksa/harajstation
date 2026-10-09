@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -14,7 +16,8 @@ const SOCIAL_ERRORS: Record<string, Record<string, string>> = {
     google_unverified: "بريد حساب Google غير مؤكد لدى Google نفسها",
     banned: "هذا الحساب محظور.",
     staff: "حسابات فريق العمل تدخل من بوابة الإدارة فقط.",
-    google_link_required: "فعّل حسابك الحالي بالبريد أولاً، ثم أعد تسجيل الدخول عبر Google لربطه بأمان.",
+    google_link_required:
+      "فعّل حسابك الحالي بالبريد أولاً، ثم أعد تسجيل الدخول عبر Google لربطه بأمان.",
     two_factor_unavailable: "تعذّر بدء التحقق بخطوتين — استخدم كلمة المرور أو حاول لاحقًا.",
   },
   en: {
@@ -22,8 +25,10 @@ const SOCIAL_ERRORS: Record<string, Record<string, string>> = {
     google_unverified: "This Google account's email isn't verified with Google itself",
     banned: "This account is banned.",
     staff: "Staff accounts must use the admin portal.",
-    google_link_required: "Verify your existing email account first, then retry Google to link it safely.",
-    two_factor_unavailable: "Two-factor verification is unavailable — use your password or try again later.",
+    google_link_required:
+      "Verify your existing email account first, then retry Google to link it safely.",
+    two_factor_unavailable:
+      "Two-factor verification is unavailable — use your password or try again later.",
   },
 };
 
@@ -51,16 +56,21 @@ function LoginForm() {
   // brute-force guard feedback: show the reset shortcut prominently
   const [suggestReset, setSuggestReset] = useState(false);
   // email-2FA second step: set when the password passed and a code was mailed
-  const oauthChallenge = searchParams.get("otpChallenge");
-  const oauthEmail = searchParams.get("otpEmail");
-  const [otp, setOtp] = useState<{ challenge: string; email: string } | null>(() =>
-    oauthChallenge?.length === 64 && oauthEmail
-      ? { challenge: oauthChallenge, email: oauthEmail }
-      : null
-  );
+  const [otp, setOtp] = useState<{ challenge: string; email: string } | null>(null);
   const [code, setCode] = useState("");
   const [cooldown, setCooldown] = useState(0);
   const a = t.auth;
+  useEffect(() => {
+    const controller = new AbortController();
+    clientFetch("/api/auth/login/otp/context", { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!controller.signal.aborted && data?.requiresOtp)
+          setOtp({ challenge: "", email: data.email });
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
 
   // ticking countdown for the "resend code" button
   useEffect(() => {
@@ -76,7 +86,7 @@ function LoginForm() {
     setUnverified("");
     setResent(false);
     setSuggestReset(false);
-    const res = await fetch("/api/auth/login", {
+    const res = await clientFetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ identifier, password }),
@@ -105,10 +115,10 @@ function LoginForm() {
     if (!otp) return;
     setLoading(true);
     setError("");
-    const res = await fetch("/api/auth/login/otp", {
+    const res = await clientFetch("/api/auth/login/otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ challenge: otp.challenge, code }),
+      body: JSON.stringify({ challenge: otp.challenge || undefined, code }),
     });
     const data = await res.json().catch(() => ({}));
     if (res.ok) {
@@ -129,10 +139,10 @@ function LoginForm() {
     if (!otp || cooldown > 0) return;
     setLoading(true);
     setError("");
-    const res = await fetch("/api/auth/login/otp/resend", {
+    const res = await clientFetch("/api/auth/login/otp/resend", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ challenge: otp.challenge }),
+      body: JSON.stringify({ challenge: otp.challenge || undefined }),
     });
     const data = await res.json().catch(() => ({}));
     setLoading(false);
@@ -150,7 +160,7 @@ function LoginForm() {
 
   async function resend() {
     setLoading(true);
-    await fetch("/api/auth/verify-email/resend", {
+    await clientFetch("/api/auth/verify-email/resend", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: unverified }),
@@ -183,11 +193,15 @@ function LoginForm() {
         {otp ? (
           <form onSubmit={verifyCode} className="space-y-4">
             <div>
-              <label className="text-sm font-medium mb-1.5 flex items-center gap-1.5">
+              <label
+                htmlFor="login-otp"
+                className="text-sm font-medium mb-1.5 flex items-center gap-1.5"
+              >
                 <MailCheck className="size-4 text-primary-500" />
                 {t.pub.otpLabel}
               </label>
               <input
+                id="login-otp"
                 className="input text-center !text-2xl tracking-[0.5em] font-bold"
                 dir="ltr"
                 inputMode="numeric"
@@ -239,8 +253,11 @@ function LoginForm() {
         ) : (
           <form onSubmit={submit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1.5">{a.identifier}</label>
+              <label htmlFor="login-identifier" className="block text-sm font-medium mb-1.5">
+                {a.identifier}
+              </label>
               <input
+                id="login-identifier"
                 className="input"
                 dir="ltr"
                 value={identifier}
@@ -251,12 +268,18 @@ function LoginForm() {
             </div>
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-sm font-medium">{a.password}</label>
-                <Link href="/forgot" className="text-xs text-primary-600 font-semibold hover:underline">
+                <label htmlFor="login-password" className="block text-sm font-medium">
+                  {a.password}
+                </label>
+                <Link
+                  href="/forgot"
+                  className="text-xs text-primary-600 font-semibold hover:underline"
+                >
                   {a.forgot}
                 </Link>
               </div>
               <input
+                id="login-password"
                 className="input"
                 dir="ltr"
                 type="password"
@@ -295,11 +318,7 @@ function LoginForm() {
                     {t.pub.resendActivation}
                   </button>
                 )}
-                {resent && (
-                  <p className="mt-2 font-semibold">
-                    {t.pub.resentTo(unverified)}
-                  </p>
-                )}
+                {resent && <p className="mt-2 font-semibold">{t.pub.resentTo(unverified)}</p>}
               </div>
             )}
 

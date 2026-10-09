@@ -32,7 +32,7 @@
   ],
   "exclude": [
     "node_modules",
-    "server-snapshot-*",
+    "backups",
     ".design-sync",
     ".ds-sync",
     "ds-bundle"

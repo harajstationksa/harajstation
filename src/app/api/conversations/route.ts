@@ -1,85 +1,173 @@
+import { apiMessage } from "@/lib/api-messages";
+import { lockListing } from "@/lib/listing-policy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { rateLimitGuard } from "@/lib/rate-limit";
+import { isRateLimited, rateLimitGuard } from "@/lib/rate-limit";
+import { directConversationKey, hasUserBlock, lockChatUsers } from "@/lib/conversation-policy";
 
 const schema = z.object({
-  listingId: z.string().min(1).optional(),
-  // when the listing's seller starts the chat (e.g. with an auction winner)
-  buyerId: z.string().optional(),
-  // direct chat with a user (started from their profile — no listing involved)
-  userId: z.string().optional(),
+  listingId: z.string().min(1).max(100).optional(),
+  buyerId: z.string().min(1).max(100).optional(),
+  userId: z.string().min(1).max(100).optional(),
 });
-
-/** Find-or-create a conversation about a listing (or direct); returns its id. */
 export async function POST(req: Request) {
   const limited = await rateLimitGuard(req, "conv-create", 15, 10 * 60_000);
   if (limited) return limited;
   const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "سجّل دخولك للمراسلة" }, { status: 401 });
-  }
-
+  if (!session)
+    return NextResponse.json({ error: apiMessage(req, "سجّل دخولك للمراسلة") }, { status: 401 });
   const parsed = schema.safeParse(await req.json().catch(() => null));
-  if (!parsed.success || (!parsed.data.listingId && !parsed.data.userId)) {
-    return NextResponse.json({ error: "طلب غير صالح" }, { status: 400 });
-  }
-
-  // ── direct profile chat ──
-  if (!parsed.data.listingId) {
-    const targetId = parsed.data.userId!;
-    if (targetId === session.sub) {
-      return NextResponse.json({ error: "طلب غير صالح" }, { status: 400 });
-    }
-    const target = await db.user.findUnique({ where: { id: targetId } });
-    if (!target || target.isBanned) {
-      return NextResponse.json({ error: "المستخدم غير موجود" }, { status: 404 });
-    }
-
-    // one direct thread per pair, whichever side opened it first
-    const existing = await db.conversation.findFirst({
-      where: {
-        listingId: null,
-        OR: [
-          { buyerId: session.sub, sellerId: targetId },
-          { buyerId: targetId, sellerId: session.sub },
-        ],
-      },
-    });
-    if (existing) return NextResponse.json({ id: existing.id });
-
-    const conv = await db.conversation.create({
-      data: { buyerId: session.sub, sellerId: targetId },
-    });
-    return NextResponse.json({ id: conv.id });
-  }
-
-  const listing = await db.listing.findUnique({
-    where: { id: parsed.data.listingId },
-  });
-  if (!listing) {
-    return NextResponse.json({ error: "الإعلان غير موجود" }, { status: 404 });
-  }
-
-  let buyerId: string;
-  if (listing.sellerId === session.sub) {
-    if (!parsed.data.buyerId || parsed.data.buyerId === session.sub) {
-      return NextResponse.json(
-        { error: "حدد الطرف الآخر للمحادثة" },
-        { status: 400 }
-      );
-    }
-    buyerId = parsed.data.buyerId;
-  } else {
-    buyerId = session.sub;
-  }
-
-  const conv = await db.conversation.upsert({
-    where: { listingId_buyerId: { listingId: listing.id, buyerId } },
-    create: { listingId: listing.id, buyerId, sellerId: listing.sellerId },
-    update: {},
-  });
-
-  return NextResponse.json({ id: conv.id });
+  if (!parsed.success || (!parsed.data.listingId && !parsed.data.userId))
+    return NextResponse.json({ error: apiMessage(req, "طلب غير صالح") }, { status: 400 });
+  return db.$transaction(
+    async (tx) => {
+      if (!parsed.data.listingId) {
+        const targetId = parsed.data.userId!;
+        if (targetId === session.sub)
+          return NextResponse.json({ error: apiMessage(req, "طلب غير صالح") }, { status: 400 });
+        const directKey = directConversationKey(session.sub, targetId);
+        await tx.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtextextended(${"direct-chat:" + directKey}, 0))`;
+        await lockChatUsers(tx, [session.sub, targetId]);
+        const target = await tx.user.findUnique({ where: { id: targetId } });
+        if (!target || target.isBanned)
+          return NextResponse.json(
+            { error: apiMessage(req, "المستخدم غير موجود") },
+            { status: 404 },
+          );
+        if (await hasUserBlock(session.sub, targetId, tx))
+          return NextResponse.json(
+            { error: apiMessage(req, "المراسلة غير متاحة بين هذين الحسابين") },
+            { status: 403 },
+          );
+        const existingDirect = await tx.conversation.findUnique({ where: { directKey } });
+        if (existingDirect) return NextResponse.json({ id: existingDirect.id });
+        // A direct chat needs an existing connection (a listing chat, a deal,
+        // an offer/bid or a follow) — strangers start from one of the listings,
+        // which keeps cold spam and off-platform payment scams out of inboxes.
+        const [convs, deals, offers, bids, follows] = await Promise.all([
+          tx.conversation.count({
+            where: {
+              OR: [
+                { buyerId: session.sub, sellerId: targetId },
+                { buyerId: targetId, sellerId: session.sub },
+              ],
+            },
+          }),
+          tx.transaction.count({
+            where: {
+              OR: [
+                { buyerId: session.sub, sellerId: targetId },
+                { buyerId: targetId, sellerId: session.sub },
+              ],
+            },
+          }),
+          tx.offer.count({
+            where: {
+              OR: [
+                { buyerId: session.sub, listing: { sellerId: targetId } },
+                { buyerId: targetId, listing: { sellerId: session.sub } },
+              ],
+            },
+          }),
+          tx.bid.count({
+            where: {
+              OR: [
+                { bidderId: session.sub, auction: { listing: { sellerId: targetId } } },
+                { bidderId: targetId, auction: { listing: { sellerId: session.sub } } },
+              ],
+            },
+          }),
+          tx.follow.count({
+            where: {
+              OR: [
+                { followerId: session.sub, sellerId: targetId },
+                { followerId: targetId, sellerId: session.sub },
+              ],
+            },
+          }),
+        ]);
+        if (!convs && !deals && !offers && !bids && !follows)
+          return NextResponse.json(
+            { error: apiMessage(req, "راسل هذا المستخدم من خلال أحد إعلاناته أو تابعه أولاً") },
+            { status: 403 },
+          );
+        if (await isRateLimited(`direct-chat:${session.sub}`, 20, 24 * 60 * 60_000))
+          return NextResponse.json(
+            { error: apiMessage(req, "بدأت محادثات كثيرة اليوم — حاول غداً") },
+            { status: 429 },
+          );
+        const conv = await tx.conversation.create({
+          data: { buyerId: session.sub, sellerId: targetId, directKey },
+        });
+        return NextResponse.json({ id: conv.id });
+      }
+      await lockListing(tx, parsed.data.listingId!);
+      const listing = await tx.listing.findUnique({
+        where: { id: parsed.data.listingId },
+        include: { seller: { select: { isBanned: true } } },
+      });
+      if (!listing || listing.seller.isBanned)
+        return NextResponse.json({ error: apiMessage(req, "الإعلان غير موجود") }, { status: 404 });
+      const sellerOpening = listing.sellerId === session.sub;
+      const buyerId = sellerOpening ? parsed.data.buyerId : session.sub;
+      if (!buyerId || buyerId === listing.sellerId)
+        return NextResponse.json(
+          { error: apiMessage(req, "حدد الطرف الآخر للمحادثة") },
+          { status: 400 },
+        );
+      await lockChatUsers(tx, [buyerId, listing.sellerId]);
+      const buyer = await tx.user.findUnique({
+        where: { id: buyerId },
+        select: { isBanned: true },
+      });
+      if (!buyer || buyer.isBanned)
+        return NextResponse.json({ error: apiMessage(req, "المستخدم غير موجود") }, { status: 404 });
+      if (await hasUserBlock(buyerId, listing.sellerId, tx))
+        return NextResponse.json(
+          { error: apiMessage(req, "المراسلة غير متاحة بين هذين الحسابين") },
+          { status: 403 },
+        );
+      const existing = await tx.conversation.findUnique({
+        where: { listingId_buyerId: { listingId: listing.id, buyerId } },
+      });
+      const transaction = await tx.transaction.findFirst({
+        where: {
+          listingId: listing.id,
+          buyerId,
+          sellerId: listing.sellerId,
+          status: { in: ["PENDING", "CONFIRMED", "DISPUTED"] },
+        },
+        select: { id: true },
+      });
+      // Preserve communication for arranging a completed sale, while hidden listings stay closed.
+      if (listing.status !== "ACTIVE" && !(listing.status === "SOLD" && (existing || transaction)))
+        return NextResponse.json(
+          { error: apiMessage(req, "الإعلان غير متاح للمراسلة") },
+          { status: 409 },
+        );
+      if (sellerOpening && !existing && !transaction) {
+        const [bid, offer] = await Promise.all([
+          tx.bid.findFirst({
+            where: { bidderId: buyerId, auction: { listingId: listing.id } },
+            select: { id: true },
+          }),
+          tx.offer.findFirst({ where: { listingId: listing.id, buyerId }, select: { id: true } }),
+        ]);
+        if (!bid && !offer)
+          return NextResponse.json(
+            { error: apiMessage(req, "لا توجد علاقة لهذا المستخدم بالإعلان") },
+            { status: 403 },
+          );
+      }
+      const conv = await tx.conversation.upsert({
+        where: { listingId_buyerId: { listingId: listing.id, buyerId } },
+        create: { listingId: listing.id, buyerId, sellerId: listing.sellerId },
+        update: {},
+      });
+      return NextResponse.json({ id: conv.id });
+    },
+    { timeout: 15_000 },
+  );
 }

@@ -1,0 +1,29 @@
+.image {
+  background-image: var(--image-preview);
+  background-position: center;
+  background-repeat: no-repeat;
+}
+@media (max-width: 639px) {
+  .image {
+    background-image: var(--image-preview-mobile);
+  }
+}
+.image[data-image-ready="true"] {
+  background-image: none;
+  animation: reveal 260ms ease-out;
+}
+@keyframes reveal {
+  from {
+    opacity: 0.72;
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .image[data-image-ready="true"] {
+    animation: none;
+  }
+}

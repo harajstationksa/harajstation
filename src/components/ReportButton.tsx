@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { useState } from "react";
 import { Check, Flag, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -45,7 +47,7 @@ export function ReportButton({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setState("sending");
-    const res = await fetch("/api/reports", {
+    const res = await clientFetch("/api/reports", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ targetType, targetId, reason }),
@@ -75,7 +77,7 @@ export function ReportButton({
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "inline-flex items-center gap-1 text-neutral-400 hover:text-red-600 transition-colors cursor-pointer",
-          compact ? "text-xs" : "text-sm"
+          compact ? "text-xs" : "text-sm",
         )}
         aria-label={r.report}
       >
@@ -90,7 +92,11 @@ export function ReportButton({
         >
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold">{r.reason}</p>
-            <button type="button" onClick={() => setOpen(false)} className="text-neutral-400 cursor-pointer">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="text-neutral-400 cursor-pointer"
+            >
               <X className="size-3.5" />
             </button>
           </div>

@@ -7,6 +7,7 @@ const required = [
   "DATABASE_URL",
   "DIRECT_URL",
   "AUTH_SECRET",
+  "ADMIN_AUTH_SECRET",
   "CRON_SECRET",
   "CHAT_SECRET",
   "NEXT_PUBLIC_SITE_URL",
@@ -19,9 +20,11 @@ const required = [
   "BACKUP_AGE_RECIPIENT",
 ];
 for (const key of required) if (!process.env[key]) missing.push(key);
-for (const key of ["AUTH_SECRET", "CRON_SECRET", "CHAT_SECRET"]) {
+for (const key of ["AUTH_SECRET", "ADMIN_AUTH_SECRET", "CRON_SECRET", "CHAT_SECRET"]) {
   if (process.env[key] && process.env[key].length < 32) missing.push(`${key}(too short)`);
 }
+if (process.env.ADMIN_AUTH_SECRET && process.env.ADMIN_AUTH_SECRET === process.env.AUTH_SECRET)
+  missing.push("ADMIN_AUTH_SECRET(must be independent)");
 try {
   if (new URL(process.env.NEXT_PUBLIC_SITE_URL || "").protocol !== "https:") {
     missing.push("NEXT_PUBLIC_SITE_URL(https required)");
@@ -29,12 +32,19 @@ try {
 } catch {
   missing.push("NEXT_PUBLIC_SITE_URL(invalid)");
 }
+// Missing offsite destination does not block a deploy (daily encrypted local
+// backups continue and the monitor reports offsite_backup_* problems), but it
+// must never fall back to the public image bucket.
+if (!process.env.BACKUP_REMOTE && !process.env.BACKUP_R2_BUCKET)
+  console.warn(
+    "WARNING: no independent offsite backup (set BACKUP_R2_BUCKET + BACKUP_R2_* keys, or BACKUP_REMOTE)",
+  );
+if (process.env.BACKUP_R2_BUCKET && process.env.BACKUP_R2_BUCKET === process.env.R2_BUCKET)
+  missing.push("BACKUP_R2_BUCKET(must differ from R2_BUCKET)");
+if (process.env.R2_PRIVATE_BUCKET && process.env.R2_PRIVATE_BUCKET === process.env.R2_BUCKET)
+  missing.push("R2_PRIVATE_BUCKET(must be separate and private)");
 if (process.env.PAYMENTS_ENABLED === "true") {
-  for (const key of [
-    "MOYASAR_PUBLISHABLE_KEY",
-    "MOYASAR_SECRET_KEY",
-    "MOYASAR_WEBHOOK_SECRET",
-  ]) {
+  for (const key of ["MOYASAR_PUBLISHABLE_KEY", "MOYASAR_SECRET_KEY", "MOYASAR_WEBHOOK_SECRET"]) {
     if (!process.env[key]) missing.push(key);
   }
 }
@@ -42,4 +52,6 @@ if (missing.length) {
   console.error(`Production configuration invalid: ${[...new Set(missing)].join(", ")}`);
   process.exit(1);
 }
-console.log(`production configuration valid; payments=${process.env.PAYMENTS_ENABLED === "true" ? "enabled" : "disabled"}`);
+console.log(
+  `production configuration valid; payments=${process.env.PAYMENTS_ENABLED === "true" ? "enabled" : "disabled"}`,
+);

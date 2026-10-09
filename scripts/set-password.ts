@@ -18,7 +18,9 @@ async function main() {
   const password = process.env.NEW_PASSWORD;
 
   if (!email || !password) {
-    console.error("usage: EMAIL=you@example.com NEW_PASSWORD='...' npx tsx --env-file=.env scripts/set-password.ts");
+    console.error(
+      "usage: EMAIL=you@example.com NEW_PASSWORD='...' npx tsx --env-file=.env scripts/set-password.ts",
+    );
     process.exit(1);
   }
   if (password.length < 10) {

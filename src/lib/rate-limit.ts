@@ -10,8 +10,7 @@ import { redis } from "./redis";
  * same in both: hits inside the window count toward the limit, and BLOCKED
  * calls do not add hits (being throttled never extends the throttle).
  *
- * Redis failures fail open (allow) — availability beats strictness, and the
- * in-memory limiter after a restart made the same trade.
+ * Redis operations are atomic; outages use a conservative local budget.
  */
 type Bucket = { hits: number[]; windowMs: number };
 
@@ -45,36 +44,36 @@ function memoryLimited(key: string, limit: number, windowMs: number): boolean {
   return false;
 }
 
-async function redisLimited(
-  key: string,
-  limit: number,
-  windowMs: number
-): Promise<boolean> {
+async function redisLimited(key: string, limit: number, windowMs: number): Promise<boolean> {
   const r = redis();
   if (!r) return memoryLimited(key, limit, windowMs);
   const now = Date.now();
   const k = `rl:${key}`;
   try {
-    await r.zremrangebyscore(k, 0, now - windowMs);
-    const count = await r.zcard(k);
-    if (count >= limit) return true;
-    await r
-      .multi()
-      .zadd(k, now, `${now}-${Math.random()}`)
-      .pexpire(k, windowMs)
-      .exec();
-    return false;
+    const result = await r.eval(
+      `
+      redis.call('ZREMRANGEBYSCORE',KEYS[1],0,ARGV[1]-ARGV[2])
+      if redis.call('ZCARD',KEYS[1]) >= tonumber(ARGV[3]) then return 1 end
+      redis.call('ZADD',KEYS[1],ARGV[1],ARGV[4])
+      redis.call('PEXPIRE',KEYS[1],ARGV[2])
+      return 0
+    `,
+      1,
+      k,
+      now,
+      windowMs,
+      limit,
+      `${now}-${crypto.randomUUID()}`,
+    );
+    return Number(result) === 1;
   } catch {
-    return false; // fail open — error already logged by the client
+    // Conservative per-worker fallback; never remove the protection on outage.
+    return memoryLimited(key, Math.max(1, Math.floor(limit / 2)), windowMs);
   }
 }
 
 /** True when `key` exceeded `limit` hits within the last `windowMs`. */
-export function isRateLimited(
-  key: string,
-  limit: number,
-  windowMs: number
-): Promise<boolean> {
+export function isRateLimited(key: string, limit: number, windowMs: number): Promise<boolean> {
   return redisLimited(key, limit, windowMs);
 }
 
@@ -94,25 +93,20 @@ function header(h: Headers, name: string): string | null {
 export function clientIp(req: Request): string {
   const h = req.headers;
   const forwarded = header(h, "x-forwarded-for")?.split(",")[0].trim();
-  return (
-    header(h, "cf-connecting-ip") ??
-    header(h, "x-real-ip") ??
-    (forwarded || null) ??
-    "local"
-  );
+  return header(h, "cf-connecting-ip") ?? header(h, "x-real-ip") ?? (forwarded || null) ?? "local";
 }
 
 /** Standard 429 with a Retry-After hint. */
 export function tooManyRequests(
   windowMs: number,
-  message = "محاولات كثيرة — انتظر قليلاً ثم حاول مجدداً"
+  message = "محاولات كثيرة — انتظر قليلاً ثم حاول مجدداً",
 ): NextResponse {
   return NextResponse.json(
     { error: message },
     {
       status: 429,
       headers: { "Retry-After": String(Math.ceil(windowMs / 1000)) },
-    }
+    },
   );
 }
 
@@ -127,7 +121,7 @@ export async function rateLimitGuard(
   req: Request,
   scope: string,
   limit: number,
-  windowMs: number
+  windowMs: number,
 ): Promise<NextResponse | null> {
   if (await isRateLimited(`${scope}:${clientIp(req)}`, limit, windowMs)) {
     return tooManyRequests(windowMs);

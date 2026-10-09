@@ -1,8 +1,11 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bell } from "lucide-react";
+import { useLang } from "./LangProvider";
 
 const POLL_MS = 30_000;
 
@@ -12,6 +15,7 @@ const POLL_MS = 30_000;
  * 30s while the tab is visible, and immediately when the tab regains focus.
  */
 export function NotificationBell({ initialUnread }: { initialUnread: number }) {
+  const { lang } = useLang();
   const [unread, setUnread] = useState(initialUnread);
 
   useEffect(() => {
@@ -19,7 +23,7 @@ export function NotificationBell({ initialUnread }: { initialUnread: number }) {
 
     async function refresh() {
       try {
-        const res = await fetch("/api/notifications/count", {
+        const res = await clientFetch("/api/notifications/count", {
           cache: "no-store",
         });
         if (!res.ok) return;
@@ -42,12 +46,14 @@ export function NotificationBell({ initialUnread }: { initialUnread: number }) {
     };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
+    window.addEventListener("notifications-read", onVisible);
 
     return () => {
       stopped = true;
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
+      window.removeEventListener("notifications-read", onVisible);
     };
   }, []);
 
@@ -55,7 +61,7 @@ export function NotificationBell({ initialUnread }: { initialUnread: number }) {
     <Link
       href="/dashboard/notifications"
       className="relative size-9 rounded-full border border-neutral-200 hover:bg-neutral-50 transition-colors flex items-center justify-center"
-      aria-label="الإشعارات"
+      aria-label={lang === "en" ? "Notifications" : "الإشعارات"}
     >
       <Bell className="size-4.5 text-neutral-500" />
       {unread > 0 && (

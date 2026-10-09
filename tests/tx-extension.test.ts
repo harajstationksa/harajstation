@@ -25,7 +25,7 @@ function call(id: string, body: unknown, ip: string) {
       headers: { "Content-Type": "application/json", "x-real-ip": ip },
       body: JSON.stringify(body),
     }),
-    { params: Promise.resolve({ id }) }
+    { params: Promise.resolve({ id }) },
   );
 }
 

@@ -21,16 +21,15 @@ describe("isRateLimited", () => {
 });
 
 describe("clientIp", () => {
-  const req = (headers: Record<string, string>) =>
-    new Request("http://x/", { headers });
+  const req = (headers: Record<string, string>) => new Request("http://x/", { headers });
 
   it("prefers cf-connecting-ip, then x-real-ip, then x-forwarded-for", () => {
-    expect(
-      clientIp(req({ "cf-connecting-ip": "1.1.1.1", "x-real-ip": "2.2.2.2" }))
-    ).toBe("1.1.1.1");
-    expect(
-      clientIp(req({ "x-real-ip": "2.2.2.2", "x-forwarded-for": "3.3.3.3, 4.4.4.4" }))
-    ).toBe("2.2.2.2");
+    expect(clientIp(req({ "cf-connecting-ip": "1.1.1.1", "x-real-ip": "2.2.2.2" }))).toBe(
+      "1.1.1.1",
+    );
+    expect(clientIp(req({ "x-real-ip": "2.2.2.2", "x-forwarded-for": "3.3.3.3, 4.4.4.4" }))).toBe(
+      "2.2.2.2",
+    );
     expect(clientIp(req({ "x-forwarded-for": "3.3.3.3, 4.4.4.4" }))).toBe("3.3.3.3");
   });
 

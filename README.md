@@ -1,68 +1,102 @@
-# حراج ستيشن — منصة الإعلانات المبوبة والمزادات السعودية
+# حراج ستيشن | Haraj Station
 
-منصة سعودية للإعلانات المبوبة والمزادات المباشرة — **harajstation.com**
+[الموقع](https://harajstation.com) · [بوابة الإدارة](https://haraj-ad.harajstation.com) · [فحوص الجودة](https://github.com/harajstationksa/harajstation/actions/workflows/ci.yml)
 
-> 📕 **الدليل الشامل**: [PLATFORM.md](PLATFORM.md) — كل شيء عن المنصة والسيرفر ورحلة المستخدم والأوامر والأمان وخطة التوسع.
+منصة سعودية للإعلانات المبوبة والمزادات، بواجهة عربية تدعم الاتجاه من اليمين إلى اليسار واللغة الإنجليزية. يجمع المشروع الموقع العام وبوابة إدارة مستقلة ضمن تطبيق واحد.
 
-سوق عربي (RTL أولاً + إنجليزية) يجمع الإعلانات المبوبة مع نظام مزادات مباشر بمزايدة بالوكالة وحماية من القنص، ونظام مصداقية متبادل يحاسب الطرفين بعد كل معاملة، وحملات إعلانية ممولة بالنقاط.
+## خصائص المشروع
+
+- إعلانات مصنفة، بحث وفلاتر حسب الفئة، مفضلة وتنبيهات البحث.
+- مزادات مباشرة، مزايدة بالوكالة، وتمديد وقت الإغلاق عند المزايدات المتأخرة.
+- حسابات ومتاجر، اشتراكات برو، نقاط، حملات وإحالات وأكواد خصم.
+- محادثات بمرفقات خاصة، إشعارات داخل الموقع وإشعارات المتصفح.
+- توثيق الأعضاء والمتاجر، تقييمات ومصداقية، بلاغات ونزاعات.
+- مراجعة الإعلانات وفق الفئة ومؤشرات المخالفة، مع قرارات بشرية وسجل مراجعة.
+- إدارة الموظفين بالأدوار والصلاحيات، تحقق إضافي للعمليات الحساسة، ورسائل بريد حسب الغرض والوظيفة.
+- واجهة إدارة متجاوبة، تقارير مالية، سجل إجراءات، ومتابعة صحة الخدمات.
+- صور WebP ومعاينات BlurHash أثناء التحميل، وتنقل هاتف يتكيف مع التمرير.
+
+بعض الوظائف تعتمد على إعداد الخدمات الخارجية. الدفع معطل افتراضيًا إلى حين تهيئة البوابة واختبارها.
 
 ## التقنيات
 
-| الطبقة | التقنية |
-|---|---|
-| الواجهة | Next.js 16 (App Router) + React 19 + TypeScript strict + Tailwind CSS v4 |
-| قاعدة البيانات | PostgreSQL (Supabase) عبر Prisma 6 + migrations |
-| تخزين الصور | Cloudflare R2 (S3 API) — ضغط وتحويل WebP تلقائي + فحص magic bytes |
-| المدفوعات | Moyasar (فواتير + ضريبة 15% + webhook) |
-| البريد | Brevo SMTP (استعادة كلمة المرور + تأكيد البريد) |
-| الإشعارات | Web Push (VAPID) + PWA |
-| الأمان | جلسات JWT (jose) بكوكيز HttpOnly + bcrypt + rate limiting + security headers + تشفير المحادثات عند التخزين (AES-256-GCM) |
+| المكون | التقنية |
+| --- | --- |
+| التطبيق | Next.js 16.3.8، React 19.2، TypeScript |
+| التصميم | Tailwind CSS 4 وLucide |
+| البيانات | PostgreSQL وPrisma 6 |
+| الحماية المشتركة | Redis |
+| الصور والملفات | Cloudflare R2 وSharp وBlurHash |
+| البريد والدفع | SMTP وMoyasar |
+| التشغيل | Node.js 22، Nginx، PM2 |
+| الجودة | Vitest، ESLint، Prettier، GitHub Actions |
 
-## التشغيل محلياً
+## التشغيل المحلي
 
-```bash
-npm install
-cp .env.example .env    # واملأ القيم — انظر REQUIREMENTS.md
-npx prisma migrate dev  # تطبيق الـ migrations
-npm run db:seed         # بيانات تجريبية (اختياري)
-npm run dev             # http://localhost:3000
-```
-
-بدون مفاتيح الخدمات الخارجية تُحفظ الصور محلياً في التطوير ويظهر رابط استعادة كلمة المرور للتجربة. شحن النقاط متوقف افتراضياً ولا يمنح رصيداً بلا بوابة دفع.
-
-## متغيرات البيئة
-
-انظر `REQUIREMENTS.md` للقائمة الكاملة وحالة كل خدمة. الأساسية:
-
-```
-DATABASE_URL / DIRECT_URL   # PostgreSQL (pgbouncer + session pooler)
-AUTH_SECRET                 # 32+ حرفاً — إلزامي في الإنتاج
-CRON_SECRET                 # مفتاح نقطة /api/cron
-CHAT_SECRET                 # 32+ حرفاً — مستقل عن مفتاح الجلسات
-REDIS_URL                   # عدادات الحماية المشتركة بين عمال PM2
-PAYMENTS_ENABLED            # false حتى اكتمال البوابة والـwebhook
-NEXT_PUBLIC_SITE_URL        # https://harajstation.com
-R2_*                        # تخزين الصور
-MOYASAR_*                   # الدفع
-SMTP_* / MAIL_FROM          # البريد (Brevo SMTP)
-NEXT_PUBLIC_VAPID_* / VAPID_* # إشعارات المتصفح
-```
-
-## أوامر مهمة
+المتطلبات: Node.js 22 وnpm، وقاعدة PostgreSQL منفصلة للتطوير. Redis مطلوب لفحوص التكامل الخاصة به ولتشغيل الإنتاج متعدد العمال.
 
 ```bash
-npm run build            # build إنتاجي
-npx tsc --noEmit         # فحص الأنواع
-npx prisma studio        # تصفح قاعدة البيانات
-npx prisma migrate dev   # migration جديدة بعد تعديل الـ schema
+git clone https://github.com/harajstationksa/harajstation.git
+cd harajstation
+npm ci
 ```
 
-## الإنتاج
+انسخ `.env.example` إلى `.env` واملأ إعدادات قاعدة التطوير. في PowerShell:
 
-- **Cron**: استدعِ `GET /api/cron` كل دقيقة مع `Authorization: Bearer $CRON_SECRET` (ينهي المزادات والحملات والمعاملات المعلقة)
-- **Webhook الدفع**: `POST /api/payments/webhook` من لوحة Moyasar مع `MOYASAR_WEBHOOK_SECRET`
-- خارطة الطريق الكاملة ومتطلبات الإطلاق: `ROADMAP.md`
+```powershell
+Copy-Item .env.example .env
+```
 
----
+وفي Linux أو macOS:
 
-© حراج ستيشن — جميع الحقوق محفوظة.
+```bash
+cp .env.example .env
+```
+
+اضبط `NEXT_PUBLIC_SITE_URL=http://localhost:3000`، واترك `ADMIN_HOST` فارغًا للتطوير، وولّد أسرارًا مستقلة كما هو موضح في [إعداد الخدمات](REQUIREMENTS.md).
+
+```bash
+npx prisma generate
+npx prisma migrate deploy
+npm run dev
+```
+
+يفتح الموقع على `http://localhost:3000` والإدارة على `/admin-login`. لتجربة بيانات العرض فقط يمكن تشغيل `npm run db:seed` على قاعدة محلية قابلة للمسح: **هذا الأمر يحذف البيانات الحالية ويعيد إنشاء بيانات تجريبية، ولا يستخدم على الإنتاج.**
+
+## فحوص الجودة
+
+```bash
+npm run format:check
+npm run lint
+npx tsc --noEmit
+npm test
+npm run build
+npm audit --omit=dev --audit-level=high
+```
+
+لتشغيل اختبار Redis محليًا اضبط `TEST_REDIS_URL`، ويمكن ضبط `REQUIRE_REDIS_TESTS=true` لفرض تنفيذه. توفر GitHub Actions قاعدة PostgreSQL وRedis منفصلتين وتطبق migrations قبل الفحوص. نجاح الاختبارات يثبت نطاق الفحوص المنفذة، ولا يمثل ضمانًا لخلو كل تدفق من الأخطاء.
+
+## بنية المشروع
+
+```text
+src/app/(site)/      صفحات الموقع العام
+src/app/admin/       صفحات الإدارة وإجراءاتها
+src/app/api/         نقاط API
+src/components/     مكونات الواجهة المشتركة
+src/lib/            قواعد العمل والتحقق والخدمات
+prisma/             مخطط البيانات وmigrations وبيانات التطوير
+tests/              اختبارات الوحدات والانحدار والتكامل
+scripts/            أدوات التهيئة والترحيل والتحقق
+deploy/             إعدادات التشغيل والنشر والنسخ الاحتياطي
+```
+
+## التوثيق
+
+- [الإعداد ومتغيرات البيئة](REQUIREMENTS.md)
+- [النشر والنسخ والاسترجاع](DEPLOY.md)
+- [الإبلاغ عن مشكلة أمنية](SECURITY.md)
+- [ملخص التحديثات](CHANGELOG.md)
+
+ملفات الأسرار، قواعد البيانات، ملفات المستخدمين والنسخ الاحتياطية ليست جزءًا من المستودع.
+
+© حراج ستيشن. جميع الحقوق محفوظة. إتاحة الشفرة للعرض لا تمنح ترخيصًا لإعادة استخدامها أو توزيعها؛ تبقى تراخيص الاعتماديات الخارجية سارية.

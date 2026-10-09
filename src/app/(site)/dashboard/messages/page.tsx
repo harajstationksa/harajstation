@@ -57,10 +57,7 @@ export default async function MessagesPage() {
       </h1>
 
       {convs.length === 0 ? (
-        <EmptyState
-          title={d.emptyTitle}
-          hint={d.emptyHint}
-        />
+        <EmptyState title={d.emptyTitle} hint={d.emptyHint} />
       ) : (
         <div className="card overflow-hidden divide-y divide-neutral-50">
           {convs.map((c) => {
@@ -73,20 +70,26 @@ export default async function MessagesPage() {
                 href={`/dashboard/messages/${c.id}`}
                 className="flex items-center gap-3 p-3.5 hover:bg-neutral-50 transition-colors"
               >
-                <Avatar name={other.name} color={other.avatarColor} src={other.avatarUrl} className="size-11 text-base" />
+                <Avatar
+                  name={other.name}
+                  color={other.avatarColor}
+                  src={other.avatarUrl}
+                  className="size-11 text-base"
+                />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-semibold text-sm">{other.name}</p>
                     {last && (
-                      <span className="text-[11px] text-neutral-400 shrink-0" suppressHydrationWarning>
+                      <span
+                        className="text-[11px] text-neutral-400 shrink-0"
+                        suppressHydrationWarning
+                      >
                         {timeAgo(last.createdAt, lang)}
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-neutral-500 line-clamp-1 mt-0.5">
-                    {last
-                      ? decryptText(last.body) || (last.imageUrl ? d.photo : "")
-                      : d.newConv}
+                    {last ? decryptText(last.body) || (last.imageUrl ? d.photo : "") : d.newConv}
                   </p>
                   <p className="text-[11px] text-primary-600 line-clamp-1 mt-0.5">
                     {c.listing ? c.listing.title : d.direct}
@@ -101,9 +104,7 @@ export default async function MessagesPage() {
                       className="size-10 rounded-lg object-cover border border-neutral-100"
                     />
                   )}
-                  {unread > 0 && (
-                    <span className="badge bg-primary-500 text-white">{unread}</span>
-                  )}
+                  {unread > 0 && <span className="badge bg-primary-500 text-white">{unread}</span>}
                 </div>
               </Link>
             );

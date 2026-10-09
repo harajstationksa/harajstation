@@ -4,11 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { notify } from "@/lib/notify";
-import {
-  getOfferWithParties,
-  settleAcceptedOffer,
-  OPEN_OFFER_STATUSES,
-} from "@/lib/offers";
+import { getOfferWithParties, settleAcceptedOffer, OPEN_OFFER_STATUSES } from "@/lib/offers";
 import { isRateLimited } from "@/lib/rate-limit";
 import { formatSAR } from "@/lib/utils";
 
@@ -30,7 +26,10 @@ export async function makeOfferAction(formData: FormData): Promise<ActionResult>
 
   const listingId = String(formData.get("listingId") ?? "");
   const amount = Number(formData.get("amount"));
-  const note = String(formData.get("note") ?? "").trim().slice(0, 200) || null;
+  const note =
+    String(formData.get("note") ?? "")
+      .trim()
+      .slice(0, 200) || null;
   if (!Number.isInteger(amount) || amount < 1 || amount > MAX_AMOUNT) {
     return { error: "أدخل مبلغاً صحيحاً" };
   }
@@ -52,13 +51,15 @@ export async function makeOfferAction(formData: FormData): Promise<ActionResult>
   });
   if (open) return { error: "لديك عرض قائم على هذا الإعلان بالفعل" };
 
-  await db.offer.create({ data: { listingId, buyerId: user.id, amount, note } });
+  await db.offer.create({
+    data: { listingId, buyerId: user.id, amount, note },
+  });
   await notify(
     listing.sellerId,
     "OFFER",
     "عرض سعر جديد على إعلانك",
     `${user.name} يعرض ${formatSAR(amount)} على "${listing.title}"${note ? ` — «${note}»` : ""}`,
-    "/dashboard/offers"
+    "/dashboard/offers",
   );
   refresh(listingId);
   return { ok: true };
@@ -71,7 +72,8 @@ export async function acceptOfferAction(formData: FormData): Promise<ActionResul
   if (!offer || offer.listing.sellerId !== user.id) return { error: "غير مسموح" };
   if (offer.status !== "PENDING") return { error: "العرض لم يعد قائماً" };
 
-  await settleAcceptedOffer(offer, user.id, offer.amount);
+  if (!(await settleAcceptedOffer(offer, user.id, offer.amount)))
+    return { error: "تغير العرض أو الإعلان؛ حدّث الصفحة" };
   refresh(offer.listingId);
   return { ok: true };
 }
@@ -85,16 +87,17 @@ export async function rejectOfferAction(formData: FormData): Promise<ActionResul
     return { error: "العرض لم يعد قائماً" };
   }
 
-  await db.offer.update({
-    where: { id: offer.id },
+  const changed = await db.offer.updateMany({
+    where: { id: offer.id, status: offer.status },
     data: { status: "REJECTED", decidedAt: new Date() },
   });
+  if (changed.count !== 1) return { error: "تغير العرض؛ حدّث الصفحة" };
   await notify(
     offer.buyerId,
     "OFFER",
     "رد على عرضك",
     `اعتذر البائع عن عرضك على "${offer.listing.title}" — يمكنك تقديم عرض جديد بسعر أفضل.`,
-    "/dashboard/offers?tab=sent"
+    "/dashboard/offers?tab=sent",
   );
   refresh(offer.listingId);
   return { ok: true };
@@ -111,16 +114,17 @@ export async function counterOfferAction(formData: FormData): Promise<ActionResu
     return { error: "أدخل سعراً مضاداً صحيحاً" };
   }
 
-  await db.offer.update({
-    where: { id: offer.id },
+  const changed = await db.offer.updateMany({
+    where: { id: offer.id, status: offer.status },
     data: { status: "COUNTERED", counterAmount: counter },
   });
+  if (changed.count !== 1) return { error: "تغير العرض؛ حدّث الصفحة" };
   await notify(
     offer.buyerId,
     "OFFER",
     "عرض مضاد من البائع",
     `البائع يقترح ${formatSAR(counter)} بدلاً من ${formatSAR(offer.amount)} لـ"${offer.listing.title}".`,
-    "/dashboard/offers?tab=sent"
+    "/dashboard/offers?tab=sent",
   );
   refresh(offer.listingId);
   return { ok: true };
@@ -135,7 +139,8 @@ export async function acceptCounterAction(formData: FormData): Promise<ActionRes
     return { error: "العرض لم يعد قائماً" };
   }
 
-  await settleAcceptedOffer(offer, user.id, offer.counterAmount);
+  if (!(await settleAcceptedOffer(offer, user.id, offer.counterAmount)))
+    return { error: "تغير العرض أو الإعلان؛ حدّث الصفحة" };
   refresh(offer.listingId);
   return { ok: true };
 }
@@ -164,10 +169,11 @@ export async function withdrawOfferAction(formData: FormData): Promise<ActionRes
     return { error: "العرض لم يعد قائماً" };
   }
 
-  await db.offer.update({
-    where: { id: offer.id },
+  const changed = await db.offer.updateMany({
+    where: { id: offer.id, status: offer.status },
     data: { status: "WITHDRAWN", decidedAt: new Date() },
   });
+  if (changed.count !== 1) return { error: "تغير العرض؛ حدّث الصفحة" };
   refresh(offer.listingId);
   return { ok: true };
 }

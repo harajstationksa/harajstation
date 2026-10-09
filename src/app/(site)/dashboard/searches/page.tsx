@@ -44,9 +44,7 @@ export default async function SavedSearchesPage() {
         </span>
         <div>
           <h1 className="section-title">{d.title}</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">
-            {d.sub}
-          </p>
+          <p className="text-sm text-neutral-500 mt-0.5">{d.sub}</p>
         </div>
       </div>
 
@@ -54,7 +52,11 @@ export default async function SavedSearchesPage() {
         <EmptyState
           title={d.emptyTitle}
           hint={d.emptyHint}
-          action={<Link href="/listings" className="btn-primary mt-2">{d.start}</Link>}
+          action={
+            <Link href="/listings" className="btn-primary mt-2">
+              {d.start}
+            </Link>
+          }
         />
       ) : (
         <div className="card overflow-hidden">
@@ -111,9 +113,7 @@ export default async function SavedSearchesPage() {
         </div>
       )}
 
-      <p className="text-xs text-neutral-400">
-        {d.pushHint}
-      </p>
+      <p className="text-xs text-neutral-400">{d.pushHint}</p>
     </div>
   );
 }

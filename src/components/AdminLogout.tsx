@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -7,16 +9,19 @@ import { useRouter } from "next/navigation";
 export function AdminLogout({ className }: { className?: string }) {
   const router = useRouter();
   async function logout() {
-    await fetch("/api/admin-auth/logout", { method: "POST" });
+    const response = await clientFetch("/api/admin-auth/logout", {
+      method: "POST",
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      window.alert(data.error);
+      return;
+    }
     router.push("/admin-login");
     router.refresh();
   }
   return (
-    <button
-      onClick={logout}
-      title="تسجيل الخروج"
-      className={className}
-    >
+    <button onClick={logout} title="تسجيل الخروج" className={className}>
       <LogOut className="size-4" />
     </button>
   );

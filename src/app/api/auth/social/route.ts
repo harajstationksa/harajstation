@@ -1,11 +1,8 @@
+import { apiMessage } from "@/lib/api-messages";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import {
-  SESSION_COOKIE,
-  sessionCookieOptions,
-  signSessionToken,
-} from "@/lib/auth";
+import { SESSION_COOKIE, sessionCookieOptions, signSessionToken } from "@/lib/auth";
 import { googleConfigured } from "@/lib/google-oauth";
 import { rateLimitGuard } from "@/lib/rate-limit";
 
@@ -30,17 +27,22 @@ export async function POST(req: Request) {
   if (limited) return limited;
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ error: "مزوّد غير مدعوم" }, { status: 400 });
+    return NextResponse.json({ error: apiMessage(req, "مزوّد غير مدعوم") }, { status: 400 });
   }
 
   if (googleConfigured()) {
     return NextResponse.json({ redirect: "/api/auth/social/google/start" });
   }
 
-  if (process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === "production" || process.env.ALLOW_DEV_SOCIAL !== "true") {
     return NextResponse.json(
-      { error: "تسجيل الدخول عبر Google غير مفعّل حالياً — استخدم البريد وكلمة المرور" },
-      { status: 503 }
+      {
+        error: apiMessage(
+          req,
+          "تسجيل الدخول عبر Google غير مفعّل حالياً — استخدم البريد وكلمة المرور",
+        ),
+      },
+      { status: 503 },
     );
   }
 
@@ -59,7 +61,7 @@ export async function POST(req: Request) {
     });
   }
   if (user.isBanned) {
-    return NextResponse.json({ error: "هذا الحساب محظور." }, { status: 403 });
+    return NextResponse.json({ error: apiMessage(req, "هذا الحساب محظور.") }, { status: 403 });
   }
 
   const token = await signSessionToken({

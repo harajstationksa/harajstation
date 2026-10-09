@@ -19,10 +19,13 @@ function currentPlanKey(user: { isPro: boolean } | null) {
 }
 
 export default async function ProPage() {
-  const { t } = await getT();
+  const { t, lang } = await getT();
   const d = t.proPage;
   const [plans, user, freeTier] = await Promise.all([
-    db.plan.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
+    db.plan.findMany({
+      where: { key: { in: ["FREE", "PRO_MONTHLY"] } },
+      orderBy: { sortOrder: "asc" },
+    }),
     getCurrentUser(),
     getFreeTierConfig(),
   ]);
@@ -35,9 +38,7 @@ export default async function ProPage() {
           <Crown className="size-7" />
         </span>
         <h1 className="font-display font-extrabold text-3xl sm:text-4xl">{d.title}</h1>
-        <p className="text-neutral-500 max-w-xl mx-auto">
-          {d.sub}
-        </p>
+        <p className="text-neutral-500 max-w-xl mx-auto">{d.sub}</p>
         {/* launch promo — visible while the admin free-tier switch is on */}
         {freeTier.enabled && (
           <div className="inline-flex items-center gap-2.5 text-sm font-semibold text-primary-700 bg-primary-50 border border-primary-100 rounded-xl px-4 py-3">
@@ -59,7 +60,25 @@ export default async function ProPage() {
 
       <div className="grid md:grid-cols-3 gap-5 max-w-4xl mx-auto items-stretch">
         {plans.map((plan) => {
-          const features = JSON.parse(plan.features) as string[];
+          const featuresAr = JSON.parse(plan.features) as string[];
+          const translated = JSON.parse(plan.featuresEn) as string[];
+          const features =
+            lang === "ar"
+              ? featuresAr
+              : translated.length
+                ? translated
+                : [
+                    `${plan.maxListings} active listings`,
+                    `${plan.maxAuctions} active auctions`,
+                    `${plan.maxStores} stores`,
+                    `${plan.dailyPoints} daily points`,
+                  ];
+          const name =
+            lang === "ar" ? plan.name : plan.nameEn || (plan.key === "FREE" ? "Free" : "PRO");
+          const period =
+            lang === "ar"
+              ? plan.period
+              : plan.periodEn || (plan.key === "PRO_MONTHLY" ? "Monthly" : "");
           const isCurrent = activeKey === plan.key;
           const isFree = plan.price === 0;
 
@@ -73,8 +92,8 @@ export default async function ProPage() {
             ctaLabel = isFree ? d.startFree : d.registerToSub;
             ctaHref = "/register";
           } else {
-            ctaLabel = isFree ? d.backToFree : d.subscribe;
-            ctaHref = "/dashboard";
+            ctaLabel = d.requestChange;
+            ctaHref = "/contact";
           }
 
           return (
@@ -100,11 +119,12 @@ export default async function ProPage() {
                 )
               )}
               <div>
-                <p className="font-bold">{plan.name}</p>
+                <p className="font-bold">{name}</p>
                 <p className="mt-2">
                   <span className="font-display font-extrabold text-4xl">{plan.price}</span>
                   <span className="text-neutral-500 text-sm">
-                    {" "}{d.sar} {plan.period && `· ${plan.period}`}
+                    {" "}
+                    {d.sar} {period && `· ${period}`}
                   </span>
                 </p>
               </div>
@@ -133,12 +153,8 @@ export default async function ProPage() {
         })}
       </div>
 
-      <p className="text-center text-xs text-neutral-400 max-w-lg mx-auto">
-        {d.payNote}
-      </p>
-      <p className="text-center text-xs text-neutral-400 max-w-lg mx-auto">
-        {d.priceNote}
-      </p>
+      <p className="text-center text-xs text-neutral-400 max-w-lg mx-auto">{d.payNote}</p>
+      <p className="text-center text-xs text-neutral-400 max-w-lg mx-auto">{d.priceNote}</p>
     </div>
   );
 }

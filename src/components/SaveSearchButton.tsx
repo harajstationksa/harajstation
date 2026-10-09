@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BellPlus, Check, Loader2 } from "lucide-react";
@@ -29,7 +31,7 @@ export function SaveSearchButton({
   async function save() {
     setState("loading");
     setError("");
-    const res = await fetch("/api/saved-searches", {
+    const res = await clientFetch("/api/saved-searches", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query, category, city, type }),
@@ -58,7 +60,7 @@ export function SaveSearchButton({
           state === "saved"
             ? "bg-green-50 text-green-700 border-green-200 cursor-default"
             : "bg-white text-neutral-600 border-neutral-200 hover:border-primary-400 hover:text-primary-600",
-          className
+          className,
         )}
       >
         {state === "loading" ? (

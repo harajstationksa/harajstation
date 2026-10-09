@@ -1,3 +1,5 @@
+import { getImagePreviews } from "@/lib/image-placeholders";
+import { publicListingWhere } from "@/lib/listing-policy";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ChevronLeft, Eye, FileText, MapPin, Star } from "lucide-react";
@@ -27,14 +29,10 @@ import { SpecList } from "@/components/SpecList";
 export const dynamic = "force-dynamic";
 
 /** OG/Twitter cards so shared listing links unfurl with image + price. */
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const listing = await db.listing.findUnique({
-    where: { id },
+    where: { ...publicListingWhere, id },
     select: { title: true, description: true, images: true, price: true, city: true, status: true },
   });
   if (!listing) return {};
@@ -63,7 +61,7 @@ export default async function ListingPage({
   const [session, listing] = await Promise.all([
     getSession(),
     db.listing.findUnique({
-      where: { id },
+      where: { ...publicListingWhere, id },
       include: { seller: true, category: { include: { parent: true } }, auction: true },
     }),
   ]);
@@ -147,9 +145,7 @@ export default async function ListingPage({
     breadcrumbLd([
       { name: "الرئيسية", path: "/" },
       { name: "الفئات", path: "/categories" },
-      ...(cat.parent
-        ? [{ name: cat.parent.nameAr, path: `/category/${cat.parent.slug}` }]
-        : []),
+      ...(cat.parent ? [{ name: cat.parent.nameAr, path: `/category/${cat.parent.slug}` }] : []),
       { name: cat.nameAr, path: `/category/${cat.slug}` },
       { name: listing.title, path: `/listings/${listing.id}` },
     ]),
@@ -160,7 +156,9 @@ export default async function ListingPage({
       <JsonLd data={jsonLd} />
       {/* breadcrumb */}
       <nav className="flex items-center gap-1 text-sm text-neutral-500 mb-4 flex-wrap">
-        <Link href="/" className="hover:text-primary-600">{t.categoryPage.home}</Link>
+        <Link href="/" className="hover:text-primary-600">
+          {t.categoryPage.home}
+        </Link>
         <ChevronLeft className="size-3.5 ltr:rotate-180" />
         {cat.parent && (
           <>
@@ -179,7 +177,14 @@ export default async function ListingPage({
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-start">
         <div className="lg:col-span-3 space-y-6">
-          <Gallery images={parseImages(listing.images)} title={listing.title} />
+          <Gallery
+            previews={await getImagePreviews([
+              ...parseImages(listing.images),
+              "/images/ph/chair1.svg",
+            ])}
+            images={parseImages(listing.images)}
+            title={listing.title}
+          />
 
           <div className="max-lg:hidden">
             <SpecList attributes={listing.attributes} mainSlug={cat.parent?.slug ?? cat.slug} />
@@ -243,24 +248,14 @@ export default async function ListingPage({
             </div>
 
             <div className="flex gap-2 items-center flex-wrap">
-              {session?.sub !== listing.sellerId && (
-                <ChatButton listingId={listing.id} />
-              )}
-              <FavoriteButton
-                listingId={listing.id}
-                initialFav={!!fav}
-                loggedIn={!!session}
-              />
+              {session?.sub !== listing.sellerId && <ChatButton listingId={listing.id} />}
+              <FavoriteButton listingId={listing.id} initialFav={!!fav} loggedIn={!!session} />
               <ReportButton targetType="LISTING" targetId={listing.id} />
             </div>
 
             {/* سوم: structured price offers — visible to everyone but the owner */}
             {listing.status === "ACTIVE" && session?.sub !== listing.sellerId && (
-              <OfferPanel
-                listingId={listing.id}
-                loggedIn={!!session}
-                myOffer={myOffer}
-              />
+              <OfferPanel listingId={listing.id} loggedIn={!!session} myOffer={myOffer} />
             )}
 
             {/* saved-search alert scoped to this listing's category + city */}
@@ -308,11 +303,7 @@ export default async function ListingPage({
       </div>
 
       <div className="mt-8 max-w-3xl">
-        <Comments
-          listingId={listing.id}
-          sellerId={listing.sellerId}
-          loggedIn={!!session}
-        />
+        <Comments listingId={listing.id} sellerId={listing.sellerId} loggedIn={!!session} />
       </div>
 
       {similar.length > 0 && (
@@ -324,7 +315,7 @@ export default async function ListingPage({
                 <AuctionCard key={l.id} listing={l} />
               ) : (
                 <ListingCard key={l.id} listing={l} />
-              )
+              ),
             )}
           </div>
         </section>

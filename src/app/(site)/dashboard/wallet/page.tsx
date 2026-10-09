@@ -1,3 +1,5 @@
+import { Pagination } from "@/components/Pagination";
+import { pageNumber } from "@/lib/pagination";
 import { Coins, PauseCircle, Plus, Wallet } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
@@ -16,23 +18,29 @@ export async function generateMetadata() {
 export default async function WalletPage({
   searchParams,
 }: {
-  searchParams: Promise<{ promoError?: string }>;
+  searchParams: Promise<{ promoError?: string; page?: string }>;
 }) {
   const user = await requireUser();
   const { lang, t } = await getT();
   const d = t.dash.wallet;
-  const { promoError } = await searchParams;
+  const { promoError, page: rawPage } = await searchParams;
+  const page = pageNumber(rawPage);
 
   const [packages, ledger, topup] = await Promise.all([
-    db.pointPackage.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } }),
+    db.pointPackage.findMany({
+      where: { isActive: true },
+      orderBy: { sortOrder: "asc" },
+    }),
     db.pointTransaction.findMany({
       where: { userId: user.id },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 15,
+      skip: (page - 1) * 15,
     }),
     getTopupConfig(),
   ]);
 
+  const total = await db.pointTransaction.count({ where: { userId: user.id } });
   return (
     <div className="space-y-6">
       <h1 className="section-title flex items-center gap-2">
@@ -49,9 +57,7 @@ export default async function WalletPage({
             {user.points.toLocaleString("en-US")}
           </p>
         </div>
-        <p className="text-primary-100 text-xs max-w-40 leading-relaxed">
-          {d.balanceHint}
-        </p>
+        <p className="text-primary-100 text-xs max-w-40 leading-relaxed">{d.balanceHint}</p>
       </div>
 
       {/* recharge packages */}
@@ -76,12 +82,8 @@ export default async function WalletPage({
               }))}
               promoError={promoError}
             />
-            <p className="text-xs text-neutral-400 mt-2">
-              {d.payNote}
-            </p>
-            <p className="text-xs text-neutral-400 mt-1">
-              {d.pricesNote}
-            </p>
+            <p className="text-xs text-neutral-400 mt-2">{d.payNote}</p>
+            <p className="text-xs text-neutral-400 mt-1">{d.pricesNote}</p>
           </>
         )}
       </div>
@@ -94,13 +96,21 @@ export default async function WalletPage({
         ) : (
           <ul className="divide-y divide-neutral-50">
             {ledger.map((tx) => (
-              <li key={tx.id} className="px-4 py-2.5 flex items-center justify-between gap-3 text-sm">
+              <li
+                key={tx.id}
+                className="px-4 py-2.5 flex items-center justify-between gap-3 text-sm"
+              >
                 <span className="text-neutral-600 line-clamp-1">{tx.reason}</span>
                 <span className="flex items-center gap-3 shrink-0">
-                  <span className={tx.delta >= 0 ? "text-success font-bold" : "text-danger font-bold"}>
+                  <span
+                    className={tx.delta >= 0 ? "text-success font-bold" : "text-danger font-bold"}
+                  >
                     {tx.delta > 0 ? `+${tx.delta}` : tx.delta}
                   </span>
-                  <span className="text-xs text-neutral-400 w-16 text-left" suppressHydrationWarning>
+                  <span
+                    className="text-xs text-neutral-400 w-16 text-left"
+                    suppressHydrationWarning
+                  >
                     {timeAgo(tx.createdAt, lang)}
                   </span>
                 </span>
@@ -109,6 +119,7 @@ export default async function WalletPage({
           </ul>
         )}
       </div>
+      <Pagination page={page} total={total} size={15} path="/dashboard/wallet" lang={lang} />
     </div>
   );
 }

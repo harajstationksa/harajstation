@@ -36,6 +36,7 @@ export async function createInvoice(opts: {
 }): Promise<{ id: string; url: string } | null> {
   try {
     const res = await fetch(`${API}/invoices`, {
+      signal: AbortSignal.timeout(10_000),
       method: "POST",
       headers: { Authorization: authHeader(), "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -58,15 +59,30 @@ export async function createInvoice(opts: {
   }
 }
 
-async function fetchInvoiceStatus(invoiceId: string): Promise<string | null> {
+async function fetchInvoiceStatus(
+  invoiceId: string,
+): Promise<{ id: string; status: string; amount: number; currency: string } | null> {
   try {
     const res = await fetch(`${API}/invoices/${invoiceId}`, {
+      signal: AbortSignal.timeout(10_000),
       headers: { Authorization: authHeader() },
       cache: "no-store",
     });
     if (!res.ok) return null;
-    const data = (await res.json()) as { status: string };
-    return data.status;
+    const data = (await res.json()) as {
+      id: string;
+      status: string;
+      amount: number;
+      currency: string;
+    };
+    if (
+      data.id !== invoiceId ||
+      typeof data.status !== "string" ||
+      !Number.isSafeInteger(data.amount) ||
+      typeof data.currency !== "string"
+    )
+      return null;
+    return data;
   } catch {
     return null;
   }
@@ -78,7 +94,7 @@ async function fetchInvoiceStatus(invoiceId: string): Promise<string | null> {
  * webhook and the success-page callback can both call this safely.
  */
 export async function confirmPayment(
-  paymentId: string
+  paymentId: string,
 ): Promise<"paid" | "pending" | "failed" | "not_found"> {
   const payment = await db.payment.findUnique({ where: { id: paymentId } });
   if (!payment) return "not_found";
@@ -86,7 +102,8 @@ export async function confirmPayment(
   if (payment.status === "FAILED") return "failed";
 
   if (!paymentsConfigured() || !payment.invoiceId) return "pending";
-  const status = await fetchInvoiceStatus(payment.invoiceId);
+  const invoice = await fetchInvoiceStatus(payment.invoiceId);
+  const status = invoice?.status;
   if (status !== "paid") {
     if (status === "expired" || status === "canceled" || status === "failed") {
       await db.payment.updateMany({
@@ -96,6 +113,10 @@ export async function confirmPayment(
       return "failed";
     }
     return "pending";
+  }
+  if (!invoice || invoice.amount !== payment.amount || invoice.currency !== "SAR") {
+    console.error("payment_invoice_mismatch", { paymentId });
+    return "failed";
   }
 
   const referralConfig = await getReferralConfig();
@@ -108,6 +129,8 @@ export async function confirmPayment(
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payment:${paymentId}`}))`;
     const current = await tx.payment.findUnique({ where: { id: paymentId } });
     if (!current || current.status !== "PENDING") return;
+    if (current.invoiceId !== invoice.id || current.amount !== invoice.amount)
+      throw new Error("PAYMENT_INVOICE_CHANGED");
 
     let creditPoints = current.points;
     let appliedPromoBonus = current.promoBonus;
@@ -145,9 +168,7 @@ export async function confirmPayment(
               userId: current.userId,
               bonusPoints: appliedPromoBonus,
               paymentId: current.id,
-              eligibilityKey: promo.oncePerUser
-                ? `${promo.id}:${current.userId}`
-                : null,
+              eligibilityKey: promo.oncePerUser ? `${promo.id}:${current.userId}` : null,
             },
           });
         } else {
@@ -168,7 +189,7 @@ export async function confirmPayment(
       creditPoints,
       appliedPromoBonus > 0
         ? `شحن ${creditPoints} نقطة (منها ${appliedPromoBonus} بونص كود خصم) — دفع إلكتروني`
-        : `شحن ${creditPoints} نقطة — دفع إلكتروني`
+        : `شحن ${creditPoints} نقطة — دفع إلكتروني`,
     );
     if (newBalance === null) throw new Error("Payment user no longer exists");
 
@@ -184,7 +205,7 @@ export async function confirmPayment(
           tx,
           buyer.referredById,
           reward,
-          `مكافأة إحالة ${referralConfig.percent}% — شحن ${buyer.name} ${purchased.toLocaleString("en-US")} نقطة`
+          `مكافأة إحالة ${referralConfig.percent}% — شحن ${buyer.name} ${purchased.toLocaleString("en-US")} نقطة`,
         );
         if (refBalance !== null) {
           await tx.referralEarning.create({
@@ -219,8 +240,61 @@ export async function confirmPayment(
       "SYSTEM",
       "مكافأة إحالة 🎁",
       `حصلت على ${notice.reward.toLocaleString("en-US")} نقطة لأن ${notice.buyerName} شحن رصيده عبر كود إحالتك`,
-      "/dashboard/referrals"
+      "/dashboard/referrals",
     ).catch(() => {});
   }
   return "paid";
+}
+
+/**
+ * A paid invoice that Moyasar later refunded or voided must not keep its
+ * points. Claws back the credited points (and any referral reward) as far as
+ * the balances allow, records any shortfall for the finance team, and marks
+ * the payment REFUNDED. Idempotent under the same advisory lock as crediting.
+ */
+export async function reversePaymentIfRefunded(
+  paymentId: string,
+): Promise<"refunded" | "unchanged" | "not_found"> {
+  const payment = await db.payment.findUnique({ where: { id: paymentId } });
+  if (!payment) return "not_found";
+  if (payment.status !== "PAID" || !payment.invoiceId || !paymentsConfigured()) return "unchanged";
+  const invoice = await fetchInvoiceStatus(payment.invoiceId);
+  if (!invoice || !["refunded", "voided"].includes(invoice.status)) return "unchanged";
+
+  const reversed = await db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payment:${paymentId}`}))`;
+    const current = await tx.payment.findUnique({ where: { id: paymentId } });
+    if (!current || current.status !== "PAID") return false;
+
+    const takeBack = async (userId: string, amount: number, reason: string) => {
+      if (amount <= 0) return 0;
+      const user = await tx.user.findUnique({ where: { id: userId }, select: { points: true } });
+      const available = Math.min(amount, Math.max(0, user?.points ?? 0));
+      if (available > 0) await adjustPointsWithClient(tx, userId, -available, reason);
+      return amount - available;
+    };
+
+    let shortfall = await takeBack(
+      current.userId,
+      current.points,
+      `استرجاع ${current.points} نقطة — تم استرداد مبلغ الدفع`,
+    );
+    const referral = await tx.referralEarning.findUnique({ where: { paymentId: current.id } });
+    if (referral) {
+      shortfall += await takeBack(
+        referral.referrerId,
+        referral.points,
+        `إلغاء مكافأة إحالة ${referral.points} نقطة — استُرد مبلغ الشحن`,
+      );
+    }
+    await tx.payment.update({ where: { id: current.id }, data: { status: "REFUNDED" } });
+    await tx.auditLog.create({
+      data: {
+        action: "PAYMENT_REFUNDED",
+        detail: `payment=${current.id}; user=${current.userId}; points=${current.points}; shortfall=${shortfall}`,
+      },
+    });
+    return true;
+  });
+  return reversed ? "refunded" : "unchanged";
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { clientFetch } from "@/lib/client-fetch";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bell,
@@ -15,12 +17,7 @@ import {
 } from "lucide-react";
 import { cn, timeAgo } from "@/lib/utils";
 import { compressImage } from "@/lib/image-compress";
-import {
-  isChatMuted,
-  playIncomingChime,
-  setChatMuted,
-  unlockChatSound,
-} from "@/lib/chat-sound";
+import { isChatMuted, playIncomingChime, setChatMuted, unlockChatSound } from "@/lib/chat-sound";
 import { ReportButton } from "./ReportButton";
 import { useLang } from "./LangProvider";
 
@@ -35,7 +32,13 @@ type Msg = {
 };
 
 /** ✓ sent · ✓✓ delivered · ✓✓ (accent) read — only ever on your own messages. */
-function Ticks({ msg, labels }: { msg: Msg; labels: { read: string; delivered: string; sent: string } }) {
+function Ticks({
+  msg,
+  labels,
+}: {
+  msg: Msg;
+  labels: { read: string; delivered: string; sent: string };
+}) {
   if (msg.readAt) {
     return <CheckCheck className="size-3.5 text-sky-300" aria-label={labels.read} />;
   }
@@ -52,10 +55,15 @@ export function ChatThread({
   conversationId: string;
   role?: "buyer" | "seller";
 }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const d = t.dash.chat;
   const quickReplies = role === "seller" ? d.quickSeller : d.quickBuyer;
   const [messages, setMessages] = useState<Msg[]>([]);
+  const [hasOlder, setHasOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const latestRef = useRef<string | undefined>(undefined);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const skipScrollRef = useRef(false);
   const [text, setText] = useState("");
   const [image, setImage] = useState<File | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
@@ -65,9 +73,6 @@ export function ChatThread({
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const countRef = useRef(0);
-  // how many of THEIR messages we had last poll — the chime keys off this, not
-  // off the total, so your own sends never ring
-  const theirCountRef = useRef<number | null>(null);
 
   useEffect(() => {
     // Read browser storage after hydration without causing a synchronous
@@ -77,23 +82,38 @@ export function ChatThread({
   }, []);
 
   const refresh = useCallback(async () => {
+    if (document.visibilityState !== "visible") return;
     try {
-      const res = await fetch(`/api/conversations/${conversationId}/messages`, {
-        cache: "no-store",
-      });
+      const res = await clientFetch(
+        `/api/conversations/${conversationId}/messages${latestRef.current ? `?after=${encodeURIComponent(latestRef.current)}` : ""}`,
+        {
+          cache: "no-store",
+        },
+      );
       if (!res.ok) return;
       const data = await res.json();
       const list: Msg[] = data.messages;
 
-      const theirs = list.filter((m) => !m.mine).length;
-      // null on the very first load: opening a thread with unread messages
-      // shouldn't sound like they all just arrived
-      if (theirCountRef.current !== null && theirs > theirCountRef.current) {
-        playIncomingChime();
-      }
-      theirCountRef.current = theirs;
+      if (latestRef.current && list.some((m) => !m.mine)) playIncomingChime();
 
-      setMessages(list);
+      if (!latestRef.current) setHasOlder(data.hasMoreBefore);
+      if (list.length) latestRef.current = list[list.length - 1].id;
+      setMessages((prev) => {
+        const merged = new Map(prev.map((m) => [m.id, m]));
+        list.forEach((m) => merged.set(m.id, m));
+        for (const r of data.receipts ?? []) {
+          const old = merged.get(r.id);
+          if (old)
+            merged.set(r.id, {
+              ...old,
+              readAt: r.readAt,
+              deliveredAt: r.deliveredAt,
+            });
+        }
+        return [...merged.values()].sort(
+          (a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id),
+        );
+      });
     } catch {
       /* offline */
     }
@@ -111,9 +131,68 @@ export function ChatThread({
   useEffect(() => {
     if (messages.length !== countRef.current) {
       countRef.current = messages.length;
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      if (!skipScrollRef.current) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      skipScrollRef.current = false;
     }
   }, [messages]);
+
+  async function loadOlder() {
+    if (!messages.length || loadingOlder) return;
+    setLoadingOlder(true);
+    const box = scrollRef.current,
+      oldHeight = box?.scrollHeight ?? 0;
+    try {
+      const res = await clientFetch(
+        `/api/conversations/${conversationId}/messages?before=${encodeURIComponent(messages[0].id)}`,
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      skipScrollRef.current = true;
+      setHasOlder(data.hasMoreBefore);
+      setMessages((prev) =>
+        [...new Map([...data.messages, ...prev].map((m: Msg) => [m.id, m])).values()].sort(
+          (a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id),
+        ),
+      );
+      requestAnimationFrame(() => {
+        if (box) box.scrollTop += box.scrollHeight - oldHeight;
+      });
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root) return;
+    const pending = new Set<string>();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (document.visibilityState !== "visible") return;
+        for (const e of entries)
+          if (e.isIntersecting) {
+            const id = (e.target as HTMLElement).dataset.messageId;
+            if (id) pending.add(id);
+            observer.unobserve(e.target);
+          }
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          if (pending.size)
+            fetch(`/api/conversations/${conversationId}/read`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ids: [...pending].slice(0, 200) }),
+            }).catch(() => {});
+        }, 150);
+      },
+      { root, threshold: 0.1 },
+    );
+    root.querySelectorAll("[data-message-id]").forEach((el) => observer.observe(el));
+    return () => {
+      observer.disconnect();
+      if (timer) clearTimeout(timer);
+    };
+  }, [messages, conversationId]);
 
   async function pickImage(list: FileList | null) {
     setError("");
@@ -134,32 +213,38 @@ export function ChatThread({
     setSending(true);
     setError("");
 
-    let res: Response;
-    if (image) {
-      const fd = new FormData();
-      fd.set("body", body);
-      fd.set("image", image);
-      res = await fetch(`/api/conversations/${conversationId}/messages`, {
-        method: "POST",
-        body: fd,
-      });
-    } else {
-      res = await fetch(`/api/conversations/${conversationId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body }),
-      });
+    try {
+      let res: Response;
+      if (image) {
+        const fd = new FormData();
+        fd.set("body", body);
+        fd.set("image", image);
+        res = await clientFetch(`/api/conversations/${conversationId}/messages`, {
+          method: "POST",
+          body: fd,
+        });
+      } else {
+        res = await clientFetch(`/api/conversations/${conversationId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ body }),
+        });
+      }
+      setSending(false);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? d.sendFail);
+        return;
+      }
+      setText("");
+      setImage(null);
+      if (fileRef.current) fileRef.current.value = "";
+      refresh();
+    } catch {
+      setError(d.sendFail);
+    } finally {
+      setSending(false);
     }
-    setSending(false);
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error ?? d.sendFail);
-      return;
-    }
-    setText("");
-    setImage(null);
-    if (fileRef.current) fileRef.current.value = "";
-    refresh();
   }
 
   return (
@@ -197,21 +282,33 @@ export function ChatThread({
         {d.safety}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+        {hasOlder && (
+          <button
+            type="button"
+            className="btn-secondary mx-auto block"
+            onClick={loadOlder}
+            disabled={loadingOlder}
+          >
+            {lang === "ar" ? "تحميل رسائل أقدم" : "Load earlier messages"}
+          </button>
+        )}
         {messages.length === 0 && (
-          <p className="text-center text-sm text-neutral-400 py-8">
-            {d.start}
-          </p>
+          <p className="text-center text-sm text-neutral-400 py-8">{d.start}</p>
         )}
         {messages.map((m) => (
-          <div key={m.id} className={cn("flex", m.mine ? "justify-start flex-row-reverse" : "")}>
+          <div
+            key={m.id}
+            data-message-id={!m.mine ? m.id : undefined}
+            className={cn("flex", m.mine ? "justify-start flex-row-reverse" : "")}
+          >
             <div
               className={cn(
                 "max-w-[75%] rounded-2xl text-sm leading-relaxed group overflow-hidden",
                 m.imageUrl ? "p-1.5" : "px-3.5 py-2",
                 m.mine
                   ? "bg-primary-500 text-white rounded-bl-sm"
-                  : "bg-neutral-100 text-neutral-800 rounded-br-sm"
+                  : "bg-neutral-100 text-neutral-800 rounded-br-sm",
               )}
             >
               {m.imageUrl && (
@@ -238,7 +335,7 @@ export function ChatThread({
                 className={cn(
                   "flex items-center gap-1.5 mt-1 text-[10px]",
                   m.imageUrl && "px-2 pb-1",
-                  m.mine ? "text-primary-100" : "text-neutral-400"
+                  m.mine ? "text-primary-100" : "text-neutral-400",
                 )}
               >
                 <span suppressHydrationWarning>{timeAgo(m.at)}</span>
@@ -298,10 +395,7 @@ export function ChatThread({
       )}
 
       <form onSubmit={send} className="p-3 border-t border-neutral-100 flex gap-2">
-        <label
-          className="btn-secondary px-3 shrink-0 cursor-pointer"
-          title={d.attachImage}
-        >
+        <label className="btn-secondary px-3 shrink-0 cursor-pointer" title={d.attachImage}>
           <ImagePlus className="size-4" />
           <input
             ref={fileRef}
@@ -322,7 +416,11 @@ export function ChatThread({
           className="btn-primary px-4 shrink-0"
           disabled={sending || (!text.trim() && !image)}
         >
-          {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4 -scale-x-100" />}
+          {sending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Send className="size-4 -scale-x-100" />
+          )}
         </button>
       </form>
 
@@ -335,7 +433,11 @@ export function ChatThread({
           aria-label={d.closeImage}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={lightbox} alt="" className="max-h-[90vh] max-w-full rounded-xl object-contain" />
+          <img
+            src={lightbox}
+            alt=""
+            className="max-h-[90vh] max-w-full rounded-xl object-contain"
+          />
         </button>
       )}
     </div>
