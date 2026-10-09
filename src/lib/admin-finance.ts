@@ -1,7 +1,7 @@
 import { text, type AdminParams } from "./admin";
 export function financeFilter(sp: AdminParams) {
   const q = text(sp.q),
-    status = ["PENDING", "PAID", "FAILED"].includes(text(sp.status)) ? text(sp.status) : "";
+    status = ["PENDING", "PAID", "FAILED", "REFUNDED"].includes(text(sp.status)) ? text(sp.status) : "";
   function date(value: unknown) {
     const raw = text(value, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return;

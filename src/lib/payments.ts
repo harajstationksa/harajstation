@@ -245,3 +245,56 @@ export async function confirmPayment(
   }
   return "paid";
 }
+
+/**
+ * A paid invoice that Moyasar later refunded or voided must not keep its
+ * points. Claws back the credited points (and any referral reward) as far as
+ * the balances allow, records any shortfall for the finance team, and marks
+ * the payment REFUNDED. Idempotent under the same advisory lock as crediting.
+ */
+export async function reversePaymentIfRefunded(
+  paymentId: string,
+): Promise<"refunded" | "unchanged" | "not_found"> {
+  const payment = await db.payment.findUnique({ where: { id: paymentId } });
+  if (!payment) return "not_found";
+  if (payment.status !== "PAID" || !payment.invoiceId || !paymentsConfigured()) return "unchanged";
+  const invoice = await fetchInvoiceStatus(payment.invoiceId);
+  if (!invoice || !["refunded", "voided"].includes(invoice.status)) return "unchanged";
+
+  const reversed = await db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`payment:${paymentId}`}))`;
+    const current = await tx.payment.findUnique({ where: { id: paymentId } });
+    if (!current || current.status !== "PAID") return false;
+
+    const takeBack = async (userId: string, amount: number, reason: string) => {
+      if (amount <= 0) return 0;
+      const user = await tx.user.findUnique({ where: { id: userId }, select: { points: true } });
+      const available = Math.min(amount, Math.max(0, user?.points ?? 0));
+      if (available > 0) await adjustPointsWithClient(tx, userId, -available, reason);
+      return amount - available;
+    };
+
+    let shortfall = await takeBack(
+      current.userId,
+      current.points,
+      `استرجاع ${current.points} نقطة — تم استرداد مبلغ الدفع`,
+    );
+    const referral = await tx.referralEarning.findUnique({ where: { paymentId: current.id } });
+    if (referral) {
+      shortfall += await takeBack(
+        referral.referrerId,
+        referral.points,
+        `إلغاء مكافأة إحالة ${referral.points} نقطة — استُرد مبلغ الشحن`,
+      );
+    }
+    await tx.payment.update({ where: { id: current.id }, data: { status: "REFUNDED" } });
+    await tx.auditLog.create({
+      data: {
+        action: "PAYMENT_REFUNDED",
+        detail: `payment=${current.id}; user=${current.userId}; points=${current.points}; shortfall=${shortfall}`,
+      },
+    });
+    return true;
+  });
+  return reversed ? "refunded" : "unchanged";
+}

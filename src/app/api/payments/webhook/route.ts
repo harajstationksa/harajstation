@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { confirmPayment } from "@/lib/payments";
+import { confirmPayment, reversePaymentIfRefunded } from "@/lib/payments";
 import { safeEqual } from "@/lib/crypto";
 import { rateLimitGuard } from "@/lib/rate-limit";
 
@@ -70,6 +70,10 @@ export async function POST(req: Request) {
   const payment = await db.payment.findUnique({ where: { invoiceId } });
   if (!payment) return NextResponse.json({ ok: true, skipped: true });
 
-  const result = await confirmPayment(payment.id);
+  // refunds/voids arrive for invoices we already credited
+  const result =
+    payment.status === "PAID"
+      ? await reversePaymentIfRefunded(payment.id)
+      : await confirmPayment(payment.id);
   return NextResponse.json({ ok: true, result });
 }

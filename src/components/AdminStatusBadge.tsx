@@ -1,6 +1,7 @@
 export const ADMIN_STATUS_LABELS: Record<string, string> = {
   PENDING: "بانتظار المعالجة",
   PAID: "مدفوع",
+  REFUNDED: "مسترد",
   FAILED: "فشل الدفع",
   CONFIRMED: "مؤكد",
   CANCELLED: "ملغى",

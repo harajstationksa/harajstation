@@ -67,7 +67,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Adm
           الحالة
           <select className="input" name="status" defaultValue={filter.status}>
             <option value="">كل حالات الدفع</option>
-            {["PENDING", "PAID", "FAILED"].map((s) => (
+            {["PENDING", "PAID", "FAILED", "REFUNDED"].map((s) => (
               <option key={s} value={s}>
                 {ADMIN_STATUS_LABELS[s] ?? s}
               </option>
