@@ -45,8 +45,11 @@ find "$OUT_DIR" -maxdepth 1 -type f -name 'haraj-*.tar.gz.age' -mtime +30 -delet
 if [ -n "$REMOTE" ]; then
   rclone copy "$out" "$REMOTE" --checksum
   printf '{"checkedAt":"%s","destination":"rclone"}\n' "$(date -u +%FT%TZ)" > "$OUT_DIR/offsite-health.json"
-else
-  node --env-file="$APP_DIR/.env" "$(dirname "$(realpath "$0")")/backup-offsite.mjs" "$out"
+elif ! node --env-file="$APP_DIR/.env" "$(dirname "$(realpath "$0")")/backup-offsite.mjs" "$out"; then
+  # The local encrypted recovery point above is complete; a missing or failing
+  # offsite target is recorded in offsite-health.json (the monitor alerts on it)
+  # but must not abort deploys, which take a backup first.
+  echo "WARNING: offsite copy failed or is not configured (BACKUP_R2_BUCKET / BACKUP_REMOTE)" >&2
 fi
 
 echo "$(date -Is) encrypted backup ok: $out ($(du -h "$out" | cut -f1))"
