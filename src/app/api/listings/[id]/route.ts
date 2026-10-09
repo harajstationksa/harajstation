@@ -163,6 +163,15 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
         (current.auction && current.auction._count.bids > 0)
       )
         return false;
+      // Once a buyer has agreed (accepted offer or an open deal), the listing
+      // is what the deal — and any dispute — refers to, so it is frozen.
+      const [agreedOffer, openDeal] = await Promise.all([
+        tx.offer.count({ where: { listingId: id, status: "ACCEPTED" } }),
+        tx.transaction.count({
+          where: { listingId: id, status: { in: ["PENDING", "CONFIRMED", "DISPUTED"] } },
+        }),
+      ]);
+      if (agreedOffer || openDeal) return false;
       // An item already waiting for a reviewer cannot publish itself by editing.
       pendingReview =
         current.status === "PENDING" ||
@@ -225,7 +234,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (!updated) {
     await deleteImages(saved.urls);
     return NextResponse.json(
-      { error: apiMessage(req, "لا يمكن تعديل إعلان محذوف أو مزاد بدأت المزايدة عليه") },
+      { error: apiMessage(req, "لا يمكن تعديل إعلان محذوف أو مزاد بدأت المزايدة عليه أو إعلان عليه صفقة متفق عليها") },
       { status: 409 },
     );
   }
