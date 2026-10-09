@@ -8,6 +8,7 @@ import { getSettingInt } from "@/lib/settings";
 import { targetAudience } from "@/lib/targeting";
 import { CITIES } from "@/lib/constants";
 import { isRateLimited } from "@/lib/rate-limit";
+import { cancelOwnCampaign } from "@/lib/campaigns";
 
 /**
  * Launch a day-based promotion campaign for one of the user's listings.
@@ -125,18 +126,6 @@ export async function createCampaignAction(formData: FormData) {
 export async function cancelCampaignAction(formData: FormData) {
   const user = await requireUser();
   const id = String(formData.get("campaignId"));
-  const campaign = await db.campaign.findUnique({ where: { id } });
-  if (!campaign || campaign.ownerId !== user.id) return;
-  if (campaign.status !== "ACTIVE") return;
-  await db.$transaction([
-    db.campaign.update({
-      where: { id },
-      data: { status: "CANCELLED", endedAt: new Date() },
-    }),
-    db.listing.update({
-      where: { id: campaign.listingId },
-      data: { isPromoted: false, promotedUntil: null },
-    }),
-  ]);
+  if (!(await cancelOwnCampaign(user.id, id))) return;
   revalidatePath("/dashboard/campaigns");
 }

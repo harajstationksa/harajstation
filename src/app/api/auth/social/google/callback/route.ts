@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
+import { isValidDisplayName } from "@/lib/utils";
 import { SESSION_COOKIE, sessionCookieOptions, signSessionToken } from "@/lib/auth";
 import {
   fetchProfile,
@@ -91,9 +92,13 @@ export async function GET(req: Request) {
         }
       : {};
 
+    // Google names are free text; keep the same display-name rule as signup
+    const name = isValidDisplayName(profile.name)
+      ? profile.name.slice(0, 60)
+      : profile.email.split("@")[0].slice(0, 60) || "مستخدم";
     user = await db.user.create({
       data: {
-        name: profile.name,
+        name,
         email: profile.email,
         googleSub: profile.sub,
         city: "الرياض", // editable from settings — Google doesn't tell us

@@ -9,7 +9,7 @@ import { isValidDisplayName } from "@/lib/utils";
 import { CITIES } from "@/lib/constants";
 import { rateLimitGuard } from "@/lib/rate-limit";
 import { issueEmailVerification } from "@/lib/email-verify";
-import { emailConfigured } from "@/lib/email";
+import { emailConfigured, sendEmail } from "@/lib/email";
 import { getFreeTierConfig } from "@/lib/settings";
 import { generateReferralCode } from "@/lib/referral";
 
@@ -75,6 +75,17 @@ export async function POST(req: Request) {
 
   const email = parsed.data.email.toLowerCase();
   const exists = await db.user.findUnique({ where: { email } });
+  if (exists && emailConfigured()) {
+    // Same answer as a fresh signup, so the form never reveals which addresses
+    // have accounts; the real owner gets a heads-up in their inbox instead.
+    await sendEmail({
+      to: email,
+      subject: "محاولة تسجيل ببريدك في حراج ستيشن",
+      html: `<div dir="rtl"><p>حاول أحدهم إنشاء حساب جديد ببريدك، لكن لديك حساباً بالفعل.</p><p>إن كنت أنت فسجّل الدخول، أو استخدم «نسيت كلمة المرور» من صفحة الدخول. وإن لم تكن أنت فتجاهل هذه الرسالة.</p></div>`,
+      text: "حاول أحدهم إنشاء حساب ببريدك، لكن لديك حساباً بالفعل. سجّل الدخول أو استخدم «نسيت كلمة المرور».",
+    }).catch(() => false);
+    return NextResponse.json({ ok: true, needsVerification: true, email });
+  }
   if (exists) {
     return NextResponse.json(
       { error: apiMessage(req, "هذا البريد الإلكتروني مسجل مسبقاً") },

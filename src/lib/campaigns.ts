@@ -4,6 +4,7 @@ import { db } from "./db";
 import { notify } from "./notify";
 import { subnetKey } from "./visitor";
 import { cardInclude } from "./types";
+import { lockListing } from "./listing-policy";
 
 /**
  * Expire day-based campaigns whose time is up: mark COMPLETED, un-promote the
@@ -155,4 +156,34 @@ export async function recordImpressions(campaignIds: string[]): Promise<void> {
   } catch {
     // analytics must never break the page
   }
+}
+
+/**
+ * Owner stops an ACTIVE campaign early (no refund). Conditional on the status
+ * so a campaign the cron just completed is never rewritten, and the listing
+ * only loses its promotion when no other campaign is still running on it.
+ */
+export async function cancelOwnCampaign(ownerId: string, campaignId: string): Promise<boolean> {
+  const campaign = await db.campaign.findUnique({
+    where: { id: campaignId },
+    select: { ownerId: true, listingId: true },
+  });
+  if (!campaign || campaign.ownerId !== ownerId) return false;
+  return db.$transaction(async (tx) => {
+    await lockListing(tx, campaign.listingId);
+    const changed = await tx.campaign.updateMany({
+      where: { id: campaignId, ownerId, status: "ACTIVE" },
+      data: { status: "CANCELLED", endedAt: new Date() },
+    });
+    if (changed.count !== 1) return false;
+    const stillRunning = await tx.campaign.count({
+      where: { listingId: campaign.listingId, status: "ACTIVE" },
+    });
+    if (!stillRunning)
+      await tx.listing.update({
+        where: { id: campaign.listingId },
+        data: { isPromoted: false, promotedUntil: null },
+      });
+    return true;
+  });
 }

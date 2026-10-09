@@ -12,11 +12,19 @@ const LABELS = {
     or: "أو",
     google: "المتابعة عبر Google",
     failed: "تعذّر تسجيل الدخول، حاول مرة أخرى",
+    consent: "بالمتابعة عبر Google فإنك توافق على",
+    terms: "الشروط والأحكام",
+    and: "و",
+    privacy: "سياسة الخصوصية",
   },
   en: {
     or: "or",
     google: "Continue with Google",
     failed: "Sign-in failed, try again",
+    consent: "By continuing with Google you agree to the",
+    terms: "Terms & Conditions",
+    and: "and the",
+    privacy: "Privacy Policy",
   },
 };
 
@@ -98,6 +106,17 @@ export function SocialButtons() {
         {busy ? <Loader2 className="size-4.5 animate-spin" /> : <GoogleIcon />}
         {t.google}
       </button>
+
+      <p className="text-[11px] text-neutral-400 text-center leading-relaxed">
+        {t.consent}{" "}
+        <a href="/terms" target="_blank" className="underline hover:text-neutral-600">
+          {t.terms}
+        </a>{" "}
+        {t.and}{" "}
+        <a href="/privacy" target="_blank" className="underline hover:text-neutral-600">
+          {t.privacy}
+        </a>
+      </p>
 
       {error && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">

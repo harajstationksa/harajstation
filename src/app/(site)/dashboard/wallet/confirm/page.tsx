@@ -26,12 +26,17 @@ export default async function PaymentConfirmPage({
   const payment = p ? await db.payment.findUnique({ where: { id: p } }) : null;
   const result =
     payment && payment.userId === user.id ? await confirmPayment(payment.id) : "not_found";
+  // re-read: confirmation may drop a promo bonus that is no longer valid
+  const credited =
+    result === "paid" && payment
+      ? await db.payment.findUnique({ where: { id: payment.id }, select: { points: true } })
+      : null;
 
   const view = {
     paid: {
       icon: <CheckCircle2 className="size-12 text-green-600 mx-auto" />,
       title: d.paidTitle,
-      body: d.paidBody(payment?.points.toLocaleString("en-US") ?? "0"),
+      body: d.paidBody((credited?.points ?? payment?.points ?? 0).toLocaleString("en-US")),
     },
     pending: {
       icon: <Clock className="size-12 text-amber-500 mx-auto" />,

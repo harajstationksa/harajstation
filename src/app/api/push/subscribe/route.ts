@@ -36,10 +36,14 @@ export async function POST(req: Request) {
       { error: apiMessage(req, "وصلت الحد الأقصى للأجهزة") },
       { status: 409 },
     );
+  // An endpoint only moves to another account when the caller also holds its
+  // keys (same browser, new sign-in); knowing a URL alone never redirects pushes.
+  const existing = await db.pushSubscription.findUnique({ where: { endpoint } });
+  if (existing && existing.userId !== user.id && existing.auth !== keys.auth)
+    return NextResponse.json({ error: apiMessage(req, "اشتراك غير صالح") }, { status: 400 });
   await db.pushSubscription.upsert({
     where: { endpoint },
     create: { userId: user.id, endpoint, p256dh: keys.p256dh, auth: keys.auth },
-    // browser may re-subscribe with fresh keys, or a new account on the same browser
     update: { userId: user.id, p256dh: keys.p256dh, auth: keys.auth },
   });
   return NextResponse.json({ ok: true });

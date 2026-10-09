@@ -64,6 +64,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     db.listing.findMany({
       where: {
         status: "ACTIVE",
+        seller: { isBanned: false },
         id: { not: listing.id },
         categoryId: listing.categoryId,
       },
