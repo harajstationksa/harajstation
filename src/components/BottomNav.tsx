@@ -2,7 +2,7 @@
 
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useLang } from "./LangProvider";
 import styles from "./BottomNav.module.css";
@@ -21,41 +21,43 @@ function NavigationHint() {
   );
 }
 
-// Outline symbols read clearly through the glass; the active one is tinted.
+// Solid symbols stay legible against the light dock and warm active state.
 function NavIcon({ name, className }: { name: IconName; className: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.9}
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      fill="currentColor"
       className={className}
       aria-hidden="true"
       focusable="false"
     >
       {name === "home" && (
-        <path d="M3.5 10.2 12 3.5l8.5 6.7V19a1.5 1.5 0 0 1-1.5 1.5h-4.2v-6h-5.6v6H5A1.5 1.5 0 0 1 3.5 19z" />
+        <path d="M12 2.5a1.8 1.8 0 0 0-1.16.42l-8 6.75a1.5 1.5 0 0 0-.54 1.15v8.08A2.1 2.1 0 0 0 4.4 21h5.2v-6.1a2.4 2.4 0 0 1 4.8 0V21h5.2a2.1 2.1 0 0 0 2.1-2.1v-8.08a1.5 1.5 0 0 0-.54-1.15l-8-6.75A1.8 1.8 0 0 0 12 2.5Z" />
       )}
       {name === "auctions" && (
-        <path d="m14.5 3.5 6 6M10 8l6 6M12.2 5.8l6 6-3.4 3.4-6-6zM8.8 12.6 3.5 17.9a1.6 1.6 0 0 0 2.3 2.3l5.3-5.3M13 21h8" />
+        <>
+          <path d="m11.28 2.57 2.48 2.48a1.35 1.35 0 0 1-1.91 1.91L9.37 4.48a1.35 1.35 0 0 1 1.91-1.91ZM4.48 9.37l2.48 2.48a1.35 1.35 0 0 1-1.91 1.91l-2.48-2.48a1.35 1.35 0 0 1 1.91-1.91Z" />
+          <path d="m8.47 5.38 7.15 7.15-3.09 3.09-7.15-7.15a1.3 1.3 0 0 1 0-1.84l1.25-1.25a1.3 1.3 0 0 1 1.84 0Z" />
+          <path d="m13.28 13.28 1.8-1.8 6.25 6.25a1.27 1.27 0 0 1-1.8 1.8l-6.25-6.25ZM3.5 19h12a2 2 0 0 1 2 2v.5h-16V21a2 2 0 0 1 2-2Z" />
+        </>
       )}
       {name === "listings" && (
         <>
-          <rect x="3.5" y="3.5" width="7" height="7" rx="2" />
-          <rect x="13.5" y="3.5" width="7" height="7" rx="2" />
-          <rect x="3.5" y="13.5" width="7" height="7" rx="2" />
-          <rect x="13.5" y="13.5" width="7" height="7" rx="2" />
+          <rect x="2.5" y="2.5" width="8.5" height="8.5" rx="2" />
+          <rect x="13" y="2.5" width="8.5" height="8.5" rx="2" />
+          <rect x="2.5" y="13" width="8.5" height="8.5" rx="2" />
+          <rect x="13" y="13" width="8.5" height="8.5" rx="2" />
         </>
       )}
       {name === "account" && (
         <>
-          <circle cx="12" cy="8" r="4" />
-          <path d="M4.5 20.5c.8-3.6 3.8-5.5 7.5-5.5s6.7 1.9 7.5 5.5" />
+          <circle cx="12" cy="7.5" r="4.25" />
+          <path d="M12 13.5c-5.1 0-8.5 2.7-8.5 6.05A1.95 1.95 0 0 0 5.45 21h13.1a1.95 1.95 0 0 0 1.95-1.45c0-3.35-3.4-6.05-8.5-6.05Z" />
         </>
       )}
-      {name === "sell" && <path d="M12 5v14M5 12h14" strokeWidth={2.6} />}
+      {name === "sell" && (
+        <path d="M12 4a1.2 1.2 0 0 1 1.2 1.2v5.6h5.6a1.2 1.2 0 1 1 0 2.4h-5.6v5.6a1.2 1.2 0 1 1-2.4 0v-5.6H5.2a1.2 1.2 0 1 1 0-2.4h5.6V5.2A1.2 1.2 0 0 1 12 4Z" />
+      )}
     </svg>
   );
 }
@@ -117,80 +119,42 @@ export function BottomNav() {
     };
   }, [pathname]);
 
-  const items: { href: string; label: string; icon: IconName }[] = [
+  const items: { href: string; label: string; icon: IconName; primary?: boolean }[] = [
     { href: "/", label: t.nav.home, icon: "home" },
     { href: "/auctions", label: t.nav.auctions, icon: "auctions" },
+    { href: "/sell", label: "", icon: "sell", primary: true },
     { href: "/listings", label: t.nav.listings, icon: "listings" },
     { href: "/dashboard", label: t.nav.account, icon: "account" },
   ];
-  const activeIndex = items.findIndex(({ href }) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href),
-  );
-
-  // The glass lens slides under the active tab. Measured from the rendered
-  // tabs so it follows RTL/LTR, label visibility and the compact state.
-  const dockRef = useRef<HTMLDivElement>(null);
-  const tabRefs = useRef<(HTMLAnchorElement | null)[]>([]);
-  const [lens, setLens] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
-  const [moving, setMoving] = useState(false);
-  const lastIndex = useRef(activeIndex);
-  useLayoutEffect(() => {
-    const place = () => {
-      const tab = tabRefs.current[activeIndex];
-      if (!tab) return setLens(null);
-      setLens({ x: tab.offsetLeft, y: tab.offsetTop, w: tab.offsetWidth, h: tab.offsetHeight });
-    };
-    place();
-    const dock = dockRef.current;
-    if (!dock) return;
-    const observer = new ResizeObserver(place);
-    observer.observe(dock);
-    dock.addEventListener("transitionend", place);
-    return () => {
-      observer.disconnect();
-      dock.removeEventListener("transitionend", place);
-    };
-  }, [activeIndex, shrunk]);
-  useEffect(() => {
-    if (lastIndex.current === activeIndex) return;
-    lastIndex.current = activeIndex;
-    setMoving(true);
-    const id = setTimeout(() => setMoving(false), 560);
-    return () => clearTimeout(id);
-  }, [activeIndex]);
-
-  const sellActive = pathname.startsWith("/sell");
   return (
     <nav
       aria-label={lang === "ar" ? "التنقل الرئيسي" : "Main navigation"}
-      className="fixed bottom-0 inset-x-0 z-40 md:hidden px-3.5 pb-[max(env(safe-area-inset-bottom),0.85rem)] pointer-events-none"
+      className="fixed bottom-0 inset-x-0 z-40 md:hidden px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pointer-events-none"
     >
-      <div className={cn(styles.bar, shrunk && styles.compact)}>
-        <div ref={dockRef} className={cn(styles.dock, styles.glass)}>
-          <span
-            aria-hidden="true"
-            className={cn(styles.lens, moving && styles.lensMoving)}
-            style={
-              lens
-                ? {
-                    width: lens.w,
-                    height: lens.h,
-                    top: lens.y,
-                    transform: `translateX(${lens.x}px)`,
-                    opacity: 1,
-                  }
-                : { opacity: 0 }
+      <div className={cn(styles.dock, shrunk && styles.compact)}>
+        <div className={styles.items}>
+          {items.map(({ href, label, icon, primary }) => {
+            const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+            if (primary) {
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={styles.addLink}
+                  aria-label={lang === "ar" ? "أضف إعلان" : "Post an ad"}
+                  aria-current={active ? "page" : undefined}
+                >
+                  <span className={styles.addButton}>
+                    <NavIcon name={icon} className="size-6" />
+                  </span>
+                  <NavigationHint />
+                </Link>
+              );
             }
-          />
-          {items.map(({ href, label, icon }, i) => {
-            const active = i === activeIndex;
             return (
               <Link
                 key={href}
                 href={href}
-                ref={(el) => {
-                  tabRefs.current[i] = el;
-                }}
                 className={cn(styles.item, active && styles.active)}
                 aria-label={label}
                 aria-current={active ? "page" : undefined}
@@ -202,15 +166,6 @@ export function BottomNav() {
             );
           })}
         </div>
-        <Link
-          href="/sell"
-          className={styles.sell}
-          aria-label={lang === "ar" ? "أضف إعلان" : "Post an ad"}
-          aria-current={sellActive ? "page" : undefined}
-        >
-          <NavIcon name="sell" className={styles.sellIcon} />
-          <NavigationHint />
-        </Link>
       </div>
     </nav>
   );
