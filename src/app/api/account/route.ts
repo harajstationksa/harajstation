@@ -8,7 +8,7 @@ import { getCurrentUser, SESSION_COOKIE } from "@/lib/auth";
 import { isValidDisplayName, normalizeSaudiPhone } from "@/lib/utils";
 import { CITIES } from "@/lib/constants";
 import { rateLimitGuard } from "@/lib/rate-limit";
-import { emailConfigured } from "@/lib/email";
+import { emailConfigured, sendEmail } from "@/lib/email";
 import { issueEmailVerification } from "@/lib/email-verify";
 
 const schema = z.object({
@@ -53,7 +53,8 @@ export async function PATCH(req: Request) {
       );
     }
     const taken = await db.user.findFirst({
-      where: { phone, id: { not: user.id } },
+      // only a VERIFIED owner blocks a number; unverified entries cannot squat it
+      where: { phone, phoneVerified: true, id: { not: user.id } },
     });
     if (taken) {
       return NextResponse.json(
@@ -68,7 +69,9 @@ export async function PATCH(req: Request) {
   const newEmail = parsed.data.email?.toLowerCase().trim();
   const emailChanged = !!newEmail && newEmail !== user.email;
   const oauthOnly = user.passwordHash.startsWith("oauth:");
-  const needsOtp = user.twoFactorEmail || oauthOnly;
+  // Changing the address moves the whole account, so the CURRENT mailbox must
+  // always approve it with a code — a stolen session + password is not enough.
+  const needsOtp = true;
   if (emailChanged) {
     if (!emailConfigured()) {
       return NextResponse.json(
@@ -168,6 +171,13 @@ export async function PATCH(req: Request) {
       { status: 409 },
     );
   if (emailChanged && newEmail) {
+    // tell the previous mailbox, so an unexpected change is noticed immediately
+    await sendEmail({
+      to: user.email,
+      subject: "تم تغيير بريد حسابك في حراج ستيشن",
+      html: `<div dir="rtl"><p>تم تغيير البريد الإلكتروني لحسابك في حراج ستيشن إلى عنوان آخر.</p><p>إن لم تكن أنت من قام بذلك فراسل الدعم فوراً بالرد على هذه الرسالة لاستعادة حسابك.</p></div>`,
+      text: "تم تغيير البريد الإلكتروني لحسابك في حراج ستيشن. إن لم تكن أنت فراسل الدعم فوراً بالرد على هذه الرسالة.",
+    }).catch(() => false);
     const sent = await issueEmailVerification(user.id, newEmail).catch(() => false);
     const res = NextResponse.json(
       sent

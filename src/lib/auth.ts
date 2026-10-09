@@ -2,7 +2,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
 import { db } from "./db";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
+import { isSessionTokenRevoked, revokeSessionToken } from "./session-revocation";
 import { STAFF_ROLES } from "./constants";
 import { canUseStaffGate, type StaffPermission } from "./staff-permissions";
 
@@ -50,6 +51,7 @@ export async function signSessionToken(payload: SessionInput, verifiedVersion?: 
     .setIssuer(SESSION_ISSUER)
     .setAudience("site")
     .setIssuedAt()
+    .setJti(randomUUID())
     .setExpirationTime(`${SESSION_DAYS}d`)
     .sign(secret());
 }
@@ -81,6 +83,7 @@ export async function signAdminToken(payload: SessionInput, verifiedVersion?: nu
     .setIssuer(SESSION_ISSUER)
     .setAudience(ADMIN_AUDIENCE)
     .setIssuedAt()
+    .setJti(randomUUID())
     .setExpirationTime(`${ADMIN_SESSION_HOURS}h`)
     .sign(secret("admin"));
 }
@@ -98,6 +101,7 @@ export async function getAdminSession(): Promise<SessionPayload | null> {
     const sub = payload.sub as string;
     const ver = Number(payload.ver);
     if (!sub || !Number.isSafeInteger(ver)) return null;
+    if (await isSessionTokenRevoked(payload.jti)) return null;
     const user = await db.user.findUnique({
       where: { id: sub },
       select: { role: true, name: true, isBanned: true, sessionVersion: true },
@@ -132,6 +136,7 @@ export async function getSession(): Promise<SessionPayload | null> {
     const sub = payload.sub as string;
     const ver = Number(payload.ver);
     if (!sub || !Number.isSafeInteger(ver)) return null;
+    if (await isSessionTokenRevoked(payload.jti)) return null;
     // JWTs are intentionally not trusted as the current authorization state.
     // Re-read the small security projection so bans, role changes and session
     // revocation take effect immediately across every API using getSession().
@@ -198,4 +203,30 @@ export async function getAdminCurrentUser(
   )
     return null;
   return user;
+}
+
+/**
+ * Revoke the session token carried by this request (logout). With
+ * `everywhere`, every session of the account is ended by bumping its version.
+ */
+export async function revokeCurrentSession(kind: "site" | "admin", everywhere = false) {
+  const store = await cookies();
+  const token = store.get(kind === "admin" ? ADMIN_COOKIE_NAME : COOKIE_NAME)?.value;
+  if (!token) return;
+  try {
+    const { payload } = await jwtVerify(token, secret(kind), {
+      issuer: SESSION_ISSUER,
+      audience: kind === "admin" ? ADMIN_AUDIENCE : "site",
+      algorithms: ["HS256"],
+    });
+    if (payload.jti && payload.exp) await revokeSessionToken(payload.jti, payload.exp);
+    if (everywhere && payload.sub) {
+      await db.user.update({
+        where: { id: payload.sub },
+        data: { sessionVersion: { increment: 1 } },
+      });
+    }
+  } catch {
+    /* an invalid or expired token has nothing left to revoke */
+  }
 }

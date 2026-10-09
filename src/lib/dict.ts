@@ -299,7 +299,7 @@ const ar = {
   auth: {
     loginTitle: "تسجيل الدخول",
     loginSub: "حياك الله من جديد في حراج ستيشن",
-    identifier: "البريد الإلكتروني أو رقم الجوال",
+    identifier: "البريد الإلكتروني أو رقم الجوال الموثّق",
     password: "كلمة المرور",
     forgot: "نسيت كلمة المرور؟",
     loginBtn: "دخول",
@@ -780,6 +780,9 @@ const ar = {
       pwDev: "وضع التطوير (بدون بريد):",
       pwBtn: "إرسال رابط التغيير إلى بريدي",
       genericError: "حدث خطأ — حاول مجدداً",
+      signOutAllTitle: "تسجيل الخروج من كل الأجهزة",
+      signOutAllDesc: "ينهي كل الجلسات المفتوحة لحسابك على أي جهاز آخر — استخدمه إن فقدت جهازاً أو شككت في دخول غيرك.",
+      signOutAllBtn: "إنهاء كل الجلسات",
       // 2FA card
       tfaTitle: "التحقق بخطوتين (2FA)",
       tfaOn: "مفعّل",
@@ -1461,7 +1464,7 @@ const en: typeof ar = {
   auth: {
     loginTitle: "Log in",
     loginSub: "Welcome back to Haraj Station",
-    identifier: "Email or phone number",
+    identifier: "Email or verified phone number",
     password: "Password",
     forgot: "Forgot password?",
     loginBtn: "Log in",
@@ -1951,6 +1954,9 @@ const en: typeof ar = {
       pwDev: "Dev mode (no mail):",
       pwBtn: "Email me the change link",
       genericError: "Something went wrong — try again",
+      signOutAllTitle: "Sign out of all devices",
+      signOutAllDesc: "Ends every open session of your account on any device — use it if you lost a device or suspect someone else signed in.",
+      signOutAllBtn: "End all sessions",
       tfaTitle: "Two-Factor Authentication (2FA)",
       tfaOn: "Enabled",
       tfaBody: (email: string) =>

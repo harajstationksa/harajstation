@@ -7,18 +7,21 @@ import { db } from "@/lib/db";
 import { SESSION_COOKIE, sessionCookieOptions, signSessionToken } from "@/lib/auth";
 import { STAFF_ROLES } from "@/lib/constants";
 import { normalizeSaudiPhone } from "@/lib/utils";
-import { rateLimitGuard } from "@/lib/rate-limit";
+import { clientIp, rateLimitGuard } from "@/lib/rate-limit";
 import { emailConfigured } from "@/lib/email";
 import { maskEmail, startOtpChallenge } from "@/lib/login-otp";
 import {
+  ACCOUNT_LOCK_AFTER,
   FAIL_WINDOW_MS,
-  LOCK_AFTER,
   LOCK_MINUTES,
   ghostFailure,
   ghostLock,
   lockNowError,
   lockedError,
-  teaseFor,
+  loginPairKey,
+  pairFailure,
+  pairLock,
+  pairReset,
 } from "@/lib/login-guard";
 
 const schema = z.object({
@@ -43,17 +46,23 @@ export async function POST(req: Request) {
   const phone = normalizeSaudiPhone(identifier);
   const idKey = phone ?? identifier.toLowerCase();
   const user = await db.user.findFirst({
-    where: phone ? { phone } : { email: identifier.toLowerCase() },
+    // only a verified number identifies an account (numbers are not unique until verified)
+    where: phone ? { phone, phoneVerified: true } : { email: identifier.toLowerCase() },
   });
 
   const now = new Date();
+  // Locks are per (account, network): an attacker who knows an address only
+  // shuts out their own network, never the owner's. The account-wide lock in
+  // the database is the backstop for distributed guessing.
+  const pairKey = loginPairKey(user?.id ?? `ghost:${idKey}`, clientIp(req));
 
   // active lockout rejects even the right password — that's the point
-  const lock = user
-    ? user.lockUntil && user.lockUntil > now
+  const lock =
+    user?.lockUntil && user.lockUntil > now
       ? user.lockUntil
-      : null
-    : await ghostLock(idKey);
+      : user
+        ? await pairLock(pairKey)
+        : await ghostLock(pairKey);
   if (lock) {
     return NextResponse.json(
       { error: apiMessage(req, lockedError(lock)), locked: true, suggestReset: true },
@@ -69,7 +78,7 @@ export async function POST(req: Request) {
     if (!user) {
       // same escalation for identifiers that match no account, so responses
       // never reveal which accounts exist
-      const verdict = await ghostFailure(idKey);
+      const verdict = await ghostFailure(pairKey);
       return NextResponse.json(
         {
           error: apiMessage(req, verdict.error),
@@ -79,6 +88,7 @@ export async function POST(req: Request) {
         { status: verdict.lockedUntil ? 423 : 401 },
       );
     }
+    const verdict = await pairFailure(pairKey);
     return db.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM "User" WHERE id=${user.id} FOR UPDATE`;
       const fresh = await tx.user.findUniqueOrThrow({ where: { id: user.id } });
@@ -96,7 +106,7 @@ export async function POST(req: Request) {
         (fresh.lastFailedAt && now.getTime() - fresh.lastFailedAt.getTime() > FAIL_WINDOW_MS) ||
         (fresh.lockUntil && fresh.lockUntil <= now);
       const count = (stale ? 0 : fresh.failedLogins) + 1;
-      if (count >= LOCK_AFTER) {
+      if (count >= ACCOUNT_LOCK_AFTER) {
         await tx.user.update({
           where: { id: user.id },
           data: {
@@ -114,8 +124,14 @@ export async function POST(req: Request) {
         where: { id: user.id },
         data: { failedLogins: count, lastFailedAt: now, lockUntil: null },
       });
-      const { error, suggestReset } = teaseFor(count);
-      return NextResponse.json({ error, suggestReset }, { status: 401 });
+      return NextResponse.json(
+        {
+          error: apiMessage(req, verdict.error),
+          suggestReset: verdict.suggestReset,
+          locked: !!verdict.lockedUntil,
+        },
+        { status: verdict.lockedUntil ? 423 : 401 },
+      );
     });
   }
 
@@ -172,6 +188,7 @@ export async function POST(req: Request) {
     );
   }
   // right password wipes the failure history
+  await pairReset(pairKey);
   if (user.failedLogins > 0 || user.lockUntil) {
     await db.user.update({
       where: { id: user.id },

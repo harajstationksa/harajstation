@@ -11,7 +11,11 @@
 import { createHash } from "node:crypto";
 import { redis } from "./redis";
 
-export const LOCK_AFTER = 8; // wrong attempts before the door closes
+export const LOCK_AFTER = 8; // wrong attempts from ONE network before it is shut out
+/** Wrong attempts from all networks together before the account itself locks.
+ * High on purpose: a stranger who knows an email must not be able to lock the
+ * owner out with a handful of guesses, but a distributed attack still stops. */
+export const ACCOUNT_LOCK_AFTER = 30;
 export const LOCK_MINUTES = 15;
 export const FAIL_WINDOW_MS = 30 * 60_000; // stale counters restart after this
 
@@ -131,4 +135,94 @@ export async function ghostFailure(key: string): Promise<FailVerdict> {
   }
   ghosts.set(key, { count, lastAt: now, lockUntil: 0 });
   return { ...teaseFor(count), lockedUntil: null };
+}
+
+/* ── per (account, network) counter ──
+   The lockout an attacker can trigger only shuts out the attacker's own
+   network; the owner on another network keeps signing in. Redis-backed when
+   available; an outage falls back to a per-worker counter (the account-wide
+   database counter keeps protecting the account meanwhile). */
+
+const pairs = new Map<string, GhostEntry>();
+
+function sweepPairs() {
+  const now = Date.now();
+  if (pairs.size < 10_000) return;
+  for (const [k, g] of pairs) {
+    if (now - g.lastAt > FAIL_WINDOW_MS && g.lockUntil < now) pairs.delete(k);
+  }
+}
+
+function memoryPairFailure(key: string): FailVerdict {
+  const now = Date.now();
+  sweepPairs();
+  const prev = pairs.get(key);
+  const stale = !prev || now - prev.lastAt > FAIL_WINDOW_MS;
+  const count = stale ? 1 : prev.count + 1;
+  if (count >= LOCK_AFTER) {
+    pairs.set(key, { count: 0, lastAt: now, lockUntil: now + LOCK_MINUTES * 60_000 });
+    return {
+      error: lockNowError(),
+      suggestReset: true,
+      lockedUntil: new Date(now + LOCK_MINUTES * 60_000),
+    };
+  }
+  pairs.set(key, { count, lastAt: now, lockUntil: 0 });
+  return { ...teaseFor(count), lockedUntil: null };
+}
+
+/** Counter key for one account (or unknown identifier) from one client network. */
+export function loginPairKey(account: string, ip: string) {
+  return `${account}|${ip}`;
+}
+
+/** Active lock for this account from this network, if any. */
+export async function pairLock(key: string): Promise<Date | null> {
+  const r = redis();
+  if (r) {
+    try {
+      const ttl = await r.pttl(`pair:lock:${key}`);
+      return ttl > 0 ? new Date(Date.now() + ttl) : null;
+    } catch {
+      /* fall back to this worker's counter */
+    }
+  }
+  const g = pairs.get(key);
+  return g && g.lockUntil > Date.now() ? new Date(g.lockUntil) : null;
+}
+
+/** Register a wrong password for this account from this network. */
+export async function pairFailure(key: string): Promise<FailVerdict> {
+  const r = redis();
+  if (r) {
+    try {
+      const k = `pair:fail:${key}`;
+      const count = await r.incr(k);
+      await r.pexpire(k, FAIL_WINDOW_MS);
+      if (count >= LOCK_AFTER) {
+        await r
+          .multi()
+          .set(`pair:lock:${key}`, "1", "PX", LOCK_MINUTES * 60_000)
+          .del(k)
+          .exec();
+        return {
+          error: lockNowError(),
+          suggestReset: true,
+          lockedUntil: new Date(Date.now() + LOCK_MINUTES * 60_000),
+        };
+      }
+      return { ...teaseFor(count), lockedUntil: null };
+    } catch {
+      /* fall back to this worker's counter */
+    }
+  }
+  return memoryPairFailure(key);
+}
+
+/** Successful sign-in clears this network's counter. */
+export async function pairReset(key: string): Promise<void> {
+  pairs.delete(key);
+  const r = redis();
+  if (!r) return;
+  await r.del(`pair:fail:${key}`, `pair:lock:${key}`).catch(() => {});
 }

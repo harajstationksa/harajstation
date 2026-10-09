@@ -288,15 +288,28 @@ it("A04: concurrent store decisions agree with the badge", async () => {
     row.status === "APPROVED",
   );
 });
-it("A05: concurrent bad admin passwords lock the account without lost attempts", async () => {
+it("A05: concurrent bad admin passwords are all counted; only the guessing network locks", async () => {
   const user = await db.user.findUniqueOrThrow({ where: { id: ids[0] } });
   const results = await Promise.all(
     Array.from({ length: 10 }, () => login(req({ email: user.email, password: "wrong" }))),
   );
-  expect(results.some((r) => r.status === 423)).toBe(true);
-  expect(
-    (await db.user.findUniqueOrThrow({ where: { id: ids[0] } })).lockUntil!.getTime(),
-  ).toBeGreaterThan(Date.now());
+  expect(results.every((r) => r.status === 401)).toBe(true);
+  // every attempt is counted against the account (the distributed backstop)…
+  const after = await db.user.findUniqueOrThrow({ where: { id: ids[0] } });
+  expect(after.failedLogins).toBe(10);
+  // …but strangers' guesses alone never lock the staff member out everywhere
+  expect(after.lockUntil).toBeNull();
+  const fixed = () =>
+    login(
+      new Request("http://localhost/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-real-ip": "10.45.0.1" },
+        body: JSON.stringify({ email: user.email, password: "wrong" }),
+      }),
+    );
+  const statuses: number[] = [];
+  for (let n = 0; n < 8; n++) statuses.push((await fixed()).status);
+  expect(statuses.at(-1)).toBe(423);
 });
 it("A06: failed initial mail leaves no reusable challenge", async () => {
   await db.loginOtp.deleteMany({ where: { userId: ids[0] } });

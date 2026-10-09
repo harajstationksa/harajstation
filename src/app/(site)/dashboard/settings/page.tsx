@@ -5,6 +5,7 @@ import { ChangePasswordCard } from "@/components/ChangePasswordCard";
 import { TwoFactorCard } from "@/components/TwoFactorCard";
 import { IdentityVerifyCard } from "@/components/IdentityVerifyCard";
 import { DeleteAccountCard } from "@/components/DeleteAccountCard";
+import { SignOutEverywhereCard } from "@/components/SignOutEverywhereCard";
 import { getT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +48,7 @@ export default async function SettingsPage() {
         status={(idReq?.status as "PENDING" | "APPROVED" | "REJECTED") ?? null}
         note={idReq?.note ?? null}
       />
+      <SignOutEverywhereCard />
       <DeleteAccountCard oauthOnly={user.passwordHash.startsWith("oauth:")} />
     </div>
   );
