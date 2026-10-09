@@ -15,102 +15,106 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String
+  id               String    @id @default(cuid())
+  name             String
   // Email-first registration; phone is optional and can be added in settings.
   // phoneVerified is reserved for future SMS-OTP gating of sensitive actions.
-  email         String    @unique
-  phone         String?   @unique
-  phoneVerified Boolean   @default(false)
-  passwordHash  String
+  email            String    @unique
+  // Unverified until SMS verification exists: NOT unique (nobody can squat a
+  // number) and never a login identifier unless phoneVerified is true.
+  phone            String?
+  phoneVerified    Boolean   @default(false)
+  passwordHash     String
   // Incremented after password/email changes, bans and other security events.
   // Every signed session carries this version and is rejected once stale.
-  sessionVersion Int      @default(0)
+  sessionVersion   Int       @default(0)
   // Stable Google identity. Email is mutable and must never be the long-term
   // provider key used to decide which account receives a session.
-  googleSub      String?   @unique
-  city          String
-  avatarColor   String    @default("#DB7759")
-  avatarUrl     String?
+  googleSub        String?   @unique
+  city             String
+  avatarColor      String    @default("#DB7759")
+  avatarUrl        String?
   // USER | ADMIN | MODERATOR | SUPPORT | ACCOUNTANT | STAFF
-  role          String    @default("USER")
+  role             String    @default("USER")
   // Explicit grants for role STAFF only. Legacy roles retain their fixed access.
-  staffPermissions String @default("[]")
-  credibility   Int       @default(50)
-  successfulTx  Int       @default(0)
-  points        Int       @default(0)
-  lastDailyAt   DateTime?
-  isPro         Boolean   @default(false)
+  staffPermissions String    @default("[]")
+  credibility      Int       @default(50)
+  successfulTx     Int       @default(0)
+  points           Int       @default(0)
+  lastDailyAt      DateTime?
+  isPro            Boolean   @default(false)
   // free-tier promo: when set, PRO expires at this date (cron flips isPro off).
   // NULL = permanent PRO (granted manually by admin).
-  proUntil      DateTime?
-  isBanned      Boolean   @default(false)
-  createdAt     DateTime  @default(now())
+  proUntil         DateTime?
+  isBanned         Boolean   @default(false)
+  createdAt        DateTime  @default(now())
 
-  listings      Listing[]
-  bids          Bid[]
-  favorites     Favorite[]
-  notifications Notification[]
-  credLogs      CredibilityLog[]
-  sales         Transaction[]    @relation("SellerTx")
-  purchases     Transaction[]    @relation("BuyerTx")
-  wonAuctions   Auction[]        @relation("AuctionWinner")
-  buyerConvs    Conversation[]   @relation("ConvBuyer")
-  sellerConvs   Conversation[]   @relation("ConvSeller")
-  messages      Message[]
-  evidences     Evidence[]
-  comments      Comment[]
-  reports       Report[]
-  reviewsGiven  Review[]         @relation("ReviewAuthor")
-  reviewsGotten Review[]         @relation("ReviewTarget")
-  stores        Store[]
-  storeFollows  StoreFollow[]
-  campaigns     Campaign[]
-  pointTx       PointTransaction[]
-  resetTokens   PasswordResetToken[]
-  savedSearches SavedSearch[]
-  following     Follow[]         @relation("Following")
-  followers     Follow[]         @relation("Followers")
-  pushSubs      PushSubscription[]
-  proxyBids     ProxyBid[]
-  auctionBlocks AuctionBlock[]
+  listings        Listing[]
+  bids            Bid[]
+  favorites       Favorite[]
+  notifications   Notification[]
+  credLogs        CredibilityLog[]
+  sales           Transaction[]            @relation("SellerTx")
+  purchases       Transaction[]            @relation("BuyerTx")
+  wonAuctions     Auction[]                @relation("AuctionWinner")
+  buyerConvs      Conversation[]           @relation("ConvBuyer")
+  sellerConvs     Conversation[]           @relation("ConvSeller")
+  messages        Message[]
+  evidences       Evidence[]
+  comments        Comment[]
+  reports         Report[]
+  reviewsGiven    Review[]                 @relation("ReviewAuthor")
+  reviewsGotten   Review[]                 @relation("ReviewTarget")
+  stores          Store[]
+  storeFollows    StoreFollow[]
+  campaigns       Campaign[]
+  pointTx         PointTransaction[]
+  resetTokens     PasswordResetToken[]
+  savedSearches   SavedSearch[]
+  following       Follow[]                 @relation("Following")
+  followers       Follow[]                 @relation("Followers")
+  pushSubs        PushSubscription[]
+  proxyBids       ProxyBid[]
+  auctionBlocks   AuctionBlock[]
   // manual ID verification (admin-reviewed) → «موثّق» badge
-  idVerified    Boolean   @default(false)
-  identityReq   IdentityVerification?
-  payments      Payment[]
+  idVerified      Boolean                  @default(false)
+  identityReq     IdentityVerification?
+  payments        Payment[]
   // set when the registration email is confirmed via the emailed link
   emailVerifiedAt DateTime?
   emailTokens     EmailVerificationToken[]
 
   // login security: consecutive wrong-password counter → temporary lockout,
   // plus opt-in email 2FA (a one-time code mailed on every login)
-  failedLogins   Int       @default(0)
-  lastFailedAt   DateTime?
-  lockUntil      DateTime?
-  twoFactorEmail Boolean   @default(false)
-  loginOtps      LoginOtp[]
+  failedLogins    Int        @default(0)
+  lastFailedAt    DateTime?
+  lockUntil       DateTime?
+  twoFactorEmail  Boolean    @default(false)
+  loginOtps       LoginOtp[]
   // staff accounts start passwordless (email-code login only) until the
   // member sets a password from the admin portal; irrelevant for role USER
-  passwordEnabled Boolean  @default(true)
+  passwordEnabled Boolean    @default(true)
 
   // referral program: every user carries a shareable code; referredById links
   // the invitee to their referrer forever — the referrer earns a percentage
   // (admin-set) of every points purchase the invitee makes.
-  referralCode    String?  @unique
-  referredById    String?
-  referredBy      User?    @relation("Referrals", fields: [referredById], references: [id])
-  referrals       User[]   @relation("Referrals")
-  referralEarned  ReferralEarning[] @relation("ReferralEarner")
-  referralSourced ReferralEarning[] @relation("ReferralSource")
+  referralCode     String?           @unique
+  referredById     String?
+  referredBy       User?             @relation("Referrals", fields: [referredById], references: [id])
+  referrals        User[]            @relation("Referrals")
+  referralEarned   ReferralEarning[] @relation("ReferralEarner")
+  referralSourced  ReferralEarning[] @relation("ReferralSource")
   promoRedemptions PromoRedemption[]
 
   // seller responsiveness: sum/count of first-reply delays (minutes, capped)
   // across conversations — avg under an hour earns the «يرد بسرعة» badge
-  responseMinsSum Int @default(0)
-  responseCount   Int @default(0)
-  offersMade      Offer[] @relation("OfferBuyer")
-  blockedUsers UserBlock[] @relation("UserBlocker")
-  blockedBy UserBlock[] @relation("UserBlocked")
+  responseMinsSum Int         @default(0)
+  responseCount   Int         @default(0)
+  offersMade      Offer[]     @relation("OfferBuyer")
+  blockedUsers    UserBlock[] @relation("UserBlocker")
+  blockedBy       UserBlock[] @relation("UserBlocked")
+
+  @@index([phone])
 }
 
 // One row per referral commission: referrer earned `points` because the user
@@ -121,7 +125,7 @@ model ReferralEarning {
   referrer   User     @relation("ReferralEarner", fields: [referrerId], references: [id], onDelete: Cascade)
   referredId String
   referred   User     @relation("ReferralSource", fields: [referredId], references: [id], onDelete: Cascade)
-  paymentId  String? @unique
+  paymentId  String?  @unique
   points     Int
   createdAt  DateTime @default(now())
 
@@ -131,32 +135,32 @@ model ReferralEarning {
 // Admin-created promo codes: applied during a points top-up, they add
 // `percent`% bonus points on top of the package total.
 model PromoCode {
-  id          String    @id @default(cuid())
-  code        String    @unique // stored uppercase
+  id          String            @id @default(cuid())
+  code        String            @unique // stored uppercase
   percent     Int // bonus % on the package points
-  maxUses     Int       @default(0) // 0 = unlimited
-  usedCount   Int       @default(0)
-  oncePerUser Boolean   @default(true)
+  maxUses     Int               @default(0) // 0 = unlimited
+  usedCount   Int               @default(0)
+  oncePerUser Boolean           @default(true)
   expiresAt   DateTime? // null = never expires
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
+  isActive    Boolean           @default(true)
+  createdAt   DateTime          @default(now())
   redemptions PromoRedemption[]
 }
 
 // One row per confirmed promo use — enforces oncePerUser and feeds admin stats
 model PromoRedemption {
-  id          String    @id @default(cuid())
-  promoId     String
-  promo       PromoCode @relation(fields: [promoId], references: [id], onDelete: Cascade)
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  paymentId   String?   @unique // null for dev-mode credits
+  id             String    @id @default(cuid())
+  promoId        String
+  promo          PromoCode @relation(fields: [promoId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentId      String?   @unique // null for dev-mode credits
   // Set to "promoId:userId" only for once-per-user promos. PostgreSQL permits
   // multiple NULLs, so repeatable promos remain repeatable while the unique
   // index closes concurrent once-per-user redemptions.
-  eligibilityKey String? @unique
-  bonusPoints Int
-  createdAt   DateTime  @default(now())
+  eligibilityKey String?   @unique
+  bonusPoints    Int
+  createdAt      DateTime  @default(now())
 
   @@index([promoId])
   @@index([userId])
@@ -193,17 +197,17 @@ model IdentityVerification {
 // Saved-search alert: the user saves a search («كامري 2020 الرياض») and gets
 // a notification whenever a newly published listing matches it.
 model SavedSearch {
-  id        String    @id @default(cuid())
+  id        String             @id @default(cuid())
   userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  query     String    @default("") // raw search words ("" = any)
-  category  String    @default("") // category slug ("" = all)
-  city      String    @default("") // "" = all cities
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  query     String             @default("") // raw search words ("" = any)
+  category  String             @default("") // category slug ("" = all)
+  city      String             @default("") // "" = all cities
   // "" | STANDARD | AUCTION | ANNOUNCE
-  type      String    @default("")
-  createdAt DateTime  @default(now())
+  type      String             @default("")
+  createdAt DateTime           @default(now())
   lastHitAt DateTime? // last time a matching listing triggered an alert
-  hits      Int       @default(0)
+  hits      Int                @default(0)
   matches   SavedSearchMatch[]
 
   @@index([userId])
@@ -239,6 +243,26 @@ model PushSubscription {
 
 // Proxy (agency) bidding: the bidder sets a private ceiling and the system
 // automatically outbids rivals on their behalf up to that amount.
+// Bids withdrawn from a live auction (seller block or account ban). The row is
+// archived here instead of being erased, so support can always reconstruct
+// the auction's history in a dispute. No foreign keys: history outlives rows.
+model VoidedBid {
+  id         String   @id // the original Bid id
+  auctionId  String
+  bidderId   String
+  amount     Int
+  maskedName String
+  anonymous  Boolean  @default(false)
+  bidAt      DateTime
+  voidedAt   DateTime @default(now())
+  voidedById String?
+  // SELLER_BLOCK | ACCOUNT_BAN
+  reason     String
+
+  @@index([auctionId])
+  @@index([bidderId])
+}
+
 model ProxyBid {
   id        String   @id @default(cuid())
   auctionId String
@@ -271,21 +295,21 @@ model Presence {
 // browser holds between the password step and the code step (returned only
 // after a correct password); the 6-digit code itself is stored hashed.
 model LoginOtp {
-  id         String    @id @default(cuid())
-  userId     String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  challenge  String    @unique
-  purpose    String    @default("SITE_LOGIN")
-  sessionVersion Int   @default(-1)
-  issuedEmail String   @default("")
-  pendingName String?
-  deliveredAt DateTime?
-  codeHash   String
-  attempts   Int       @default(0)
-  lastSentAt DateTime  @default(now())
-  expiresAt  DateTime
-  consumedAt DateTime?
-  createdAt  DateTime  @default(now())
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge      String    @unique
+  purpose        String    @default("SITE_LOGIN")
+  sessionVersion Int       @default(-1)
+  issuedEmail    String    @default("")
+  pendingName    String?
+  deliveredAt    DateTime?
+  codeHash       String
+  attempts       Int       @default(0)
+  lastSentAt     DateTime  @default(now())
+  expiresAt      DateTime
+  consumedAt     DateTime?
+  createdAt      DateTime  @default(now())
 
   @@index([userId])
 }
@@ -316,51 +340,51 @@ model Category {
 }
 
 model Listing {
-  updatedAt DateTime @default(now()) @updatedAt
-  id           String    @id @default(cuid())
+  updatedAt      DateTime  @default(now()) @updatedAt
+  id             String    @id @default(cuid())
   // human-readable reference, e.g. SM-100234 — searchable by admins
-  ref          String?   @unique
+  ref            String?   @unique
   // STANDARD | AUCTION | ANNOUNCE  (plain string, not an enum — no migration
   // needed to add a value; "not an auction" is `type != AUCTION`)
-  type         String    @default("STANDARD")
-  title        String
-  description  String
-  price        Int? // null for auctions (lives on Auction) and «على السوم» announcements
+  type           String    @default("STANDARD")
+  title          String
+  description    String
+  price          Int? // null for auctions (lives on Auction) and «على السوم» announcements
   // NEW | USED | LIKE_NEW
-  condition    String    @default("USED")
-  city         String
-  neighborhood String?
-  images       String    @default("[]") // JSON string[] of image urls
+  condition      String    @default("USED")
+  city           String
+  neighborhood   String?
+  images         String    @default("[]") // JSON string[] of image urls
   // ACTIVE | PENDING | AWAITING_INFO | SOLD | EXPIRED | REMOVED
-  status       String    @default("ACTIVE")
+  status         String    @default("ACTIVE")
   // Internal review metadata; old listings keep their publication state.
-  riskLevel    String    @default("NORMAL")
-  riskReasons  String    @default("[]") // JSON reason codes
-  riskSignals  String    @default("[]") // fixed rule labels, never seller free text
+  riskLevel      String    @default("NORMAL")
+  riskReasons    String    @default("[]") // JSON reason codes
+  riskSignals    String    @default("[]") // fixed rule labels, never seller free text
   requestMessage String?
-  reviewedBy   String?
-  reviewedAt   DateTime?
-  isFeatured   Boolean   @default(false)
-  featuredUntil DateTime?
-  isPromoted   Boolean   @default(false)
-  promotedUntil DateTime?
-  views        Int       @default(0)
-  phone        String?
-  whatsapp     String?
-  showPhone    Boolean   @default(true)
+  reviewedBy     String?
+  reviewedAt     DateTime?
+  isFeatured     Boolean   @default(false)
+  featuredUntil  DateTime?
+  isPromoted     Boolean   @default(false)
+  promotedUntil  DateTime?
+  views          Int       @default(0)
+  phone          String?
+  whatsapp       String?
+  showPhone      Boolean   @default(true)
   // feed position: listings order by bumpedAt (= createdAt until the seller
   // uses «تجديد» — free every N hours, then points — to jump back to the top)
-  bumpedAt     DateTime  @default(now())
+  bumpedAt       DateTime  @default(now())
   // set once when the price-drop nudge fires so the seller is never re-nagged
-  priceNudgeAt DateTime?
+  priceNudgeAt   DateTime?
   // PICKUP | SHIPPING | DELIVERY (only for physical goods)
-  deliveryMethod String  @default("PICKUP")
+  deliveryMethod String    @default("PICKUP")
   // category-specific fields as JSON (brand/year/rooms/area/...)
-  attributes   String    @default("{}")
+  attributes     String    @default("{}")
   // normalized Arabic text (title + description + attributes) for smart search
-  searchText   String    @default("")
-  createdAt    DateTime  @default(now())
-  expiresAt    DateTime?
+  searchText     String    @default("")
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime?
 
   sellerId   String
   seller     User     @relation(fields: [sellerId], references: [id])
@@ -369,15 +393,15 @@ model Listing {
   storeId    String?
   store      Store?   @relation(fields: [storeId], references: [id])
 
-  auction      Auction?
-  favorites    Favorite[]
-  transactions Transaction[]
-  convs        Conversation[]
-  comments     Comment[]
-  campaigns    Campaign[]
-  viewLogs     ListingView[]
+  auction       Auction?
+  favorites     Favorite[]
+  transactions  Transaction[]
+  convs         Conversation[]
+  comments      Comment[]
+  campaigns     Campaign[]
+  viewLogs      ListingView[]
   searchMatches SavedSearchMatch[]
-  offers       Offer[]
+  offers        Offer[]
 
   @@index([status, type, createdAt])
   @@index([status, bumpedAt])
@@ -385,6 +409,9 @@ model Listing {
   @@index([city])
   @@index([sellerId, status])
   @@index([status, riskLevel, createdAt])
+  // pg_trgm GIN indexes for the smart-search ILIKE predicates (migration 20261007000000)
+  @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin, map: "Listing_searchText_trgm_idx")
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "Listing_title_trgm_idx")
 }
 
 // Structured price offer (سوم): the buyer bids a price on a fixed-price
@@ -439,26 +466,26 @@ model CampaignImpression {
 // keeps counting unique visitors as a stat. `targetVisitors` survives only
 // for legacy visitor-based campaigns.
 model Campaign {
-  id             String    @id @default(cuid())
+  id             String               @id @default(cuid())
   listingId      String
-  listing        Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listing        Listing              @relation(fields: [listingId], references: [id], onDelete: Cascade)
   ownerId        String
-  owner          User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  targetVisitors Int       @default(0)
-  days           Int       @default(0)
+  owner          User                 @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  targetVisitors Int                  @default(0)
+  days           Int                  @default(0)
   endsAt         DateTime?
-  delivered      Int       @default(0)
-  notified       Int       @default(0)
+  delivered      Int                  @default(0)
+  notified       Int                  @default(0)
   // ad-analytics counters: times the sponsored card was served / clicked
-  impressions    Int       @default(0)
-  clicks         Int       @default(0)
+  impressions    Int                  @default(0)
+  clicks         Int                  @default(0)
   pointsSpent    Int
   // ACTIVE | PAUSED_REVIEW | COMPLETED | CANCELLED
-  status         String    @default("ACTIVE")
+  status         String               @default("ACTIVE")
   reviewPausedAt DateTime?
   // optional geo-targeting: campaign focuses on buyers in this city ("" = all)
-  targetCity     String    @default("")
-  createdAt      DateTime  @default(now())
+  targetCity     String               @default("")
+  createdAt      DateTime             @default(now())
   endedAt        DateTime?
   impressionLogs CampaignImpression[]
 
@@ -496,16 +523,16 @@ model Report {
 
 // Mutual rating after a CONFIRMED transaction
 model Review {
-  id            String   @id @default(cuid())
+  id            String      @id @default(cuid())
   transactionId String
-  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
   authorId      String
-  author        User     @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  author        User        @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
   targetId      String
-  target        User     @relation("ReviewTarget", fields: [targetId], references: [id], onDelete: Cascade)
+  target        User        @relation("ReviewTarget", fields: [targetId], references: [id], onDelete: Cascade)
   rating        Int // 1..5
   comment       String?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime    @default(now())
 
   @@unique([transactionId, authorId])
   @@index([targetId])
@@ -582,28 +609,28 @@ model Setting {
 }
 
 model Store {
-  updatedAt DateTime @default(now()) @updatedAt
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  slug        String    @unique
-  name        String
-  description String    @default("")
-  logoUrl     String?
-  bannerUrl   String?
+  updatedAt    DateTime           @default(now()) @updatedAt
+  id           String             @id @default(cuid())
+  userId       String
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slug         String             @unique
+  name         String
+  description  String             @default("")
+  logoUrl      String?
+  bannerUrl    String?
   // set when staff approves a StoreVerification → «متجر موثّق» badge
-  isVerified  Boolean   @default(false)
+  isVerified   Boolean            @default(false)
   // social profiles shown on the public store page (full https URLs;
   // whatsapp holds the international number, e.g. 9665xxxxxxxx)
-  website     String?
-  twitter     String? // X
-  instagram   String?
-  tiktok      String?
-  snapchat    String?
-  youtube     String?
-  whatsapp    String?
-  createdAt   DateTime  @default(now())
-  listings    Listing[]
+  website      String?
+  twitter      String? // X
+  instagram    String?
+  tiktok       String?
+  snapchat     String?
+  youtube      String?
+  whatsapp     String?
+  createdAt    DateTime           @default(now())
+  listings     Listing[]
   verification StoreVerification?
   followers    StoreFollow[]
 
@@ -648,24 +675,24 @@ model BannedWord {
 }
 
 model Auction {
-  id            String   @id @default(cuid())
-  listingId     String   @unique
-  listing       Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  startPrice    Int
-  minIncrement  Int      @default(50)
-  buyNowPrice   Int?
-  terms         String?
-  endsAt        DateTime
+  id                String         @id @default(cuid())
+  listingId         String         @unique
+  listing           Listing        @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  startPrice        Int
+  minIncrement      Int            @default(50)
+  buyNowPrice       Int?
+  terms             String?
+  endsAt            DateTime
   reviewRemainingMs Int?
-  extendedCount Int      @default(0)
+  extendedCount     Int            @default(0)
   // PENDING | LIVE | ENDED | NO_SALE | CANCELLED
-  status        String   @default("LIVE")
-  winnerId      String?
-  winner        User?    @relation("AuctionWinner", fields: [winnerId], references: [id])
-  winningBid    Int?
-  bids          Bid[]
-  proxies       ProxyBid[]
-  blocks        AuctionBlock[]
+  status            String         @default("LIVE")
+  winnerId          String?
+  winner            User?          @relation("AuctionWinner", fields: [winnerId], references: [id])
+  winningBid        Int?
+  bids              Bid[]
+  proxies           ProxyBid[]
+  blocks            AuctionBlock[]
 
   @@index([status, endsAt])
 }
@@ -703,23 +730,23 @@ model Bid {
 // Mutual verification window after a sale/auction (CONFIRM_WINDOW_DAYS, +1
 // buyer-requested extension the seller approves)
 model Transaction {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   listingId    String
   // Present for auction-created transactions and unique for cron idempotency.
-  auctionId    String?  @unique
-  listing      Listing  @relation(fields: [listingId], references: [id])
+  auctionId    String?   @unique
+  listing      Listing   @relation(fields: [listingId], references: [id])
   sellerId     String
-  seller       User     @relation("SellerTx", fields: [sellerId], references: [id])
+  seller       User      @relation("SellerTx", fields: [sellerId], references: [id])
   buyerId      String
-  buyer        User     @relation("BuyerTx", fields: [buyerId], references: [id])
+  buyer        User      @relation("BuyerTx", fields: [buyerId], references: [id])
   amount       Int
   // AUCTION | STANDARD
-  source       String   @default("AUCTION")
+  source       String    @default("AUCTION")
   // YES | NO (null = no answer yet)
   sellerAnswer String?
   buyerAnswer  String?
   // PENDING | CONFIRMED | CANCELLED | DISPUTED | EXPIRED
-  status       String   @default("PENDING")
+  status       String    @default("PENDING")
   deadline     DateTime
   // Buyer-requested deadline extension — at most one per transaction, decided
   // by the seller. null = never asked.
@@ -728,9 +755,9 @@ model Transaction {
   extDays      Int?
   extNote      String?
   extAskedAt   DateTime?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
   dispute      Dispute?
-  reviews Review[]
+  reviews      Review[]
 
   @@index([status, deadline])
   @@index([buyerId])
@@ -763,17 +790,17 @@ model Evidence {
 }
 
 model Conversation {
-  id        String    @id @default(cuid())
+  id                 String    @id @default(cuid())
   // NULL = direct chat started from a user's profile (not tied to a listing)
-  listingId String?
-  listing   Listing?  @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  buyerId   String
-  buyer     User      @relation("ConvBuyer", fields: [buyerId], references: [id])
-  sellerId  String
-  seller    User      @relation("ConvSeller", fields: [sellerId], references: [id])
-  createdAt DateTime  @default(now())
-  messages  Message[]
-  directKey String? @unique
+  listingId          String?
+  listing            Listing?  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  buyerId            String
+  buyer              User      @relation("ConvBuyer", fields: [buyerId], references: [id])
+  sellerId           String
+  seller             User      @relation("ConvSeller", fields: [sellerId], references: [id])
+  createdAt          DateTime  @default(now())
+  messages           Message[]
+  directKey          String?   @unique
   firstSellerReplyAt DateTime?
 
   @@unique([listingId, buyerId])
@@ -782,19 +809,20 @@ model Conversation {
 }
 
 model UserBlock {
-  id String @id @default(cuid())
+  id        String   @id @default(cuid())
   blockerId String
-  blocker User @relation("UserBlocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocker   User     @relation("UserBlocker", fields: [blockerId], references: [id], onDelete: Cascade)
   blockedId String
-  blocked User @relation("UserBlocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("UserBlocked", fields: [blockedId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+
   @@unique([blockerId, blockedId])
   @@index([blockedId])
 }
 
 model OperationalLease {
-  key String @id
-  owner String
+  key       String   @id
+  owner     String
   expiresAt DateTime
 }
 
@@ -821,7 +849,7 @@ model Message {
 }
 
 model Notification {
-  eventKey String? @unique
+  eventKey  String?   @unique
   id        String    @id @default(cuid())
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -849,23 +877,23 @@ model Favorite {
 }
 
 model Banner {
-  id        String    @id @default(cuid())
-  title     String
-  imageUrl  String?
+  id             String    @id @default(cuid())
+  title          String
+  imageUrl       String?
   // optional phone-specific artwork; falls back to imageUrl when absent, so the
   // admin uploads a second design only when the wide crop looks wrong on mobile
   mobileImageUrl String?
-  linkUrl   String?
+  linkUrl        String?
   // optional embed (AdSense / YouTube / TikTok iframe) — rendered instead of image
-  embedHtml String?
+  embedHtml      String?
   // HOME_TOP | HOME_MIDDLE | CATEGORY_TOP | AUCTION_SIDE
-  position  String    @default("HOME_TOP")
+  position       String    @default("HOME_TOP")
   // ACTIVE | SCHEDULED | DISABLED
-  status    String    @default("ACTIVE")
-  startsAt  DateTime?
-  endsAt    DateTime?
-  clicks    Int       @default(0)
-  createdAt DateTime  @default(now())
+  status         String    @default("ACTIVE")
+  startsAt       DateTime?
+  endsAt         DateTime?
+  clicks         Int       @default(0)
+  createdAt      DateTime  @default(now())
 }
 
 model CredibilityLog {
@@ -886,36 +914,39 @@ model AuditLog {
 }
 
 model BackgroundJob {
-  id String @id @default(cuid())
-  dedupKey String? @unique
-  kind String
-  payload String
-  status String @default("PENDING")
-  attempts Int @default(0)
-  availableAt DateTime @default(now())
-  lockedAt DateTime?
-  createdAt DateTime @default(now())
+  id          String    @id @default(cuid())
+  dedupKey    String?   @unique
+  kind        String
+  payload     String
+  status      String    @default("PENDING")
+  attempts    Int       @default(0)
+  availableAt DateTime  @default(now())
+  lockedAt    DateTime?
+  createdAt   DateTime  @default(now())
+
   @@index([status, availableAt])
 }
+
 model OperationalCheck {
-  key String @id
+  key           String    @id
   lastSuccessAt DateTime?
   lastFailureAt DateTime?
 }
 
 model SavedSearchMatch {
-  searchId String
+  searchId  String
   listingId String
-  search SavedSearch @relation(fields: [searchId], references: [id], onDelete: Cascade)
-  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  search    SavedSearch @relation(fields: [searchId], references: [id], onDelete: Cascade)
+  listing   Listing     @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
   @@id([searchId, listingId])
 }
 
 model ImagePlaceholder {
-  url String @id
-  blurHash String
-  dataUrl String
-  width Int
-  height Int
+  url       String   @id
+  blurHash  String
+  dataUrl   String
+  width     Int
+  height    Int
   createdAt DateTime @default(now())
 }
