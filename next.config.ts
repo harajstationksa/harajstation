@@ -18,6 +18,12 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // no framework fingerprint in every response
+  poweredByHeader: false,
+  // Version-skew protection: deploy/deploy.sh sets NEXT_DEPLOYMENT_ID to the
+  // release commit, so a browser holding a page from the previous release does
+  // a full reload instead of calling Server Actions the new build no longer has.
+  deploymentId: process.env.NEXT_DEPLOYMENT_ID || undefined,
   // The public switch is explicit; the server credential remains a fallback
   // for older environment files.
   env: {

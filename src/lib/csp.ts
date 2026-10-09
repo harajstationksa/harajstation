@@ -4,8 +4,6 @@ function imageOrigins() {
     "data:",
     "blob:",
     "https://*.googleusercontent.com",
-    "https://*.google-analytics.com",
-    "https://*.googletagmanager.com",
   ];
   if (process.env.R2_PUBLIC_URL) {
     try {
@@ -21,12 +19,12 @@ function imageOrigins() {
 export function contentSecurityPolicy(nonce: string, development = false) {
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ""} https://*.googletagmanager.com`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ""}`,
     `style-src 'self' 'nonce-${nonce}'`,
     "style-src-attr 'unsafe-inline'",
     `img-src ${imageOrigins()}`,
     "font-src 'self' data:",
-    "connect-src 'self' https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com",
+    "connect-src 'self'",
     "frame-src https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://www.tiktok.com",
     "object-src 'none'",
     ...(development ? [] : ["upgrade-insecure-requests"]),
