@@ -412,6 +412,7 @@ model Listing {
   // pg_trgm GIN indexes for the smart-search ILIKE predicates (migration 20261007000000)
   @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin, map: "Listing_searchText_trgm_idx")
   @@index([title(ops: raw("gin_trgm_ops"))], type: Gin, map: "Listing_title_trgm_idx")
+  @@index([storeId])
 }
 
 // Structured price offer (سوم): the buyer bids a price on a fixed-price
@@ -490,6 +491,7 @@ model Campaign {
   impressionLogs CampaignImpression[]
 
   @@index([status])
+  @@index([listingId])
 }
 
 model Comment {
@@ -787,6 +789,8 @@ model Evidence {
   note      String?
   fileUrl   String?
   createdAt DateTime @default(now())
+
+  @@index([disputeId])
 }
 
 model Conversation {
@@ -846,6 +850,7 @@ model Message {
 
   @@index([conversationId, createdAt])
   @@index([senderId])
+  @@index([imageUrl])
 }
 
 model Notification {
@@ -874,6 +879,7 @@ model Favorite {
   createdAt DateTime @default(now())
 
   @@unique([userId, listingId])
+  @@index([listingId])
 }
 
 model Banner {
@@ -903,6 +909,8 @@ model CredibilityLog {
   delta     Int
   reason    String
   createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
 
 model AuditLog {
@@ -911,6 +919,9 @@ model AuditLog {
   action    String
   detail    String?
   createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
 }
 
 model BackgroundJob {

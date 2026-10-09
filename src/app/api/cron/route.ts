@@ -46,8 +46,19 @@ export async function GET(req: Request) {
       ["backgroundJobs", processBackgroundJobs],
       ["privateUploads", cleanOrphanPrivateImages],
     ];
+    // Housekeeping that walks storage does not need to run every minute.
+    const minInterval: Record<string, number> = { privateUploads: 60 * 60_000 };
+    const lastRuns = await db.operationalCheck.findMany({
+      where: { key: { in: Object.keys(minInterval) } },
+      select: { key: true, lastSuccessAt: true },
+    });
     for (const [name, job] of jobs) {
       assertOwned();
+      const last = lastRuns.find((row) => row.key === name)?.lastSuccessAt;
+      if (minInterval[name] && last && Date.now() - last.getTime() < minInterval[name]) {
+        ran[name] = "ok";
+        continue;
+      }
       try {
         await job();
         ran[name] = "ok";

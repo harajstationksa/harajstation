@@ -33,6 +33,27 @@ export async function privateImageResponse(path: string): Promise<Response> {
   }
 }
 
+/** Which of these private paths are still referenced — three indexed queries per batch. */
+async function referencedPrivatePaths(paths: string[]): Promise<Set<string>> {
+  if (!paths.length) return new Set();
+  const [messages, identities, stores] = await Promise.all([
+    db.message.findMany({
+      where: { imageUrl: { in: paths.map((path) => `private:${path}`) } },
+      select: { imageUrl: true },
+    }),
+    db.identityVerification.findMany({
+      where: { docPath: { in: paths } },
+      select: { docPath: true },
+    }),
+    db.storeVerification.findMany({ where: { docPath: { in: paths } }, select: { docPath: true } }),
+  ]);
+  return new Set([
+    ...messages.map((m) => (m.imageUrl ?? "").slice("private:".length)),
+    ...identities.map((v) => v.docPath),
+    ...stores.map((v) => v.docPath),
+  ]);
+}
+
 /** Older than 24h protects uploads that have not committed yet; cap work per tick. */
 export async function cleanOrphanPrivateImages() {
   const root = privateUploadsRoot();
@@ -65,17 +86,17 @@ export async function cleanOrphanPrivateImages() {
       if (!info || info.mtimeMs > Date.now() - 86_400_000) continue;
       checked++;
       lastPath = path;
-      const refs = await Promise.all([
-        db.message.count({ where: { imageUrl: `private:${path}` } }),
-        db.identityVerification.count({ where: { docPath: path } }),
-        db.storeVerification.count({ where: { docPath: path } }),
-      ]);
-      if (refs.some(Boolean)) continue;
-      await deletePrivateImage(path);
-      removed++;
+      candidates.push(path);
     }
   }
+  const candidates: string[] = [];
   await walk(root);
+  const referenced = await referencedPrivatePaths(candidates);
+  for (const path of candidates) {
+    if (referenced.has(path)) continue;
+    await deletePrivateImage(path);
+    removed++;
+  }
   const nextLocalCursor = reachedEnd ? "" : lastPath;
   await db.setting.upsert({
     where: { key: "private-local-cleanup-cursor" },
@@ -85,24 +106,20 @@ export async function cleanOrphanPrivateImages() {
   if (privateR2Configured()) {
     const setting = await db.setting.findUnique({ where: { key: "private-r2-cleanup-cursor" } });
     const batch = await listPrivateR2(setting?.value);
-    for (const object of batch.Contents ?? []) {
-      if (
-        !object.Key ||
-        !object.LastModified ||
-        object.LastModified.getTime() > Date.now() - 86_400_000
+    const remote = (batch.Contents ?? [])
+      .filter(
+        (object) =>
+          object.Key &&
+          object.LastModified &&
+          object.LastModified.getTime() <= Date.now() - 86_400_000,
       )
-        continue;
-      const path = `r2:${object.Key}`;
-      const refs = await Promise.all([
-        db.message.count({ where: { imageUrl: `private:${path}` } }),
-        db.identityVerification.count({ where: { docPath: path } }),
-        db.storeVerification.count({ where: { docPath: path } }),
-      ]);
-      checked++;
-      if (!refs.some(Boolean)) {
-        await deletePrivateImage(path);
-        removed++;
-      }
+      .map((object) => `r2:${object.Key}`);
+    checked += remote.length;
+    const referenced = await referencedPrivatePaths(remote);
+    for (const path of remote) {
+      if (referenced.has(path)) continue;
+      await deletePrivateImage(path);
+      removed++;
     }
     const value = batch.NextContinuationToken ?? "";
     await db.setting.upsert({
