@@ -12,7 +12,13 @@ import {
 export async function uploadBackup(file, env = process.env, client) {
   if (!/^haraj-[\dTZ-]+\.tar\.gz\.age$/.test(basename(file)))
     throw Error("Invalid encrypted backup filename");
-  const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET } = env;
+  // The backup bucket should live behind its own token (ideally its own
+  // account), so leaking the image-upload key can neither read nor delete
+  // backups. BACKUP_R2_* override the image-storage credentials.
+  const R2_ACCOUNT_ID = env.BACKUP_R2_ACCOUNT_ID || env.R2_ACCOUNT_ID;
+  const R2_ACCESS_KEY_ID = env.BACKUP_R2_ACCESS_KEY_ID || env.R2_ACCESS_KEY_ID;
+  const R2_SECRET_ACCESS_KEY = env.BACKUP_R2_SECRET_ACCESS_KEY || env.R2_SECRET_ACCESS_KEY;
+  const { R2_BUCKET } = env;
   if (!client && (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY))
     throw Error("Offsite storage is unconfigured");
   const Bucket = env.BACKUP_R2_BUCKET;

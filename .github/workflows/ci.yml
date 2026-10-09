@@ -53,6 +53,10 @@ jobs:
       - run: npm ci
       - run: npx prisma generate
       - run: npx prisma migrate deploy
+      # migrations and schema.prisma must describe the same database, or the
+      # next `migrate dev` generates destructive changes (it once would have
+      # dropped the search indexes)
+      - run: npx prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code
       - run: npm run format:check
       - run: npm run lint
       - run: npm run check:a11y

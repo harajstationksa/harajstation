@@ -32,8 +32,13 @@ try {
 } catch {
   missing.push("NEXT_PUBLIC_SITE_URL(invalid)");
 }
+// Missing offsite destination does not block a deploy (daily encrypted local
+// backups continue and the monitor reports offsite_backup_* problems), but it
+// must never fall back to the public image bucket.
 if (!process.env.BACKUP_REMOTE && !process.env.BACKUP_R2_BUCKET)
-  missing.push("BACKUP_R2_BUCKET (or BACKUP_REMOTE)");
+  console.warn(
+    "WARNING: no independent offsite backup (set BACKUP_R2_BUCKET + BACKUP_R2_* keys, or BACKUP_REMOTE)",
+  );
 if (process.env.BACKUP_R2_BUCKET && process.env.BACKUP_R2_BUCKET === process.env.R2_BUCKET)
   missing.push("BACKUP_R2_BUCKET(must differ from R2_BUCKET)");
 if (process.env.R2_PRIVATE_BUCKET && process.env.R2_PRIVATE_BUCKET === process.env.R2_BUCKET)

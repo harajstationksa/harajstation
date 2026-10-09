@@ -1,4 +1,15 @@
 import type { NextConfig } from "next";
+import { readFileSync } from "node:fs";
+
+/** deploy/deploy.sh writes the release commit here; build and `next start` must agree. */
+function deploymentId() {
+  if (process.env.NEXT_DEPLOYMENT_ID) return process.env.NEXT_DEPLOYMENT_ID;
+  try {
+    return readFileSync("DEPLOYMENT_ID", "utf8").trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -20,10 +31,10 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // no framework fingerprint in every response
   poweredByHeader: false,
-  // Version-skew protection: deploy/deploy.sh sets NEXT_DEPLOYMENT_ID to the
-  // release commit, so a browser holding a page from the previous release does
-  // a full reload instead of calling Server Actions the new build no longer has.
-  deploymentId: process.env.NEXT_DEPLOYMENT_ID || undefined,
+  // Version-skew protection: each release carries its commit as the deployment
+  // id, so a browser holding a page from the previous release does a full
+  // reload instead of calling Server Actions the new build no longer has.
+  deploymentId: deploymentId(),
   // The public switch is explicit; the server credential remains a fallback
   // for older environment files.
   env: {
