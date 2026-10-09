@@ -186,13 +186,16 @@ export function SettingsForm({
       )}
 
       <div className="border-t border-neutral-100 pt-4">
-        <label className="block text-sm font-medium mb-1.5">{d.fullName}</label>
+        <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-settingsform-1">
+          {d.fullName}
+        </label>
         <input
           className="input"
           value={form.name}
           onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
           required
           minLength={2}
+          id="a11y-settingsform-1"
         />
       </div>
 
@@ -236,7 +239,7 @@ export function SettingsForm({
 
       {emailUnlocked && emailChanged && !oauthOnly && (
         <div className="rounded-lg bg-amber-50 border border-amber-100 p-3">
-          <label className="block text-sm font-medium mb-1.5">
+          <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-settingsform-2">
             {d.currentPassword} <span className="text-neutral-400">{d.currentPasswordWhy}</span>
           </label>
           <input
@@ -246,16 +249,20 @@ export function SettingsForm({
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
             required
+            id="a11y-settingsform-2"
           />
         </div>
       )}
 
       <div>
-        <label className="block text-sm font-medium mb-1.5">{d.city}</label>
+        <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-settingsform-3">
+          {d.city}
+        </label>
         <select
           className="input"
           value={form.city}
           onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
+          id="a11y-settingsform-3"
         >
           {CITIES.map((c) => (
             <option key={c} value={c}>
@@ -266,7 +273,7 @@ export function SettingsForm({
       </div>
 
       <div>
-        <label className="block text-sm font-medium mb-1.5">
+        <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-settingsform-4">
           {d.phone} <span className="text-neutral-400">{d.optional}</span>
         </label>
         <input
@@ -275,6 +282,7 @@ export function SettingsForm({
           value={form.phone}
           onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
           placeholder="05XXXXXXXX"
+          id="a11y-settingsform-4"
         />
         <p className="text-xs text-neutral-400 mt-1 leading-relaxed">{d.phoneNote}</p>
       </div>

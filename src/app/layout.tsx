@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Cairo, IBM_Plex_Sans_Arabic } from "next/font/google";
-import { getLang } from "@/lib/i18n";
+import { getT } from "@/lib/i18n";
 import { BRAND, organizationLd, SITE, websiteLd } from "@/lib/seo";
-import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { JsonLd } from "@/components/JsonLd";
 import { LangProvider } from "@/components/LangProvider";
 import { NativeFormMessages } from "@/components/NativeFormMessages";
@@ -65,7 +64,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const lang = await getLang();
+  const { lang, t: dictionary } = await getT();
 
   return (
     <html
@@ -76,12 +75,11 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col bg-neutral-50">
         {/* who the site is, and the search box Google can show inside a result */}
         <JsonLd data={[organizationLd(), websiteLd()]} />
-        <LangProvider lang={lang}>
+        <LangProvider lang={lang} dictionary={dictionary}>
           <NativeFormMessages />
           {children}
         </LangProvider>
         <PwaRegister />
-        <GoogleAnalytics />
       </body>
     </html>
   );

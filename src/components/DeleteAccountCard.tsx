@@ -92,7 +92,12 @@ export function DeleteAccountCard({ oauthOnly = false }: { oauthOnly?: boolean }
             </div>
           ) : (
             <div>
-              <label className="block text-sm font-medium mb-1.5">{d.delConfirmPw}</label>
+              <label
+                className="block text-sm font-medium mb-1.5"
+                htmlFor="a11y-deleteaccountcard-1"
+              >
+                {d.delConfirmPw}
+              </label>
               <input
                 className="input"
                 dir="ltr"
@@ -100,6 +105,7 @@ export function DeleteAccountCard({ oauthOnly = false }: { oauthOnly?: boolean }
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                id="a11y-deleteaccountcard-1"
               />
             </div>
           )}

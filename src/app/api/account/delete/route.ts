@@ -25,8 +25,8 @@ const schema = z.object({
 /**
  * PDPL account deletion: verifies the password, anonymizes all personal data,
  * removes subscriptions/favorites/saved-searches, takes listings offline and
- * permanently blocks the account. Chat messages stay (the counterpart keeps
- * their conversation) but are attributed to «مستخدم محذوف».
+ * permanently blocks the account. Messages sent by this account are redacted (the counterpart keeps
+ * the thread) without retaining the deleted user's personal content.
  */
 export async function POST(req: Request) {
   const limited = await rateLimitGuard(req, "account-delete", 5, 10 * 60_000);
@@ -158,6 +158,12 @@ export async function POST(req: Request) {
       tx.storeVerification.deleteMany({ where: { store: { userId: user.id } } }),
       tx.identityVerification.deleteMany({ where: { userId: user.id } }),
       tx.notification.deleteMany({ where: { userId: user.id } }),
+      // Redact the deleted account's outgoing messages while preserving the
+      // conversation structure for the counterpart.
+      tx.message.updateMany({
+        where: { senderId: user.id },
+        data: { body: "[deleted]", imageUrl: null },
+      }),
     ]);
     const liveAuctions = await tx.auction.findMany({
       where: { status: "LIVE", listing: { sellerId: user.id } },

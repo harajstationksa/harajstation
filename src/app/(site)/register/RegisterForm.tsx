@@ -106,8 +106,11 @@ export function RegisterForm({
 
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1.5">{a.fullName}</label>
+            <label htmlFor="register-name" className="block text-sm font-medium mb-1.5">
+              {a.fullName}
+            </label>
             <input
+              id="register-name"
               className="input"
               value={form.name}
               onChange={(e) => set("name", e.target.value)}
@@ -116,8 +119,11 @@ export function RegisterForm({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">{a.email}</label>
+            <label htmlFor="register-email" className="block text-sm font-medium mb-1.5">
+              {a.email}
+            </label>
             <input
+              id="register-email"
               className="input"
               dir="ltr"
               type="email"
@@ -128,8 +134,11 @@ export function RegisterForm({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">{a.city}</label>
+            <label htmlFor="register-city" className="block text-sm font-medium mb-1.5">
+              {a.city}
+            </label>
             <select
+              id="register-city"
               className="input"
               value={form.city}
               onChange={(e) => set("city", e.target.value)}
@@ -142,8 +151,11 @@ export function RegisterForm({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">{a.password}</label>
+            <label htmlFor="register-password" className="block text-sm font-medium mb-1.5">
+              {a.password}
+            </label>
             <input
+              id="register-password"
               className="input"
               dir="ltr"
               type="password"
@@ -155,8 +167,11 @@ export function RegisterForm({
             <p className="text-xs text-neutral-400 mt-1">{a.passwordHint}</p>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">{a.referralLabel}</label>
+            <label htmlFor="register-ref" className="block text-sm font-medium mb-1.5">
+              {a.referralLabel}
+            </label>
             <input
+              id="register-ref"
               className="input"
               dir="ltr"
               value={form.refCode}

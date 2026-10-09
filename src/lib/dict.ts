@@ -158,6 +158,7 @@ const ar = {
     call: "اتصال",
     fastReply: "يرد بسرعة",
     fastReplyTip: "يرد على الرسائل خلال ساعة في المتوسط",
+    verifiedTip: "هوية موثّقة من إدارة المنصة",
     waPrefill: (title: string, ref: string) =>
       `مرحباً، بخصوص إعلانك «${title}»${ref ? ` (${ref})` : ""} في حراج ستيشن`,
   },
@@ -261,6 +262,7 @@ const ar = {
     blockConfirm:
       "تحظر هذا المزايد من مزادك؟ تنحذف كل مزايداته من هذا المزاد وما يقدر يزايد فيه مرة ثانية.",
     blockedOk: "تم حظر المزايد وحذف مزايداته من هذا المزاد",
+    amountLabel: "مبلغ المزايدة",
   },
   comments: {
     title: "الاستفسارات والتعليقات",
@@ -1160,6 +1162,7 @@ const ar = {
   },
 };
 
+export type Dictionary = typeof ar;
 const en: typeof ar = {
   nav: {
     postAd: "Post Ad",
@@ -1313,6 +1316,7 @@ const en: typeof ar = {
     call: "Call",
     fastReply: "Replies fast",
     fastReplyTip: "Replies to messages within an hour on average",
+    verifiedTip: "Identity verified by platform admins",
     waPrefill: (title: string, ref: string) =>
       `Hi, about your listing "${title}"${ref ? ` (${ref})` : ""} on Haraj Station`,
   },
@@ -1420,6 +1424,7 @@ const en: typeof ar = {
     blockConfirm:
       "Block this bidder from your auction? All their bids in this auction will be removed and they won't be able to bid again.",
     blockedOk: "Bidder blocked and their bids removed from this auction",
+    amountLabel: "Bid amount",
   },
   comments: {
     title: "Questions & Comments",

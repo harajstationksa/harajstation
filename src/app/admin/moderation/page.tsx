@@ -69,25 +69,36 @@ export default async function AdminModerationPage() {
         </p>
         <div className="grid sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium mb-1.5">العنوان</label>
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-1">
+              العنوان
+            </label>
             <input
               name="title"
               className="input"
               required
               minLength={3}
               placeholder="تحديث الشروط والأحكام"
+              id="a11y-page-1"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-2">
               رابط <span className="text-neutral-400">(اختياري)</span>
             </label>
-            <input name="link" className="input" dir="ltr" placeholder="/terms" />
+            <input name="link" className="input" dir="ltr" placeholder="/terms" id="a11y-page-2" />
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1.5">نص الإشعار</label>
-          <textarea name="body" className="input min-h-24 py-3" required minLength={5} />
+          <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-3">
+            نص الإشعار
+          </label>
+          <textarea
+            name="body"
+            className="input min-h-24 py-3"
+            required
+            minLength={5}
+            id="a11y-page-3"
+          />
         </div>
         <button className="btn-primary">إرسال للجميع</button>
       </AdminActionForm>

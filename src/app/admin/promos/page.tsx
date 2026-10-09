@@ -62,13 +62,16 @@ export default async function AdminPromosPage() {
             تفعيل برنامج الإحالة
           </label>
           <div>
-            <label className="block text-sm font-medium mb-1.5">نسبة العمولة (%)</label>
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-1">
+              نسبة العمولة (%)
+            </label>
             <input
               name="percent"
               className="input w-28"
               dir="ltr"
               inputMode="numeric"
               defaultValue={settings.REFERRAL_PERCENT}
+              id="a11y-page-1"
             />
           </div>
           <button className="btn-primary mb-0.5">حفظ</button>
@@ -132,7 +135,9 @@ export default async function AdminPromosPage() {
           className="card p-4 mb-3 flex items-end gap-3 flex-wrap border-dashed"
         >
           <div>
-            <label className="block text-xs text-neutral-500 mb-1">الكود</label>
+            <label className="block text-xs text-neutral-500 mb-1" htmlFor="a11y-page-2">
+              الكود
+            </label>
             <input
               name="code"
               className="input w-36"
@@ -140,10 +145,13 @@ export default async function AdminPromosPage() {
               placeholder="RAMADAN30"
               maxLength={30}
               required
+              id="a11y-page-2"
             />
           </div>
           <div>
-            <label className="block text-xs text-neutral-500 mb-1">نسبة البونص (%)</label>
+            <label className="block text-xs text-neutral-500 mb-1" htmlFor="a11y-page-3">
+              نسبة البونص (%)
+            </label>
             <input
               name="percent"
               className="input w-28"
@@ -151,21 +159,27 @@ export default async function AdminPromosPage() {
               inputMode="numeric"
               placeholder="20"
               required
+              id="a11y-page-3"
             />
           </div>
           <div>
-            <label className="block text-xs text-neutral-500 mb-1">حد الاستخدام (0 = بلا حد)</label>
+            <label className="block text-xs text-neutral-500 mb-1" htmlFor="a11y-page-4">
+              حد الاستخدام (0 = بلا حد)
+            </label>
             <input
               name="maxUses"
               className="input w-32"
               dir="ltr"
               inputMode="numeric"
               defaultValue="0"
+              id="a11y-page-4"
             />
           </div>
           <div>
-            <label className="block text-xs text-neutral-500 mb-1">تاريخ الانتهاء (اختياري)</label>
-            <input name="expiresAt" type="date" className="input w-40" dir="ltr" />
+            <label className="block text-xs text-neutral-500 mb-1" htmlFor="a11y-page-5">
+              تاريخ الانتهاء (اختياري)
+            </label>
+            <input name="expiresAt" type="date" className="input w-40" dir="ltr" id="a11y-page-5" />
           </div>
           <label className="flex items-center gap-1.5 text-sm mb-2.5">
             <input

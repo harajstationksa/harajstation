@@ -62,8 +62,11 @@ export default function ResetPasswordPage({ params }: { params: Promise<{ token:
         ) : (
           <form onSubmit={submit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1.5">{f.newPassword}</label>
+              <label htmlFor="reset-password" className="block text-sm font-medium mb-1.5">
+                {f.newPassword}
+              </label>
               <input
+                id="reset-password"
                 className="input"
                 dir="ltr"
                 type="password"
@@ -75,8 +78,11 @@ export default function ResetPasswordPage({ params }: { params: Promise<{ token:
               <p className="text-xs text-neutral-400 mt-1">{f.passwordHint}</p>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">{f.confirmPassword}</label>
+              <label htmlFor="reset-confirm" className="block text-sm font-medium mb-1.5">
+                {f.confirmPassword}
+              </label>
               <input
+                id="reset-confirm"
                 className="input"
                 dir="ltr"
                 type="password"

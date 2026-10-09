@@ -53,7 +53,7 @@ export async function SellerCard({
 
       <div className="flex items-center gap-2 flex-wrap">
         {seller.idVerified && (
-          <span className="badge bg-green-50 text-green-700" title="هوية موثّقة من إدارة المنصة">
+          <span className="badge bg-green-50 text-green-700" title={t.seller.verifiedTip}>
             <BadgeCheck className="size-3.5" />
             {lang === "en" ? "Verified" : "موثّق"}
           </span>

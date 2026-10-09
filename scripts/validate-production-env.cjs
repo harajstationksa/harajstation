@@ -32,6 +32,10 @@ try {
 } catch {
   missing.push("NEXT_PUBLIC_SITE_URL(invalid)");
 }
+if (!process.env.BACKUP_REMOTE && !process.env.BACKUP_R2_BUCKET)
+  missing.push("BACKUP_R2_BUCKET (or BACKUP_REMOTE)");
+if (process.env.BACKUP_R2_BUCKET && process.env.BACKUP_R2_BUCKET === process.env.R2_BUCKET)
+  missing.push("BACKUP_R2_BUCKET(must differ from R2_BUCKET)");
 if (process.env.R2_PRIVATE_BUCKET && process.env.R2_PRIVATE_BUCKET === process.env.R2_BUCKET)
   missing.push("R2_PRIVATE_BUCKET(must be separate and private)");
 if (process.env.PAYMENTS_ENABLED === "true") {

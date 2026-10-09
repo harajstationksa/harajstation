@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import Script from "next/script";
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
+const GA_ENABLED = process.env.NEXT_PUBLIC_GA_ENABLED === "true";
 
 /**
  * Google tag (gtag.js), loaded site-wide from the root layout.
@@ -12,7 +13,7 @@ const GA_ID = process.env.NEXT_PUBLIC_GA_ID;
  * `next.config.ts`; without that the script is blocked before it runs.
  */
 export async function GoogleAnalytics() {
-  if (process.env.NODE_ENV !== "production" || !GA_ID) return null;
+  if (process.env.NODE_ENV !== "production" || !GA_ENABLED || !GA_ID) return null;
 
   const h = await headers();
   if (/^\/(admin|api|dashboard|login|register|reset|forgot)/.test(h.get("x-pathname") ?? ""))

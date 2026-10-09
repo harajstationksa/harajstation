@@ -65,33 +65,42 @@ export default async function AdminBannersPage() {
         <h2 className="font-bold">روابط التواصل الاجتماعي (الفوتر)</h2>
         <div className="grid sm:grid-cols-3 gap-3">
           <div>
-            <label className="block text-sm font-medium mb-1.5">إنستجرام</label>
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-1">
+              إنستجرام
+            </label>
             <input
               name="SOCIAL_INSTAGRAM"
               className="input"
               dir="ltr"
               placeholder="https://instagram.com/..."
               defaultValue={settings.SOCIAL_INSTAGRAM}
+              id="a11y-page-1"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">فيسبوك</label>
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-2">
+              فيسبوك
+            </label>
             <input
               name="SOCIAL_FACEBOOK"
               className="input"
               dir="ltr"
               placeholder="https://facebook.com/..."
               defaultValue={settings.SOCIAL_FACEBOOK}
+              id="a11y-page-2"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">سناب شات</label>
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-3">
+              سناب شات
+            </label>
             <input
               name="SOCIAL_SNAPCHAT"
               className="input"
               dir="ltr"
               placeholder="https://snapchat.com/add/..."
               defaultValue={settings.SOCIAL_SNAPCHAT}
+              id="a11y-page-3"
             />
           </div>
         </div>
@@ -106,42 +115,54 @@ export default async function AdminBannersPage() {
         <h2 className="font-bold">بيانات صفحة «تواصل معنا»</h2>
         <div className="grid sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium mb-1.5">البريد الإلكتروني</label>
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-4">
+              البريد الإلكتروني
+            </label>
             <input
               name="CONTACT_EMAIL"
               className="input"
               dir="ltr"
               placeholder="support@example.com"
               defaultValue={settings.CONTACT_EMAIL}
+              id="a11y-page-4"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">الهاتف</label>
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-5">
+              الهاتف
+            </label>
             <input
               name="CONTACT_PHONE"
               className="input"
               dir="ltr"
               placeholder="920000000"
               defaultValue={settings.CONTACT_PHONE}
+              id="a11y-page-5"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">واتساب الأعمال</label>
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-6">
+              واتساب الأعمال
+            </label>
             <input
               name="CONTACT_WHATSAPP"
               className="input"
               dir="ltr"
               placeholder="+966 5X XXX XXXX"
               defaultValue={settings.CONTACT_WHATSAPP}
+              id="a11y-page-6"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">ساعات العمل</label>
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-7">
+              ساعات العمل
+            </label>
             <input
               name="CONTACT_HOURS"
               className="input"
               placeholder="الأحد – الخميس، 9 صباحاً – 6 مساءً"
               defaultValue={settings.CONTACT_HOURS}
+              id="a11y-page-7"
             />
           </div>
         </div>
@@ -156,12 +177,22 @@ export default async function AdminBannersPage() {
         <h2 className="font-bold">إضافة بانر جديد</h2>
         <div className="grid sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium mb-1.5">العنوان</label>
-            <input name="title" className="input" required placeholder="حملة رمضان" />
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-8">
+              العنوان
+            </label>
+            <input
+              name="title"
+              className="input"
+              required
+              placeholder="حملة رمضان"
+              id="a11y-page-8"
+            />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">الموضع</label>
-            <select name="position" className="input" defaultValue="HOME_TOP">
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-9">
+              الموضع
+            </label>
+            <select name="position" className="input" defaultValue="HOME_TOP" id="a11y-page-9">
               {Object.entries(POSITIONS).map(([k, v]) => (
                 <option key={k} value={k}>
                   {v}
@@ -170,10 +201,16 @@ export default async function AdminBannersPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-10">
               رابط الوجهة <span className="text-neutral-400">(اختياري)</span>
             </label>
-            <input name="linkUrl" className="input" dir="ltr" placeholder="/auctions" />
+            <input
+              name="linkUrl"
+              className="input"
+              dir="ltr"
+              placeholder="/auctions"
+              id="a11y-page-10"
+            />
           </div>
 
           <BannerImageField
@@ -192,7 +229,7 @@ export default async function AdminBannersPage() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1.5">
+          <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-11">
             كود مضمّن{" "}
             <span className="text-neutral-400">
               (اختياري — YouTube / Vimeo / TikTok فقط، يُعرض بدل الصورة)
@@ -203,6 +240,7 @@ export default async function AdminBannersPage() {
             className="input min-h-20 py-3 font-mono text-xs"
             dir="ltr"
             placeholder='<iframe src="https://www.youtube.com/embed/..." ...></iframe>'
+            id="a11y-page-11"
           />
         </div>
         <button className="btn-primary">حفظ ونشر</button>

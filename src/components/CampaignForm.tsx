@@ -148,7 +148,10 @@ export function CampaignForm({
 
         {/* geo targeting */}
         <div>
-          <label className="text-sm font-medium mb-2 flex items-center gap-1.5">
+          <label
+            className="text-sm font-medium mb-2 flex items-center gap-1.5"
+            htmlFor="a11y-campaignform-1"
+          >
             <MapPin className="size-4 text-neutral-400" />
             {t.dash.campaignForm.cityLabel}{" "}
             <span className="text-neutral-400 font-normal">{t.dash.campaignForm.optional}</span>
@@ -157,6 +160,7 @@ export function CampaignForm({
             className="input"
             value={targetCity}
             onChange={(e) => setTargetCity(e.target.value)}
+            id="a11y-campaignform-1"
           >
             <option value="">{t.dash.campaignForm.allCities}</option>
             {CITIES.map((c) => (

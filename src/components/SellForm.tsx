@@ -387,7 +387,7 @@ export function SellForm({
       {categoryId && (
         <SectionCard step={2} title={d.details}>
           <div>
-            <label className="block text-sm font-medium mb-1.5">
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-1">
               {d.titleL} <span className="text-xs text-neutral-400 font-normal">{d.titleMin}</span>
             </label>
             <input
@@ -399,6 +399,7 @@ export function SellForm({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={d.titlePh}
+              id="a11y-sellform-1"
             />
             {fieldErrors.title && <p className="text-xs text-red-600 mt-1">{fieldErrors.title}</p>}
           </div>
@@ -466,8 +467,10 @@ export function SellForm({
           <div className="grid grid-cols-2 gap-3">
             {cfg.showCondition && (
               <div>
-                <label className="block text-sm font-medium mb-1.5">{d.condition}</label>
-                <select name="condition" className="input" defaultValue="USED">
+                <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-2">
+                  {d.condition}
+                </label>
+                <select name="condition" className="input" defaultValue="USED" id="a11y-sellform-2">
                   {Object.keys(CONDITIONS).map((k) => (
                     <option key={k} value={k}>
                       {t.card.conditions[k] ?? k}
@@ -477,8 +480,10 @@ export function SellForm({
               </div>
             )}
             <div>
-              <label className="block text-sm font-medium mb-1.5">{d.city}</label>
-              <select name="city" className="input" defaultValue="الرياض">
+              <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-3">
+                {d.city}
+              </label>
+              <select name="city" className="input" defaultValue="الرياض" id="a11y-sellform-3">
                 {CITIES.map((c) => (
                   <option key={c} value={c}>
                     {c}
@@ -487,15 +492,27 @@ export function SellForm({
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">
+              <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-4">
                 {d.neighborhood} <span className="text-neutral-400">{d.optional}</span>
               </label>
-              <input name="neighborhood" className="input" placeholder={d.neighborhoodPh} />
+              <input
+                name="neighborhood"
+                className="input"
+                placeholder={d.neighborhoodPh}
+                id="a11y-sellform-4"
+              />
             </div>
             {cfg.showDelivery && (
               <div>
-                <label className="block text-sm font-medium mb-1.5">{d.delivery}</label>
-                <select name="deliveryMethod" className="input" defaultValue="PICKUP">
+                <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-5">
+                  {d.delivery}
+                </label>
+                <select
+                  name="deliveryMethod"
+                  className="input"
+                  defaultValue="PICKUP"
+                  id="a11y-sellform-5"
+                >
                   <option value="PICKUP">{d.dPickup}</option>
                   <option value="SHIPPING">{d.dShipping}</option>
                   <option value="DELIVERY">{d.dDelivery}</option>
@@ -568,7 +585,7 @@ export function SellForm({
           {!isAuction ? (
             <>
               <div>
-                <label className="block text-sm font-medium mb-1.5">
+                <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-6">
                   {cfg.priceLabel}
                   {goal === "ANNOUNCE" && (
                     <span className="text-neutral-400">{d.priceOptional}</span>
@@ -586,6 +603,7 @@ export function SellForm({
                   value={price}
                   onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, ""))}
                   placeholder={d.pricePh}
+                  id="a11y-sellform-6"
                 />
                 {fieldErrors.price && (
                   <p className="text-xs text-red-600 mt-1">{fieldErrors.price}</p>
@@ -617,7 +635,9 @@ export function SellForm({
             <>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">{d.startPrice}</label>
+                  <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-7">
+                    {d.startPrice}
+                  </label>
                   <input
                     name="startPrice"
                     className="input"
@@ -625,10 +645,13 @@ export function SellForm({
                     inputMode="numeric"
                     pattern="\d+"
                     placeholder="1000"
+                    id="a11y-sellform-7"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">{d.minIncrement}</label>
+                  <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-8">
+                    {d.minIncrement}
+                  </label>
                   <input
                     name="minIncrement"
                     className="input"
@@ -636,11 +659,19 @@ export function SellForm({
                     inputMode="numeric"
                     pattern="\d+"
                     defaultValue="50"
+                    id="a11y-sellform-8"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">{d.duration}</label>
-                  <select name="durationHours" className="input" defaultValue="72">
+                  <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-9">
+                    {d.duration}
+                  </label>
+                  <select
+                    name="durationHours"
+                    className="input"
+                    defaultValue="72"
+                    id="a11y-sellform-9"
+                  >
                     {AUCTION_DURATIONS.map((dur) => (
                       <option key={dur.hours} value={dur.hours}>
                         {lang === "en" ? dur.labelEn : dur.label}
@@ -649,7 +680,7 @@ export function SellForm({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">
+                  <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-10">
                     {d.buyNow} <span className="text-neutral-400">{d.optional}</span>
                   </label>
                   <input
@@ -658,14 +689,20 @@ export function SellForm({
                     inputMode="numeric"
                     pattern="\d*"
                     placeholder={d.buyNowPh}
+                    id="a11y-sellform-10"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">
+                <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-sellform-11">
                   {d.terms} <span className="text-neutral-400">{d.optional}</span>
                 </label>
-                <textarea name="terms" className="input min-h-20 py-3" placeholder={d.termsPh} />
+                <textarea
+                  name="terms"
+                  className="input min-h-20 py-3"
+                  placeholder={d.termsPh}
+                  id="a11y-sellform-11"
+                />
               </div>
               <p className="text-xs text-neutral-500 bg-neutral-50 rounded-lg p-3 leading-relaxed">
                 {d.aucProtect}
@@ -681,11 +718,14 @@ export function SellForm({
           {stores.length > 0 && (
             <SectionCard step={storeStep} title={d.store}>
               <div>
-                <label className="block text-sm font-medium mb-1.5 flex items-center gap-1.5">
+                <label
+                  className="block text-sm font-medium mb-1.5 flex items-center gap-1.5"
+                  htmlFor="a11y-sellform-12"
+                >
                   <Store className="size-4 text-neutral-400" />
                   {d.storeL} <span className="text-neutral-400">{d.optional}</span>
                 </label>
-                <select name="storeId" className="input" defaultValue="">
+                <select name="storeId" className="input" defaultValue="" id="a11y-sellform-12">
                   <option value="">{d.noStore}</option>
                   {stores.map((s) => (
                     <option key={s.id} value={s.id}>

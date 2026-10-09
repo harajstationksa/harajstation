@@ -29,6 +29,7 @@ export function contentSecurityPolicy(nonce: string, development = false) {
     "connect-src 'self' https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com",
     "frame-src https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://www.tiktok.com",
     "object-src 'none'",
+    ...(development ? [] : ["upgrade-insecure-requests"]),
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

@@ -83,24 +83,30 @@ export function EditListingForm({
         <h2 className="font-bold">{d.details}</h2>
 
         <div>
-          <label className="block text-sm font-medium mb-1.5">{d.fTitle}</label>
+          <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-editlistingform-1">
+            {d.fTitle}
+          </label>
           <input
             name="title"
             className="input"
             required
             maxLength={100}
             defaultValue={listing.title}
+            id="a11y-editlistingform-1"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1.5">{d.fDesc}</label>
+          <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-editlistingform-2">
+            {d.fDesc}
+          </label>
           <textarea
             name="description"
             className="input min-h-32 py-3"
             required
             minLength={20}
             defaultValue={listing.description}
+            id="a11y-editlistingform-2"
           />
         </div>
 
@@ -137,8 +143,15 @@ export function EditListingForm({
         <div className="grid grid-cols-2 gap-3">
           {cfg.showCondition && (
             <div>
-              <label className="block text-sm font-medium mb-1.5">{d.fCondition}</label>
-              <select name="condition" className="input" defaultValue={listing.condition}>
+              <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-editlistingform-3">
+                {d.fCondition}
+              </label>
+              <select
+                name="condition"
+                className="input"
+                defaultValue={listing.condition}
+                id="a11y-editlistingform-3"
+              >
                 {Object.keys(CONDITIONS).map((k) => (
                   <option key={k} value={k}>
                     {t.card.conditions[k] ?? k}
@@ -148,8 +161,15 @@ export function EditListingForm({
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium mb-1.5">{d.fCity}</label>
-            <select name="city" className="input" defaultValue={listing.city}>
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-editlistingform-4">
+              {d.fCity}
+            </label>
+            <select
+              name="city"
+              className="input"
+              defaultValue={listing.city}
+              id="a11y-editlistingform-4"
+            >
               {CITIES.map((c) => (
                 <option key={c} value={c}>
                   {c}
@@ -161,19 +181,27 @@ export function EditListingForm({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium mb-1.5">
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-editlistingform-5">
               {d.fNeighborhood} <span className="text-neutral-400">{d.optional}</span>
             </label>
             <input
               name="neighborhood"
               className="input"
               defaultValue={listing.neighborhood ?? ""}
+              id="a11y-editlistingform-5"
             />
           </div>
           {cfg.showDelivery && (
             <div>
-              <label className="block text-sm font-medium mb-1.5">{d.fDelivery}</label>
-              <select name="deliveryMethod" className="input" defaultValue={listing.deliveryMethod}>
+              <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-editlistingform-6">
+                {d.fDelivery}
+              </label>
+              <select
+                name="deliveryMethod"
+                className="input"
+                defaultValue={listing.deliveryMethod}
+                id="a11y-editlistingform-6"
+              >
                 <option value="PICKUP">{d.dPickup}</option>
                 <option value="SHIPPING">{d.dShipping}</option>
                 <option value="DELIVERY">{d.dDelivery}</option>

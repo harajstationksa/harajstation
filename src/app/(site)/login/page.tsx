@@ -193,11 +193,15 @@ function LoginForm() {
         {otp ? (
           <form onSubmit={verifyCode} className="space-y-4">
             <div>
-              <label className="text-sm font-medium mb-1.5 flex items-center gap-1.5">
+              <label
+                htmlFor="login-otp"
+                className="text-sm font-medium mb-1.5 flex items-center gap-1.5"
+              >
                 <MailCheck className="size-4 text-primary-500" />
                 {t.pub.otpLabel}
               </label>
               <input
+                id="login-otp"
                 className="input text-center !text-2xl tracking-[0.5em] font-bold"
                 dir="ltr"
                 inputMode="numeric"
@@ -249,8 +253,11 @@ function LoginForm() {
         ) : (
           <form onSubmit={submit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1.5">{a.identifier}</label>
+              <label htmlFor="login-identifier" className="block text-sm font-medium mb-1.5">
+                {a.identifier}
+              </label>
               <input
+                id="login-identifier"
                 className="input"
                 dir="ltr"
                 value={identifier}
@@ -261,7 +268,9 @@ function LoginForm() {
             </div>
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-sm font-medium">{a.password}</label>
+                <label htmlFor="login-password" className="block text-sm font-medium">
+                  {a.password}
+                </label>
                 <Link
                   href="/forgot"
                   className="text-xs text-primary-600 font-semibold hover:underline"
@@ -270,6 +279,7 @@ function LoginForm() {
                 </Link>
               </div>
               <input
+                id="login-password"
                 className="input"
                 dir="ltr"
                 type="password"

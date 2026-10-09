@@ -189,7 +189,7 @@ export default async function MarkSoldPage({ params }: { params: Promise<{ id: s
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1.5">
+          <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-1">
             {s.amountL} <span className="text-neutral-400 font-normal">{s.amountHint}</span>
           </label>
           <input
@@ -198,6 +198,7 @@ export default async function MarkSoldPage({ params }: { params: Promise<{ id: s
             inputMode="numeric"
             pattern="\d*"
             defaultValue={suggestedAmount}
+            id="a11y-page-1"
           />
         </div>
 

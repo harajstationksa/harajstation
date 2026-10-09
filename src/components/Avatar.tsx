@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { useLang } from "./LangProvider";
 
 /**
  * User avatar. `pro` draws the PRO membership mark: a small animated orange
@@ -17,6 +18,7 @@ export function Avatar({
   className?: string;
   pro?: boolean;
 }) {
+  const { t } = useLang();
   const core = src ? (
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -41,7 +43,7 @@ export function Avatar({
 
   if (!pro) return core;
   return (
-    <span title="حساب برو" className="relative inline-flex shrink-0">
+    <span title={t.footer.pro} className="relative inline-flex shrink-0">
       {core}
       {/* golden PRO flame — sized relative to the avatar so it scales everywhere */}
       <span

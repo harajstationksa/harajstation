@@ -12,5 +12,16 @@ export default defineConfig({
     // integration tests hit the local dev database — never run them in parallel
     fileParallelism: false,
     testTimeout: 20_000,
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html", "lcov"],
+      reportsDirectory: "coverage",
+      thresholds: {
+        statements: 50,
+        branches: 40,
+        functions: 40,
+        lines: 50,
+      },
+    },
   },
 });

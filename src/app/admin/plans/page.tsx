@@ -69,7 +69,9 @@ export default async function AdminPlansPage() {
             تفعيل الفترة المجانية
           </label>
           <div>
-            <label className="block text-sm font-medium mb-1.5">مدة العضوية (بالأيام)</label>
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-1">
+              مدة العضوية (بالأيام)
+            </label>
             <input
               name="days"
               className="input w-32"
@@ -79,6 +81,7 @@ export default async function AdminPlansPage() {
               max={365}
               defaultValue={freeTier.days}
               required
+              id="a11y-page-1"
             />
           </div>
           <button className="btn-primary">حفظ</button>
@@ -159,11 +162,21 @@ export default async function AdminPlansPage() {
                 </div>
                 <div className="grid sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-sm font-medium mb-1.5">اسم الباقة</label>
-                    <input name="name" className="input" defaultValue={plan.name} required />
+                    <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-2">
+                      اسم الباقة
+                    </label>
+                    <input
+                      name="name"
+                      className="input"
+                      defaultValue={plan.name}
+                      required
+                      id="a11y-page-2"
+                    />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1.5">السعر (ر.س)</label>
+                    <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-3">
+                      السعر (ر.س)
+                    </label>
                     <input
                       name="price"
                       className="input"
@@ -171,49 +184,62 @@ export default async function AdminPlansPage() {
                       defaultValue={plan.price}
                       inputMode="numeric"
                       required
+                      id="a11y-page-3"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1.5">الفترة</label>
+                    <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-4">
+                      الفترة
+                    </label>
                     <input
                       name="period"
                       className="input"
                       defaultValue={plan.period}
                       placeholder="شهرياً"
+                      id="a11y-page-4"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1.5">حد الإعلانات</label>
+                    <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-5">
+                      حد الإعلانات
+                    </label>
                     <input
                       name="maxListings"
                       className="input"
                       dir="ltr"
                       defaultValue={plan.maxListings}
                       inputMode="numeric"
+                      id="a11y-page-5"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1.5">حد المزادات</label>
+                    <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-6">
+                      حد المزادات
+                    </label>
                     <input
                       name="maxAuctions"
                       className="input"
                       dir="ltr"
                       defaultValue={plan.maxAuctions}
                       inputMode="numeric"
+                      id="a11y-page-6"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1.5">حد المتاجر</label>
+                    <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-7">
+                      حد المتاجر
+                    </label>
                     <input
                       name="maxStores"
                       className="input"
                       dir="ltr"
                       defaultValue={plan.maxStores}
                       inputMode="numeric"
+                      id="a11y-page-7"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1.5">
+                    <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-8">
                       النقاط اليومية المجانية
                     </label>
                     <input
@@ -222,18 +248,20 @@ export default async function AdminPlansPage() {
                       dir="ltr"
                       defaultValue={plan.dailyPoints}
                       inputMode="numeric"
+                      id="a11y-page-8"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">
+                  <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-9">
                     المميزات (كل ميزة في سطر)
                   </label>
                   <textarea
                     name="features"
                     className="input min-h-24 py-3"
                     defaultValue={features}
+                    id="a11y-page-9"
                   />
                 </div>
 

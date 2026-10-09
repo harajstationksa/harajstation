@@ -30,7 +30,7 @@ export default async function AdminPointsPage() {
         </h2>
         <div className="grid sm:grid-cols-3 gap-3">
           <div>
-            <label className="block text-sm font-medium mb-1.5">
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-1">
               تكلفة الإعلان الممول (نقاط / يوم)
             </label>
             <input
@@ -39,26 +39,30 @@ export default async function AdminPointsPage() {
               dir="ltr"
               defaultValue={settings.CAMPAIGN_POINTS_PER_DAY}
               inputMode="numeric"
+              id="a11y-page-1"
             />
             <p className="text-xs text-neutral-400 mt-1">
               سعر اليوم الواحد — يُضرب في عدد أيام الحملة عند إطلاقها
             </p>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">مدد الحملة المتاحة (أيام)</label>
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-2">
+              مدد الحملة المتاحة (أيام)
+            </label>
             <input
               name="CAMPAIGN_DAY_OPTIONS"
               className="input"
               dir="ltr"
               defaultValue={settings.CAMPAIGN_DAY_OPTIONS}
               placeholder="3,5,7,15,30"
+              id="a11y-page-2"
             />
             <p className="text-xs text-neutral-400 mt-1">
               قائمة مفصولة بفواصل — تظهر كخيارات للمعلن
             </p>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-3">
               تكلفة تمييز الإعلان (نقاط / 7 أيام)
             </label>
             <input
@@ -67,29 +71,36 @@ export default async function AdminPointsPage() {
               dir="ltr"
               defaultValue={settings.FEATURE_POINT_COST}
               inputMode="numeric"
+              id="a11y-page-3"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">تكلفة تجديد الإعلان (نقاط)</label>
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-4">
+              تكلفة تجديد الإعلان (نقاط)
+            </label>
             <input
               name="BUMP_POINT_COST"
               className="input"
               dir="ltr"
               defaultValue={settings.BUMP_POINT_COST}
               inputMode="numeric"
+              id="a11y-page-4"
             />
             <p className="text-xs text-neutral-400 mt-1">
               تجديد الإعلان يرفعه أول القائمة قبل موعد التجديد المجاني
             </p>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1.5">فترة التجديد المجاني (ساعات)</label>
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-5">
+              فترة التجديد المجاني (ساعات)
+            </label>
             <input
               name="BUMP_FREE_HOURS"
               className="input"
               dir="ltr"
               defaultValue={settings.BUMP_FREE_HOURS}
               inputMode="numeric"
+              id="a11y-page-5"
             />
             <p className="text-xs text-neutral-400 mt-1">كل بائع يجدد مجاناً مرة كل هذه المدة</p>
           </div>
@@ -106,7 +117,7 @@ export default async function AdminPointsPage() {
             شحن النقاط متاح للمستخدمين
           </label>
           <div>
-            <label className="block text-sm font-medium mb-1.5">
+            <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-page-6">
               الرسالة الظاهرة عند إيقاف الشحن
             </label>
             <input
@@ -115,6 +126,7 @@ export default async function AdminPointsPage() {
               defaultValue={settings.TOPUP_DISABLED_MESSAGE}
               placeholder="شحن النقاط غير متاح حالياً — سيتم تفعيله قريباً."
               maxLength={300}
+              id="a11y-page-6"
             />
             <p className="text-xs text-neutral-400 mt-1">
               عند إلغاء التفعيل تختفي باقات الشحن من محفظة المستخدم وتظهر هذه الرسالة مكانها —
@@ -140,33 +152,42 @@ export default async function AdminPointsPage() {
               >
                 <input type="hidden" name="packageId" value={pkg.id} />
                 <div>
-                  <label className="block text-xs text-neutral-500 mb-1">النقاط</label>
+                  <label className="block text-xs text-neutral-500 mb-1" htmlFor="a11y-page-7">
+                    النقاط
+                  </label>
                   <input
                     name="points"
                     className="input w-28"
                     dir="ltr"
                     defaultValue={pkg.points}
                     inputMode="numeric"
+                    id="a11y-page-7"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-neutral-500 mb-1">هدية</label>
+                  <label className="block text-xs text-neutral-500 mb-1" htmlFor="a11y-page-8">
+                    هدية
+                  </label>
                   <input
                     name="bonus"
                     className="input w-24"
                     dir="ltr"
                     defaultValue={pkg.bonus}
                     inputMode="numeric"
+                    id="a11y-page-8"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-neutral-500 mb-1">السعر (ر.س)</label>
+                  <label className="block text-xs text-neutral-500 mb-1" htmlFor="a11y-page-9">
+                    السعر (ر.س)
+                  </label>
                   <input
                     name="price"
                     className="input w-28"
                     dir="ltr"
                     defaultValue={pkg.price}
                     inputMode="numeric"
+                    id="a11y-page-9"
                   />
                 </div>
                 <label className="flex items-center gap-1.5 text-sm mb-2.5">
@@ -199,7 +220,9 @@ export default async function AdminPointsPage() {
           className="card p-4 mt-3 flex items-end gap-3 flex-wrap border-dashed"
         >
           <div>
-            <label className="block text-xs text-neutral-500 mb-1">النقاط</label>
+            <label className="block text-xs text-neutral-500 mb-1" htmlFor="a11y-page-10">
+              النقاط
+            </label>
             <input
               name="points"
               className="input w-28"
@@ -207,20 +230,26 @@ export default async function AdminPointsPage() {
               placeholder="100"
               inputMode="numeric"
               required
+              id="a11y-page-10"
             />
           </div>
           <div>
-            <label className="block text-xs text-neutral-500 mb-1">هدية</label>
+            <label className="block text-xs text-neutral-500 mb-1" htmlFor="a11y-page-11">
+              هدية
+            </label>
             <input
               name="bonus"
               className="input w-24"
               dir="ltr"
               placeholder="0"
               inputMode="numeric"
+              id="a11y-page-11"
             />
           </div>
           <div>
-            <label className="block text-xs text-neutral-500 mb-1">السعر (ر.س)</label>
+            <label className="block text-xs text-neutral-500 mb-1" htmlFor="a11y-page-12">
+              السعر (ر.س)
+            </label>
             <input
               name="price"
               className="input w-28"
@@ -228,6 +257,7 @@ export default async function AdminPointsPage() {
               placeholder="10"
               inputMode="numeric"
               required
+              id="a11y-page-12"
             />
           </div>
           <button className="btn-secondary mb-0.5">

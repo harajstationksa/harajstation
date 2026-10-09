@@ -238,11 +238,14 @@ export function ConfirmCard({ tx }: { tx: ConfirmTx }) {
           {canAskExtension && extOpen && (
             <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 space-y-2.5">
               <p className="text-xs text-neutral-500">{d.extHint}</p>
-              <label className="block text-sm font-semibold">{d.extDays}</label>
+              <label className="block text-sm font-semibold" htmlFor="a11y-confirmcard-1">
+                {d.extDays}
+              </label>
               <select
                 className="input"
                 value={extDays}
                 onChange={(e) => setExtDays(Number(e.target.value))}
+                id="a11y-confirmcard-1"
               >
                 {EXTENSION_DAY_OPTIONS.map((n) => (
                   <option key={n} value={n}>

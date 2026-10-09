@@ -40,6 +40,31 @@ function isAdminPath(pathname: string) {
   return ADMIN_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
+const PUBLIC_CACHE_PATHS = [
+  "/",
+  "/listings",
+  "/auctions",
+  "/categories",
+  "/category/",
+  "/privacy",
+  "/terms",
+  "/trust",
+  "/contact",
+];
+
+/**
+ * Short shared caching is safe only for pages whose HTML does not depend on
+ * the viewer. Personal/account routes stay private, while public browsing
+ * pages can be cached by the CDN and browser for a few seconds.
+ */
+function cacheControlFor(pathname: string) {
+  const isPublicPage = PUBLIC_CACHE_PATHS.some(
+    (prefix) => pathname === prefix || (prefix.endsWith("/") && pathname.startsWith(prefix)),
+  );
+  return isPublicPage
+    ? "public, max-age=0, s-maxage=30, stale-while-revalidate=120"
+    : "private, no-store";
+}
 function nextWithCsp(req: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const csp = contentSecurityPolicy(nonce, process.env.NODE_ENV !== "production");
@@ -49,8 +74,11 @@ function nextWithCsp(req: NextRequest) {
   requestHeaders.set("Content-Security-Policy", csp);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
-  if (!req.nextUrl.pathname.startsWith("/api/"))
-    response.headers.set("Cache-Control", "private, no-store");
+  if (!req.nextUrl.pathname.startsWith("/api/")) {
+    response.headers.set("Cache-Control", cacheControlFor(req.nextUrl.pathname));
+    if (response.headers.get("Cache-Control")?.startsWith("public,"))
+      response.headers.set("Vary", "Cookie");
+  }
   return response;
 }
 export async function proxy(req: NextRequest) {

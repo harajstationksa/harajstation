@@ -338,7 +338,7 @@ export function BidPanel({
                     amountTouched.current = true;
                     setAmount(e.target.value.replace(/[^\d]/g, ""));
                   }}
-                  aria-label="مبلغ المزايدة"
+                  aria-label={b.amountLabel}
                 />
                 <button className="btn-primary shrink-0 px-6" disabled={submitting}>
                   {submitting ? (

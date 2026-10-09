@@ -86,7 +86,9 @@ export function BannerImageField({
 
   return (
     <div className="sm:col-span-2 space-y-2">
-      <label className="block text-sm font-medium">{label}</label>
+      <label className="block text-sm font-medium" htmlFor="a11y-bannerimagefield-1">
+        {label}
+      </label>
 
       {/* the URL the action reads — editable, so an existing path still works */}
       <div className="flex gap-2">
@@ -121,6 +123,7 @@ export function BannerImageField({
           const file = e.target.files?.[0];
           if (file) upload(file);
         }}
+        id="a11y-bannerimagefield-1"
       />
 
       {error && (

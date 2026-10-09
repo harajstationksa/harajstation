@@ -114,7 +114,9 @@ function StoreImageField({
 
   return (
     <div>
-      <label className="block text-sm font-medium mb-1.5">{label}</label>
+      <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-storesmanager-1">
+        {label}
+      </label>
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -176,6 +178,7 @@ function StoreImageField({
           if (f) upload(f);
           e.target.value = "";
         }}
+        id="a11y-storesmanager-1"
       />
     </div>
   );
@@ -208,7 +211,9 @@ function PendingImageField({
 
   return (
     <div>
-      <label className="block text-sm font-medium mb-1.5">{label}</label>
+      <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-storesmanager-2">
+        {label}
+      </label>
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -269,6 +274,7 @@ function PendingImageField({
           }
           e.target.value = "";
         }}
+        id="a11y-storesmanager-2"
       />
     </div>
   );
@@ -360,7 +366,9 @@ function StoreEditor({
         </button>
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1.5">{ds.name}</label>
+        <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-storesmanager-3">
+          {ds.name}
+        </label>
         <input
           className="input"
           value={form.name}
@@ -368,6 +376,7 @@ function StoreEditor({
           placeholder={ds.namePh}
           required
           minLength={3}
+          id="a11y-storesmanager-3"
         />
       </div>
       <div>
@@ -392,13 +401,16 @@ function StoreEditor({
         <p className="text-xs text-neutral-400 mt-1">{ds.slugHint}</p>
       </div>
       <div>
-        <label className="block text-sm font-medium mb-1.5">{ds.desc}</label>
+        <label className="block text-sm font-medium mb-1.5" htmlFor="a11y-storesmanager-4">
+          {ds.desc}
+        </label>
         <textarea
           className="input min-h-20 py-3"
           value={form.description}
           onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
           placeholder={ds.descPh}
           maxLength={500}
+          id="a11y-storesmanager-4"
         />
       </div>
 
@@ -412,7 +424,10 @@ function StoreEditor({
         <div className="grid sm:grid-cols-2 gap-3">
           {SOCIAL_FIELDS.map(({ key, ph }) => (
             <div key={key}>
-              <label className="block text-xs font-medium mb-1 text-neutral-600">
+              <label
+                className="block text-xs font-medium mb-1 text-neutral-600"
+                htmlFor="a11y-storesmanager-5"
+              >
                 {ds.socials[key]}
               </label>
               <input
@@ -427,6 +442,7 @@ function StoreEditor({
                       ? ds.socials.channelPh
                       : ph
                 }
+                id="a11y-storesmanager-5"
               />
             </div>
           ))}

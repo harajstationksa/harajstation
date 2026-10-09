@@ -198,3 +198,18 @@
 @utility input-pill {
   @apply w-full rounded-lg border border-transparent bg-neutral-100 px-4 min-h-10 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:bg-white focus:border-neutral-300;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  html {
+    scroll-behavior: auto !important;
+  }
+}
