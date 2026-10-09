@@ -60,6 +60,7 @@ describe("admin authorization coverage", () => {
       "updateStaffRoleAction",
       "updateStaffPermissionsAction",
       "removeStaffAction",
+      "resetStaffTotpAction",
     ]);
     const missing: string[] = [];
     const visit = (node: ts.Node, owner = "") => {

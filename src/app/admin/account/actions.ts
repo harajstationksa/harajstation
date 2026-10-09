@@ -9,6 +9,9 @@ import { STAFF_ROLES } from "@/lib/constants";
 import { startOtpChallenge, consumeOtp } from "@/lib/login-otp";
 import { ok, fail, audit, type AdminResult } from "@/lib/admin";
 import { sendEmail } from "@/lib/email";
+import QRCode from "qrcode";
+import { encryptText, decryptText } from "@/lib/crypto";
+import { generateTotpSecret, totpUri, verifyTotp } from "@/lib/totp";
 
 export async function requestAccountCodeAction(): Promise<AdminResult> {
   const me = await requireStaff(STAFF_ROLES);
@@ -159,4 +162,64 @@ export async function changeAccountPasswordAction(data: FormData): Promise<Admin
   });
   if (result.ok) (await cookies()).delete(ADMIN_COOKIE);
   return result.ok ? { ...result, stage: "login" } : result;
+}
+
+/* ── Authenticator app (TOTP) ──────────────────────────────────────────── */
+
+export type TotpEnrollment = AdminResult & { secret?: string; qr?: string };
+
+/** Begin enrollment: a fresh secret is stored pending until a code confirms it. */
+export async function startTotpEnrollmentAction(): Promise<TotpEnrollment> {
+  const me = await requireStaff(STAFF_ROLES);
+  if (me.totpEnabledAt) return fail("تطبيق المصادقة مفعّل بالفعل؛ عطّله أولاً لتغيير الجهاز");
+  const secret = generateTotpSecret();
+  await db.user.update({
+    where: { id: me.id },
+    data: { totpSecret: encryptText(secret), totpEnabledAt: null, totpLastStep: null },
+  });
+  const qr = await QRCode.toDataURL(totpUri(secret, me.email), { margin: 1, width: 220 });
+  return {
+    ok: true,
+    message: "امسح الرمز بتطبيق المصادقة ثم أدخل الرمز الظاهر فيه",
+    secret,
+    qr,
+    stage: "totp-confirm",
+  };
+}
+
+export async function confirmTotpEnrollmentAction(data: FormData): Promise<AdminResult> {
+  const me = await requireStaff(STAFF_ROLES);
+  const code = String(data.get("totp") ?? "");
+  return db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id=${me.id} FOR UPDATE`;
+    const user = await tx.user.findUniqueOrThrow({ where: { id: me.id } });
+    if (user.totpEnabledAt) return fail("تطبيق المصادقة مفعّل بالفعل");
+    if (!user.totpSecret) return fail("ابدأ التفعيل من جديد");
+    const step = verifyTotp(decryptText(user.totpSecret), code);
+    if (step === null) return fail("الرمز غير صحيح؛ تأكد من وقت الجهاز وأعد المحاولة");
+    await tx.user.update({
+      where: { id: me.id },
+      data: { totpEnabledAt: new Date(), totpLastStep: step },
+    });
+    await audit(tx, me.id, "ENABLE_TOTP", "Authenticator app enrolled");
+    return ok("تم تفعيل تطبيق المصادقة؛ سيُطلب رمزه مع رمز البريد في كل دخول");
+  });
+}
+
+export async function disableTotpAction(data: FormData): Promise<AdminResult> {
+  const me = await requireStaff(STAFF_ROLES);
+  const code = String(data.get("totp") ?? "");
+  return db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id=${me.id} FOR UPDATE`;
+    const user = await tx.user.findUniqueOrThrow({ where: { id: me.id } });
+    if (!user.totpEnabledAt || !user.totpSecret) return fail("تطبيق المصادقة غير مفعّل");
+    if (verifyTotp(decryptText(user.totpSecret), code, user.totpLastStep) === null)
+      return fail("الرمز غير صحيح");
+    await tx.user.update({
+      where: { id: me.id },
+      data: { totpSecret: null, totpEnabledAt: null, totpLastStep: null },
+    });
+    await audit(tx, me.id, "DISABLE_TOTP", "Authenticator app removed by its owner");
+    return ok("تم تعطيل تطبيق المصادقة");
+  });
 }

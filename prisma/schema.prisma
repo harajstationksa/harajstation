@@ -94,6 +94,11 @@ model User {
   // staff accounts start passwordless (email-code login only) until the
   // member sets a password from the admin portal; irrelevant for role USER
   passwordEnabled Boolean    @default(true)
+  // staff authenticator-app second factor (encrypted base32 secret). A pending
+  // enrollment has a secret but no totpEnabledAt; totpLastStep blocks replays.
+  totpSecret      String?
+  totpEnabledAt   DateTime?
+  totpLastStep    Int?
 
   // referral program: every user carries a shareable code; referredById links
   // the invitee to their referrer forever — the referrer earns a percentage

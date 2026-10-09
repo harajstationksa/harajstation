@@ -16,6 +16,8 @@ import { STAFF_ROLES } from "./constants";
 import { sendLoginCodeEmail } from "./email";
 import { cookieValue, OAUTH_OTP_COOKIE } from "./google-oauth";
 import { hashOtp, OTP_MAX_ATTEMPTS, OTP_RESEND_COOLDOWN_MS, OTP_TTL_MS } from "./login-guard";
+import { verifyTotp } from "./totp";
+import { decryptText } from "./crypto";
 const expired = () =>
   NextResponse.json(
     { error: "انتهت صلاحية التحقق؛ ابدأ تسجيل الدخول من جديد", restart: true },
@@ -44,6 +46,28 @@ export async function verifyLoginOtp(req: Request, admin: boolean) {
     await tx.$queryRaw`SELECT id FROM "User" WHERE id=${pending.userId} FOR UPDATE`;
     const user = await tx.user.findUnique({ where: { id: pending.userId } });
     if (!user || user.isBanned || STAFF_ROLES.includes(user.role) !== admin) return expired();
+    // Staff with an authenticator app must also prove possession of it, so a
+    // compromised mailbox alone never opens the portal. A wrong app code
+    // spends one of the challenge's attempts, like a wrong email code.
+    let totpStep: number | null = null;
+    if (admin && user.totpEnabledAt && user.totpSecret) {
+      const totp = typeof body?.totp === "string" ? body.totp : "";
+      totpStep = verifyTotp(decryptText(user.totpSecret), totp, user.totpLastStep);
+      if (totpStep === null) {
+        const row = await tx.loginOtp.findUnique({ where: { challenge: parsed.data.challenge } });
+        if (!row || row.userId !== user.id || row.consumedAt) return expired();
+        await tx.loginOtp.update({ where: { id: row.id }, data: { attempts: { increment: 1 } } });
+        const left = OTP_MAX_ATTEMPTS - row.attempts - 1;
+        return NextResponse.json(
+          {
+            error: "رمز تطبيق المصادقة غير صحيح أو مستخدم من قبل",
+            totp: true,
+            restart: left <= 0,
+          },
+          { status: left <= 0 ? 400 : 401 },
+        );
+      }
+    }
     const verified = await consumeOtp(
       tx,
       user,
@@ -56,6 +80,8 @@ export async function verifyLoginOtp(req: Request, admin: boolean) {
       const restart = !invalid || ("left" in verified && verified.left <= 0);
       return NextResponse.json({ error: verified.error, restart }, { status: restart ? 400 : 401 });
     }
+    if (totpStep !== null)
+      await tx.user.update({ where: { id: user.id }, data: { totpLastStep: totpStep } });
     if (admin)
       await tx.auditLog.create({
         data: {

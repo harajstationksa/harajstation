@@ -145,5 +145,6 @@ export async function POST(req: Request) {
     requiresOtp: true,
     challenge: otp.challenge,
     email: maskEmail(verdict.user!.email),
+    totp: !!verdict.user!.totpEnabledAt,
   });
 }

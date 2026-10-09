@@ -1106,6 +1106,33 @@ export async function removeStaffAction(data: FormData) {
     staffProof(data),
   );
 }
+/** Lost device: an ADMIN (with email step-up) clears another member's authenticator. */
+export async function resetStaffTotpAction(data: FormData) {
+  const id = target(data);
+  return mutation(
+    ["ADMIN"],
+    async (tx, actor) => {
+      const row = await tx.user.findUnique({ where: { id } });
+      if (!row || row.role === "USER" || id === actor.id || !row.totpSecret)
+        return fail("لا يوجد تطبيق مصادقة لإعادة ضبطه");
+      await tx.user.update({
+        where: { id },
+        data: {
+          totpSecret: null,
+          totpEnabledAt: null,
+          totpLastStep: null,
+          sessionVersion: { increment: 1 },
+        },
+      });
+      await tx.loginOtp.deleteMany({ where: { userId: id } });
+      await audit(tx, actor.id, "RESET_STAFF_TOTP", id);
+      return ok("أُزيل تطبيق المصادقة؛ يفعّله الموظف من جديد بعد دخوله");
+    },
+    [id],
+    undefined,
+    staffProof(data),
+  );
+}
 export async function updateMyAccountAction(data: FormData) {
   return updateAccountAction(data);
 }

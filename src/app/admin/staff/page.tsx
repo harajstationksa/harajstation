@@ -15,6 +15,7 @@ import { parseStaffPermissions } from "@/lib/staff-permissions";
 import {
   resendStaffInviteAction,
   removeStaffAction,
+  resetStaffTotpAction,
   requestStaffChangeCodeAction,
   updateStaffPermissionsAction,
   updateStaffRoleAction,
@@ -178,6 +179,20 @@ export default async function AdminStaffPage() {
                       <AdminActionForm action={resendStaffInviteAction}>
                         <input type="hidden" name="userId" value={u.id} />
                         <button className="btn-secondary text-xs">إعادة إرسال الدعوة</button>
+                      </AdminActionForm>
+                    )}
+                    {!isSelf && u.totpEnabledAt && (
+                      <AdminActionForm
+                        action={resetStaffTotpAction}
+                        stepUpAction={requestStaffChangeCodeAction}
+                      >
+                        <input type="hidden" name="userId" value={u.id} />
+                        <ConfirmSubmit
+                          confirm={`إزالة تطبيق المصادقة من حساب ${u.name}؟ استخدمه فقط إن فقد جهازه.`}
+                          className="act-btn bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+                        >
+                          إعادة ضبط تطبيق المصادقة
+                        </ConfirmSubmit>
                       </AdminActionForm>
                     )}
                     {!isSelf && (

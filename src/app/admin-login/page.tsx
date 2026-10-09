@@ -35,6 +35,8 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
+  const [needsTotp, setNeedsTotp] = useState(false);
+  const [totp, setTotp] = useState("");
   const [challenge, setChallenge] = useState("");
   const [maskedEmail, setMaskedEmail] = useState("");
   const [error, setError] = useState("");
@@ -64,6 +66,7 @@ export default function AdminLoginPage() {
     if (data.requiresOtp) {
       setChallenge(data.challenge);
       setMaskedEmail(data.email);
+      setNeedsTotp(!!data.totp);
       setStep("code");
       setTimeout(() => codeRef.current?.focus(), 50);
     }
@@ -75,7 +78,7 @@ export default function AdminLoginPage() {
     const res = await resilientFetch("/api/admin-auth/otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ challenge, code }),
+      body: JSON.stringify(needsTotp ? { challenge, code, totp } : { challenge, code }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -111,6 +114,8 @@ export default function AdminLoginPage() {
     setStep("email");
     setPassword("");
     setCode("");
+    setTotp("");
+    setNeedsTotp(false);
     setChallenge("");
   }
 
@@ -228,7 +233,7 @@ export default function AdminLoginPage() {
               className="space-y-4"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (/^\d{6}$/.test(code)) submitCode();
+                if (/^\d{6}$/.test(code) && (!needsTotp || /^\d{6}$/.test(totp))) submitCode();
               }}
             >
               <div className="text-center space-y-1">
@@ -249,7 +254,27 @@ export default function AdminLoginPage() {
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/[^\d]/g, ""))}
               />
-              <button className="btn-primary w-full" disabled={busy || code.length !== 6}>
+              {needsTotp && (
+                <div className="space-y-1">
+                  <label htmlFor="admin-totp" className="block text-sm text-neutral-600 text-center">
+                    رمز تطبيق المصادقة (Google Authenticator أو ما يماثله)
+                  </label>
+                  <input
+                    id="admin-totp"
+                    dir="ltr"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={6}
+                    className="input bg-neutral-50 border-neutral-200 text-neutral-800 w-full text-center text-2xl font-bold tracking-[0.5em]"
+                    value={totp}
+                    onChange={(e) => setTotp(e.target.value.replace(/[^\d]/g, ""))}
+                  />
+                </div>
+              )}
+              <button
+                className="btn-primary w-full"
+                disabled={busy || code.length !== 6 || (needsTotp && totp.length !== 6)}
+              >
                 {busy ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
