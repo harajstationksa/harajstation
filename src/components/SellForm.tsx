@@ -61,12 +61,15 @@ export function SellForm({
   canListing,
   canAuction,
   isPro = false,
+  aiEnabled = false,
 }: {
   categories: Cat[];
   stores: StoreOpt[];
   canListing: boolean;
   canAuction: boolean;
   isPro?: boolean;
+  /** false when the AI writer is not configured on the server — the button is hidden */
+  aiEnabled?: boolean;
 }) {
   const router = useRouter();
   const { lang, t } = useLang();
@@ -435,32 +438,34 @@ export function SellForm({
               <p className="text-xs text-red-600 mt-1">{fieldErrors.description}</p>
             )}
             {/* AI writer: rough words in → market-ready title + description out */}
-            <div className="mt-2 flex items-center gap-2 flex-wrap">
-              {isPro ? (
-                <button
-                  type="button"
-                  onClick={aiWrite}
-                  disabled={aiBusy || (description.trim() || title.trim()).length < 5}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-primary-200 bg-primary-50 px-3.5 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-100 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default"
-                >
-                  {aiBusy ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
+            {aiEnabled && (
+              <div className="mt-2 flex items-center gap-2 flex-wrap">
+                {isPro ? (
+                  <button
+                    type="button"
+                    onClick={aiWrite}
+                    disabled={aiBusy || (description.trim() || title.trim()).length < 5}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-primary-200 bg-primary-50 px-3.5 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-100 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default"
+                  >
+                    {aiBusy ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="size-3.5" />
+                    )}
+                    {aiBusy ? d.aiWriting : d.aiWrite}
+                  </button>
+                ) : (
+                  <a
+                    href="/pro"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-50 px-3.5 py-1.5 text-xs font-semibold text-neutral-500 hover:border-primary-300 hover:text-primary-700 transition-colors"
+                  >
                     <Sparkles className="size-3.5" />
-                  )}
-                  {aiBusy ? d.aiWriting : d.aiWrite}
-                </button>
-              ) : (
-                <a
-                  href="/pro"
-                  className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-50 px-3.5 py-1.5 text-xs font-semibold text-neutral-500 hover:border-primary-300 hover:text-primary-700 transition-colors"
-                >
-                  <Sparkles className="size-3.5" />
-                  {d.aiProOnly}
-                </a>
-              )}
-              <span className="text-[11px] text-neutral-400">{d.aiHint}</span>
-            </div>
+                    {d.aiProOnly}
+                  </a>
+                )}
+                <span className="text-[11px] text-neutral-400">{d.aiHint}</span>
+              </div>
+            )}
             {aiError && <p className="text-xs text-red-600 mt-1">{aiError}</p>}
           </div>
 

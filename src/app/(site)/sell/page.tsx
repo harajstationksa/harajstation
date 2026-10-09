@@ -78,6 +78,7 @@ export default async function SellPage() {
         canListing={activeListings < maxListings}
         canAuction={activeAuctions < maxAuctions}
         isPro={user.isPro}
+        aiEnabled={!!process.env.ANTHROPIC_API_KEY}
       />
     </div>
   );

@@ -96,9 +96,13 @@ export async function POST(req: Request) {
 
   const client = new Anthropic();
   try {
-    const response = await client.messages.create({
-      model: "claude-opus-4-8",
-      max_tokens: 1024,
+    const response = await client.beta.messages.create({
+      model: "claude-opus-5-5",
+      // thinking is always on for this model and counts toward max_tokens
+      max_tokens: 4096,
+      // a policy decline is re-run on a fallback model inside the same call
+      betas: ["server-side-fallback-2026-06-01"],
+      fallbacks: [{ model: "claude-opus-4-8" }],
       output_config: {
         effort: "low",
         format: { type: "json_schema", schema: OUTPUT_SCHEMA },
