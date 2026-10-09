@@ -9,6 +9,8 @@ import { applyProxyBids } from "@/lib/proxy-bid";
 import { formatSAR } from "@/lib/utils";
 import { rateLimitGuard } from "@/lib/rate-limit";
 import { Prisma } from "@prisma/client";
+import { bidPolicyError } from "@/lib/bid-policy";
+import { SNIPE_EXTENSION_MS, SNIPE_WINDOW_MS } from "@/lib/constants";
 
 const schema = z.object({
   maxAmount: z.number().int().positive().max(2_000_000_000),
@@ -91,6 +93,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
             );
           }
 
+          const policy = await bidPolicyError(tx, user, maxAmount, { minNext, isBuyNow: false });
+          if (policy) throw new ProxyError(403, policy);
+
           await tx.proxyBid.upsert({
             where: { auctionId_bidderId: { auctionId: id, bidderId: user.id } },
             create: { auctionId: id, bidderId: user.id, maxAmount, anonymous },
@@ -99,6 +104,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 
           const prevTopBidderId = top?.bidderId ?? null;
           const resolved = await applyProxyBids(tx, id);
+          // A ceiling placed in the closing window bids for real, so it gets the
+          // same anti-sniping extension as a manual bid.
+          if (resolved.autoBids > 0 && auction.endsAt.getTime() - now.getTime() < SNIPE_WINDOW_MS) {
+            await tx.auction.update({
+              where: { id },
+              data: {
+                endsAt: new Date(auction.endsAt.getTime() + SNIPE_EXTENSION_MS),
+                extendedCount: { increment: 1 },
+              },
+            });
+          }
           const result = {
             title: auction.listing.title,
             prevTopBidderId,

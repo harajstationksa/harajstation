@@ -15,6 +15,7 @@ import {
 import { applyProxyBids } from "@/lib/proxy-bid";
 import { formatSAR, maskedBidderName } from "@/lib/utils";
 import { rateLimitGuard } from "@/lib/rate-limit";
+import { bidPolicyError } from "@/lib/bid-policy";
 
 const schema = z.object({
   amount: z.number().int().positive().max(2_000_000_000),
@@ -98,6 +99,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
           }
 
           const isBuyNow = auction.buyNowPrice != null && amount >= auction.buyNowPrice;
+          const policy = await bidPolicyError(tx, user, isBuyNow ? auction.buyNowPrice! : amount, {
+            minNext,
+            isBuyNow,
+          });
+          if (policy) throw new BidError(403, policy);
 
           // bid-sniping protection: bids in the last 2 minutes extend the timer
           let extended = false;

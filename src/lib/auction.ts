@@ -3,6 +3,8 @@ import { notifyWithClient } from "./notify";
 import { CONFIRM_WINDOW_HOURS } from "./constants";
 import { formatSAR } from "./utils";
 import { lockListing } from "./listing-policy";
+import { applyProxyBids } from "./proxy-bid";
+import type { Prisma } from "@prisma/client";
 
 const FINALIZE_BATCH = 50;
 
@@ -93,7 +95,12 @@ export async function finalizeExpiredAuctions() {
           where: { id: candidate.id },
           include: {
             listing: { include: { seller: { select: { isBanned: true } } } },
-            bids: { orderBy: [{ amount: "desc" }, { createdAt: "asc" }, { id: "asc" }], take: 1 },
+            // a banned account can never be declared the winner
+            bids: {
+              where: { bidder: { isBanned: false } },
+              orderBy: [{ amount: "desc" }, { createdAt: "asc" }, { id: "asc" }],
+              take: 1,
+            },
           },
         });
         if (
@@ -188,4 +195,67 @@ export async function cancelListingAuction(
     `/auctions/${auction.id}`,
     `auction-cancelled:${auction.id}`,
   );
+}
+
+/**
+ * Withdraw every bid and ceiling `bidderId` holds on a LIVE auction. The bids
+ * are archived in VoidedBid (never erased) and the remaining ceilings settle
+ * against the new top. Caller must hold the listing lock.
+ * Returns the new top bidder when the lead changed hands, else null.
+ */
+export async function voidBidderOnAuction(
+  tx: Prisma.TransactionClient,
+  auctionId: string,
+  bidderId: string,
+  reason: "SELLER_BLOCK" | "ACCOUNT_BAN",
+  actorId: string | null,
+): Promise<{ voided: number; newTopBidderId: string | null; previousTopBidderId: string | null }> {
+  const order = [{ amount: "desc" as const }, { createdAt: "asc" as const }, { id: "asc" as const }];
+  const before = await tx.bid.findFirst({ where: { auctionId }, orderBy: order });
+  const voided = await tx.$executeRaw`
+    INSERT INTO "VoidedBid" (id, "auctionId", "bidderId", amount, "maskedName", anonymous, "bidAt", "voidedById", reason)
+    SELECT id, "auctionId", "bidderId", amount, "maskedName", anonymous, "createdAt", ${actorId}, ${reason}
+    FROM "Bid" WHERE "auctionId" = ${auctionId} AND "bidderId" = ${bidderId}
+    ON CONFLICT (id) DO NOTHING`;
+  await tx.bid.deleteMany({ where: { auctionId, bidderId } });
+  await tx.proxyBid.deleteMany({ where: { auctionId, bidderId } });
+  await applyProxyBids(tx, auctionId);
+  const after = await tx.bid.findFirst({ where: { auctionId }, orderBy: order });
+  const changed = before?.bidderId !== after?.bidderId;
+  return {
+    voided,
+    newTopBidderId: changed ? (after?.bidderId ?? null) : null,
+    previousTopBidderId: before?.bidderId ?? null,
+  };
+}
+
+/** Ban side effect: pull the account out of every live auction it is bidding in. */
+export async function voidBannedBidder(
+  tx: Prisma.TransactionClient,
+  bidderId: string,
+  actorId: string,
+) {
+  const auctions = await tx.auction.findMany({
+    where: {
+      status: "LIVE",
+      OR: [{ bids: { some: { bidderId } } }, { proxies: { some: { bidderId } } }],
+    },
+    select: { id: true, listingId: true, listing: { select: { title: true } } },
+    orderBy: { listingId: "asc" },
+  });
+  for (const auction of auctions) {
+    await lockListing(tx, auction.listingId);
+    const result = await voidBidderOnAuction(tx, auction.id, bidderId, "ACCOUNT_BAN", actorId);
+    if (result.newTopBidderId) {
+      await notifyWithClient(
+        tx,
+        [result.newTopBidderId],
+        "BID",
+        "أصبحت صاحب أعلى مزايدة",
+        `أُلغيت مزايدات حساب مخالف في مزاد "${auction.listing.title}"، وأصبحت الآن صاحب أعلى مزايدة.`,
+        `/auctions/${auction.id}`,
+      );
+    }
+  }
+  return auctions.length;
 }

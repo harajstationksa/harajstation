@@ -53,6 +53,12 @@ const EN: Record<string, string> = {
   "الملف غير موجود": "File not found.",
   "لا يمكن حذف حساب مدير — أزل صلاحية الإدارة أولاً":
     "Remove the administrator role before deleting this account.",
+  "مصداقية حسابك منخفضة بسبب صفقات سابقة لم تكتمل — لا يمكنك المزايدة حالياً":
+    "Your credibility is too low after unfinished deals, so bidding is paused for now.",
+  "لديك مزادات فزت بها ولم تكتمل بعد — أكمل استلامها أولاً ثم زايد من جديد":
+    "Complete the auctions you already won before placing new bids.",
+  "لا يمكن حظر المزايدين في آخر 10 دقائق من المزاد — تواصل مع الدعم إن كانت هناك مخالفة":
+    "Bidders cannot be blocked in the final 10 minutes. Contact support about violations.",
   "نشرت إعلانات كثيرة خلال وقت قصير — انتظر قليلاً":
     "You have published too many listings. Please wait.",
 };

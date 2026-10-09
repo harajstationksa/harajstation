@@ -1,6 +1,6 @@
 "use server";
 
-import { cancelListingAuction } from "@/lib/auction";
+import { cancelListingAuction, voidBannedBidder } from "@/lib/auction";
 import { Prisma, type User } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import { hash } from "bcryptjs";
@@ -104,11 +104,13 @@ export async function toggleBanAction(data: FormData) {
         data: { isBanned: !user.isBanned, sessionVersion: { increment: 1 } },
       });
       await tx.loginOtp.deleteMany({ where: { userId: id } });
+      // a banned account must not keep (or win) live auctions
+      const auctions = user.isBanned ? 0 : await voidBannedBidder(tx, id, actor.id);
       await audit(
         tx,
         actor.id,
         user.isBanned ? "UNBAN_USER" : "BAN_USER",
-        `user=${id}; banned=${!user.isBanned}`,
+        `user=${id}; banned=${!user.isBanned}; liveAuctionsVoided=${auctions}`,
       );
       return ok(user.isBanned ? "تم رفع الحظر" : "تم حظر الحساب");
     },

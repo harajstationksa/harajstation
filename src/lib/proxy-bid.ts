@@ -38,6 +38,8 @@ export async function applyProxyBids(
         auctionId,
         maxAmount: { gte: needed },
         ...(top ? { bidderId: { not: top.bidderId } } : {}),
+        // banned accounts and bidders the seller blocked never bid by proxy
+        bidder: { isBanned: false, auctionBlocks: { none: { auctionId } } },
       },
       orderBy: [{ maxAmount: "desc" }, { createdAt: "asc" }, { id: "asc" }],
       take: 2,
