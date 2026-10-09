@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/lib/auth";
+import { rateLimitGuard } from "@/lib/rate-limit";
 import { accountVersion, publicVersions } from "../_lib/sync-versions";
 
 export const runtime = "nodejs";
@@ -7,9 +8,14 @@ export const dynamic = "force-dynamic";
 /** Foreground revision stream. The committed database is checked every three
  * seconds. Short-lived streams reconnect to revalidate the session. Nginx
  * must not buffer these frames; Android falls back when a proxy blocks SSE.
+ * `?scope=public` (the website home page) skips the personal fingerprint.
  */
 export async function GET(request: Request) {
-  const user = await getCurrentUser();
+  // Each stream lives up to 55s, so this also caps concurrent streams per IP.
+  const limited = await rateLimitGuard(request, "sync-stream", 30, 60_000);
+  if (limited) return limited;
+  const publicOnly = new URL(request.url).searchParams.get("scope") === "public";
+  const user = publicOnly ? null : await getCurrentUser();
   const encoder = new TextEncoder();
   let timer: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;

@@ -10,7 +10,6 @@ import { getSponsored, recordImpressions } from "@/lib/campaigns";
 import { getSetting } from "@/lib/settings";
 import { cached } from "@/lib/page-cache";
 import { bannerOrder, visibleBannerWhere } from "@/lib/visible-banners";
-import { publicVersions } from "@/app/api/mobile/_lib/sync-versions";
 import { HomeLiveSync } from "@/components/HomeLiveSync";
 import { AuctionCard } from "@/components/AuctionCard";
 import { BannerCarousel } from "@/components/BannerCarousel";
@@ -41,11 +40,11 @@ export const metadata: Metadata = {
  * one page-wide await blocking the first byte.
  */
 export default async function HomePage() {
-  const [{ t }, revisions] = await Promise.all([getT(), publicVersions().catch(() => null)]);
+  const { t } = await getT();
 
   return (
     <div className="pb-8">
-      <HomeLiveSync revision={revisions ? `${revisions.catalogue}:${revisions.market}` : ""} />
+      <HomeLiveSync />
       <div className="container-page pt-4 sm:pt-6">
         <Suspense fallback={null}>
           <HeroBanner />

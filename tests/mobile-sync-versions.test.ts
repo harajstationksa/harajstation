@@ -34,7 +34,7 @@ it("expires snapshots and clears website home caches when committed content chan
     .mockResolvedValueOnce([{ catalogue: "c1", market: "m2" }]);
   const { publicVersions } = await import("@/app/api/mobile/_lib/sync-versions");
   await publicVersions();
-  await vi.advanceTimersByTimeAsync(2001);
+  await vi.advanceTimersByTimeAsync(15_001);
   expect((await publicVersions()).market).toBe("m2");
   expect(mocks.invalidate).toHaveBeenCalledTimes(2);
   expect(mocks.invalidate).toHaveBeenLastCalledWith("home:");
@@ -58,4 +58,15 @@ it("retries a failed snapshot instead of caching its error", async () => {
   const { publicVersions } = await import("@/app/api/mobile/_lib/sync-versions");
   await expect(publicVersions()).rejects.toThrow("offline");
   expect(await publicVersions()).toEqual({ catalogue: "c1", market: "m1" });
+});
+
+it("shares one personal fingerprint across an account's open devices", async () => {
+  mocks.raw.mockResolvedValue([{ version: "private-hash" }]);
+  const { accountVersion } = await import("@/app/api/mobile/_lib/sync-versions");
+  await Promise.all([accountVersion("u1"), accountVersion("u1"), accountVersion("u1")]);
+  await accountVersion("u1");
+  expect(mocks.raw).toHaveBeenCalledTimes(1);
+  await vi.advanceTimersByTimeAsync(15_001);
+  await accountVersion("u1");
+  expect(mocks.raw).toHaveBeenCalledTimes(2);
 });

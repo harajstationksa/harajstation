@@ -2,6 +2,17 @@ import { db } from "@/lib/db";
 import { invalidatePageCache } from "@/lib/page-cache";
 
 type PublicVersions = { catalogue: string; market: string };
+
+/** One shared public snapshot per worker at most every 15s — the query
+ * fingerprints whole tables, so its cost grows with the catalogue and must
+ * never scale with the number of connected viewers. */
+export const PUBLIC_SNAPSHOT_TTL_MS = 15_000;
+/** Personal fingerprints are shared by every open tab/device of one account. */
+export const ACCOUNT_SNAPSHOT_TTL_MS = 15_000;
+const ACCOUNT_CACHE_MAX = 5_000;
+const accountSnapshots = new Map<string, { value: string; expires: number }>();
+const accountInFlight = new Map<string, Promise<string>>();
+
 let publicSnapshot: { value: PublicVersions; expires: number } | undefined;
 let inFlight: Promise<PublicVersions> | undefined;
 
@@ -53,7 +64,7 @@ export async function publicVersions(): Promise<PublicVersions> {
     ) {
       invalidatePageCache("home:");
     }
-    publicSnapshot = { value, expires: Date.now() + 2_000 };
+    publicSnapshot = { value, expires: Date.now() + PUBLIC_SNAPSHOT_TTL_MS };
     return value;
   })();
   try {
@@ -68,6 +79,30 @@ export async function publicVersions(): Promise<PublicVersions> {
  * campaigns and sale verification. Message bodies/credentials are excluded.
  */
 export async function accountVersion(userId: string): Promise<string> {
+  const now = Date.now();
+  const hit = accountSnapshots.get(userId);
+  if (hit && hit.expires > now) return hit.value;
+  const pending = accountInFlight.get(userId);
+  if (pending) return pending;
+  const run = queryAccountVersion(userId).then((value) => {
+    if (accountSnapshots.size >= ACCOUNT_CACHE_MAX) {
+      for (const [key, entry] of accountSnapshots) {
+        if (entry.expires <= Date.now()) accountSnapshots.delete(key);
+      }
+      if (accountSnapshots.size >= ACCOUNT_CACHE_MAX) accountSnapshots.clear();
+    }
+    accountSnapshots.set(userId, { value, expires: Date.now() + ACCOUNT_SNAPSHOT_TTL_MS });
+    return value;
+  });
+  accountInFlight.set(userId, run);
+  try {
+    return await run;
+  } finally {
+    accountInFlight.delete(userId);
+  }
+}
+
+async function queryAccountVersion(userId: string): Promise<string> {
   const rows = await db.$queryRaw<Array<{ version: string }>>`
     SELECT md5(concat(
       (SELECT (to_jsonb(u) - 'passwordHash' - 'googleSub' - 'failedLogins' - 'lastFailedAt' - 'lockUntil')::text FROM "User" u WHERE u.id = ${userId}),

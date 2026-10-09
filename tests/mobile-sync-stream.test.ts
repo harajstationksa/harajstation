@@ -64,6 +64,15 @@ describe("mobile revision stream", () => {
     await reader.cancel();
   });
 
+  it("public scope never resolves the session or personal state", async () => {
+    const response = await GET(new Request("https://harajstation.com/api/mobile/sync?scope=public"));
+    const reader = response.body!.getReader();
+    const frame = new TextDecoder().decode((await reader.read()).value);
+    expect(frame).toContain('"account":"guest"');
+    expect(mocks.account).not.toHaveBeenCalled();
+    await reader.cancel();
+  });
+
   it("closes on a database failure without leaking its error", async () => {
     mocks.public.mockRejectedValue(new Error("secret database URL"));
     const response = await GET(new Request("https://harajstation.com/api/mobile/sync"));
