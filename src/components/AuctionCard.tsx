@@ -5,6 +5,7 @@ import type { CardListing } from "@/lib/types";
 import { getT } from "@/lib/i18n";
 import { cn, formatSAR, parseImages } from "@/lib/utils";
 import { Countdown } from "./Countdown";
+import { GlassTimer } from "./GlassTimer";
 
 export async function AuctionCard({
   listing,
@@ -27,6 +28,8 @@ export async function AuctionCard({
       href={`/auctions/${auction.id}`}
       className={cn(
         "group overflow-hidden bg-white border border-neutral-100 shadow-card transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5",
+        // phone layout: softer card corners
+        "max-md:rounded-[20px]",
         className,
       )}
     >
@@ -47,11 +50,23 @@ export async function AuctionCard({
             {t.card.ended}
           </span>
         )}
+        {/* phone layout: frosted countdown + buy-now flag on the photo */}
+        {live && (
+          <GlassTimer endsAt={auction.endsAt} className="absolute bottom-2 start-2 md:hidden" />
+        )}
+        {live && auction.buyNowPrice != null && (
+          <span className="absolute top-2 left-2 rounded-full bg-white/85 px-2 py-0.5 text-[10px] font-bold text-neutral-900 backdrop-blur md:hidden">
+            ⚡ {t.auctionsPage.tabBuyNow}
+          </span>
+        )}
       </div>
 
-      <div className="p-4 space-y-1.5">
+      <div className="p-4 max-md:p-3 space-y-1.5">
+        <p className="md:hidden text-[11px] text-neutral-400 leading-none">
+          {t.auctionsPage.currentBid}
+        </p>
         <div className="flex items-baseline justify-between gap-2">
-          <p className="text-neutral-900 font-bold font-display text-xl leading-tight">
+          <p className="text-neutral-900 font-bold font-display text-xl max-md:text-base max-md:whitespace-nowrap leading-tight">
             {formatSAR(currentBid)}
           </p>
           <span className="chip shrink-0">
@@ -70,7 +85,7 @@ export async function AuctionCard({
           </span>
         </div>
 
-        <div className="flex items-center justify-between rounded-lg bg-neutral-50 border border-neutral-100 px-2.5 py-1.5 mt-1">
+        <div className="hidden md:flex items-center justify-between rounded-lg bg-neutral-50 border border-neutral-100 px-2.5 py-1.5 mt-1">
           <span className="text-[11px] text-neutral-400">{t.card.endsIn}</span>
           <Countdown endsAt={auction.endsAt} />
         </div>

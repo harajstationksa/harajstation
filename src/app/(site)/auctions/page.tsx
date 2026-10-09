@@ -19,6 +19,10 @@ import { SaveSearchButton } from "@/components/SaveSearchButton";
 import { EmptyState } from "@/components/EmptyState";
 import { SectionHeader } from "@/components/SectionHeader";
 import { SponsoredCard } from "@/components/SponsoredCard";
+import { PublicImage } from "@/components/PublicImage";
+import { GlassTimer } from "@/components/GlassTimer";
+import { AuctionFilterSheet } from "@/components/AuctionFilterSheet";
+import { formatSAR } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -79,7 +83,13 @@ export default async function AuctionsPage({ searchParams }: { searchParams: Pro
     ...(catSlug ? { category: { OR: [{ slug: catSlug }, { parent: { slug: catSlug } }] } } : {}),
   };
 
-  const [live, ended, catRows, soonest] = await Promise.all([
+  // "today" in Riyadh (UTC+3, no DST) for the phone header stats
+  const riyadhNow = new Date(now.getTime() + 3 * 3600_000);
+  const riyadhMidnight = new Date(
+    Date.UTC(riyadhNow.getUTCFullYear(), riyadhNow.getUTCMonth(), riyadhNow.getUTCDate()) -
+      3 * 3600_000,
+  );
+  const [live, ended, catRows, soonest, bidsToday, endingWithinHour] = await Promise.all([
     db.listing.findMany({
       where: liveWhere,
       include: cardInclude,
@@ -141,6 +151,15 @@ export default async function AuctionsPage({ searchParams }: { searchParams: Pro
       orderBy: { auction: { endsAt: "asc" } },
       take: 3,
     }),
+    // phone header stats
+    db.bid.count({ where: { createdAt: { gte: riyadhMidnight } } }),
+    db.auction.count({
+      where: {
+        status: "LIVE",
+        endsAt: { gt: now, lt: new Date(now.getTime() + 3600_000) },
+        listing: { status: "ACTIVE", seller: { isBanned: false } },
+      },
+    }),
   ]);
 
   // JS sorts that need the aggregated bid data (small result sets)
@@ -201,6 +220,11 @@ export default async function AuctionsPage({ searchParams }: { searchParams: Pro
   const heroSponsored = sponsoredAuctions.slice(0, 5);
   await recordImpressions(heroSponsored.map((l) => l.campaigns[0]?.id ?? ""));
   const sponsoredIds = new Set(sponsored.map((s) => s.id));
+  // phone "ending soon" rail: the five filtered live auctions closest to close
+  const railItems = [...live]
+    .filter((l) => l.auction)
+    .sort((a, b) => a.auction!.endsAt.getTime() - b.auction!.endsAt.getTime())
+    .slice(0, 5);
   const liveRest = live.filter((l) => !sponsoredIds.has(l.id));
 
   const filterLink = (params: Record<string, string | undefined>) => {
@@ -241,8 +265,124 @@ export default async function AuctionsPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="pb-8">
+      {/* ── phone header: compact title + live stats (desktop keeps the hero) ── */}
+      <section className="md:hidden px-4 pt-3">
+        <div className="relative overflow-hidden rounded-[26px] bg-[radial-gradient(120%_140%_at_100%_0%,#3a2318_0%,#1c1612_55%)] px-4.5 pt-4.5 pb-4 text-white">
+          <div
+            aria-hidden
+            className="absolute -top-24 -left-16 size-56 rounded-full bg-primary-500/35 blur-3xl"
+          />
+          <h1 className="relative font-display text-[26px] font-extrabold leading-tight">
+            {t.auctionsPage.title}
+          </h1>
+          <p className="relative mt-1 text-[13px] leading-relaxed text-neutral-300">
+            {t.auctionsPage.mobileSubtitle}
+          </p>
+          <div className="relative mt-3.5 flex flex-wrap gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold backdrop-blur">
+              <span className="size-2 rounded-full bg-red-500 animate-live-pulse" />
+              <b className="text-sm tabular-nums">{catRows.length}</b> {t.auctionsPage.statLive}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold backdrop-blur">
+              <Flame className="size-3.5" />
+              <b className="text-sm tabular-nums">{endingWithinHour}</b>{" "}
+              {t.auctionsPage.statEndingHour}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold backdrop-blur">
+              <Gavel className="size-3.5" />
+              <b className="text-sm tabular-nums">{bidsToday}</b> {t.auctionsPage.statBidsToday}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* ── phone: sticky status tabs + category chips + filter sheet ── */}
+      <div className="md:hidden sticky top-0 z-30 bg-gradient-to-b from-neutral-50 from-80% to-neutral-50/0 pt-3 pb-1.5">
+        <div className="mx-4 flex rounded-[14px] bg-neutral-200/70 p-1">
+          {(
+            [
+              { key: undefined, label: t.auctionsPage.tabAll },
+              { key: "soon", label: t.auctionsPage.tabSoon },
+              { key: "buynow", label: t.auctionsPage.tabBuyNow },
+            ] as const
+          ).map(({ key, label }) => (
+            <Link
+              key={label}
+              href={filterLink({ quick: key })}
+              className={cn(
+                "flex-1 rounded-[11px] py-2 text-center text-[13px] font-semibold transition-colors",
+                quick === key ? "bg-neutral-900 text-white shadow-sm" : "text-neutral-600",
+              )}
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
+        <div className="flex gap-2 overflow-x-auto no-scrollbar px-4 pt-2.5 pb-0.5">
+          <AuctionFilterSheet
+            q={q}
+            city={city}
+            sort={sort}
+            category={catSlug}
+            quick={quick}
+            cities={[...CITIES]}
+            activeCount={(q ? 1 : 0) + (city ? 1 : 0) + (sort !== "ending" ? 1 : 0)}
+            sorts={[
+              { value: "ending", label: t.auctionsPage.sortEnding },
+              { value: "bids", label: t.auctionsPage.sortBids },
+              { value: "newest", label: t.filters.sortNew },
+              { value: "price_desc", label: t.auctionsPage.sortPriceHigh },
+              { value: "price_asc", label: t.auctionsPage.sortPriceLow },
+            ]}
+          />
+          <Link
+            href={filterLink({ category: undefined })}
+            className={cn(
+              "shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold",
+              !catSlug
+                ? "bg-primary-500 text-white border-primary-500"
+                : "bg-white text-neutral-600 border-neutral-200",
+            )}
+          >
+            {t.nav.all}
+          </Link>
+          {chips.map((c) => (
+            <Link
+              key={c.slug}
+              href={filterLink({ category: c.slug })}
+              className={cn(
+                "shrink-0 inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold",
+                catSlug === c.slug
+                  ? "bg-primary-500 text-white border-primary-500"
+                  : "bg-white text-neutral-600 border-neutral-200",
+              )}
+            >
+              <CategoryIcon name={c.icon} className="size-3.5" />
+              {lang === "en" ? c.nameEn : c.nameAr}
+              <span
+                className={cn(
+                  "text-[11px]",
+                  catSlug === c.slug ? "text-white/70" : "text-neutral-400",
+                )}
+              >
+                {c.count}
+              </span>
+            </Link>
+          ))}
+          {hasFilters && (
+            <Link
+              href="/auctions"
+              className="shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-1.5 text-[13px] font-semibold text-neutral-500"
+            >
+              <X className="size-3.5" />
+              {t.auctionsPage.clearFilters}
+            </Link>
+          )}
+        </div>
+      </div>
+
       {/* ── hero: dark stage with warm glows + ending-soonest spotlight ── */}
-      <section className="relative overflow-hidden bg-neutral-950 text-white">
+      <section className="relative overflow-hidden bg-neutral-950 text-white max-md:hidden">
         <div aria-hidden className="absolute inset-0 pointer-events-none">
           <div className="absolute -top-32 -end-24 size-96 rounded-full bg-primary-500/25 blur-3xl" />
           <div className="absolute -bottom-40 start-1/3 size-[28rem] rounded-full bg-primary-600/15 blur-3xl" />
@@ -288,7 +428,7 @@ export default async function AuctionsPage({ searchParams }: { searchParams: Pro
       </section>
 
       {/* ── floating filter toolbar (overlaps the hero edge) ── */}
-      <div className="container-page relative z-10 -mt-7" id="auctions">
+      <div className="container-page relative z-10 -mt-7 max-md:hidden" id="auctions">
         <div className="card rounded-2xl shadow-card-hover p-3 sm:p-4 space-y-3">
           {/* segmented quick-status control */}
           <div className="flex items-center gap-2 flex-wrap">
@@ -373,10 +513,83 @@ export default async function AuctionsPage({ searchParams }: { searchParams: Pro
         </div>
       </div>
 
-      <div className="container-page mt-6 space-y-8">
+      <div className="container-page mt-6 max-md:mt-3 space-y-8 max-md:space-y-6">
+        {/* ── phone: "ending soon" rail ── */}
+        {railItems.length > 1 && (
+          <section className="md:hidden -mx-4">
+            <div className="flex items-baseline justify-between px-4 mb-2.5">
+              <h2 className="font-display text-lg font-extrabold inline-flex items-center gap-1.5">
+                <Flame className="size-5 text-primary-500" />
+                {t.auctionsPage.endingSoonRail}
+              </h2>
+              <Link
+                href={filterLink({ quick: "soon" })}
+                className="text-[13px] font-semibold text-primary-600"
+              >
+                {t.auctionsPage.seeAll}
+              </Link>
+            </div>
+            <div className="flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory px-4 pb-1.5">
+              {railItems.map((l) => {
+                const a = l.auction!;
+                return (
+                  <Link
+                    key={l.id}
+                    href={`/auctions/${a.id}`}
+                    className="snap-start shrink-0 basis-[82%] overflow-hidden rounded-3xl border border-neutral-100 bg-white shadow-[0_10px_28px_-14px_rgb(60_30_10/35%)]"
+                  >
+                    <div className="relative aspect-4/3 bg-neutral-100">
+                      <PublicImage
+                        src={parseImages(l.images)[0] ?? "/images/ph/chair1.svg"}
+                        alt={l.title}
+                        loading="lazy"
+                        className="size-full object-cover"
+                      />
+                      <div
+                        aria-hidden
+                        className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/60 to-transparent"
+                      />
+                      <span className="badge absolute top-2.5 right-2.5 bg-red-600 text-white">
+                        <span className="size-1.5 rounded-full bg-white animate-live-pulse" />
+                        {t.card.live}
+                      </span>
+                      <GlassTimer
+                        endsAt={a.endsAt}
+                        className="absolute bottom-2.5 start-2.5 text-[13px]"
+                      />
+                      <span className="absolute bottom-3 end-3 inline-flex items-center gap-1 text-xs font-semibold text-white">
+                        <Gavel className="size-3.5" />
+                        {a._count.bids} {t.auctionsPage.bidsUnit}
+                      </span>
+                    </div>
+                    <div className="px-3.5 pt-3 pb-3.5">
+                      <h3 className="truncate text-[15px] font-semibold text-neutral-900">
+                        {l.title}
+                      </h3>
+                      <div className="mt-2 flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-[11px] text-neutral-400">
+                            {t.auctionsPage.currentBid}
+                          </p>
+                          <p className="font-display text-[22px] font-extrabold leading-tight text-neutral-900">
+                            {formatSAR(a.bids[0]?.amount ?? a.startPrice)}
+                          </p>
+                        </div>
+                        <span className="inline-flex items-center rounded-[14px] bg-gradient-to-b from-primary-400 to-primary-600 px-4 py-2.5 text-sm font-bold text-white shadow-[0_8px_18px_-8px_rgb(196_96_63/80%)]">
+                          {t.auctionsPage.bidNow}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {/* category chips */}
         {chips.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 max-md:hidden">
             <Link
               href={filterLink({ category: undefined })}
               className={cn(
@@ -458,10 +671,49 @@ export default async function AuctionsPage({ searchParams }: { searchParams: Pro
         {ended.length > 0 && (
           <section>
             <SectionHeader title={t.auctionsPage.endedRecently} />
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 opacity-80">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 opacity-80 max-md:hidden">
               {ended.map((listing) => (
                 <AuctionCard key={listing.id} listing={listing} />
               ))}
+            </div>
+            {/* phone: compact list — final price against the starting price */}
+            <div className="md:hidden overflow-hidden rounded-[20px] border border-neutral-100 bg-white">
+              {ended.map((l) => {
+                const a = l.auction!;
+                const sold = a.status === "ENDED";
+                return (
+                  <Link
+                    key={l.id}
+                    href={`/auctions/${a.id}`}
+                    className="flex items-center gap-3 border-b border-neutral-100 px-3 py-2.5 last:border-0"
+                  >
+                    <PublicImage
+                      src={parseImages(l.images)[0] ?? "/images/ph/chair1.svg"}
+                      alt={l.title}
+                      loading="lazy"
+                      className="size-13 shrink-0 rounded-[14px] object-cover grayscale-[.6]"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-semibold">{l.title}</p>
+                      <p className="text-[11px] text-neutral-400">
+                        {a._count.bids} {t.auctionsPage.bidsUnit}
+                      </p>
+                    </div>
+                    {sold ? (
+                      <div className="text-end text-xs font-bold text-green-700">
+                        {t.auctionsPage.soldFor} {formatSAR(a.winningBid ?? a.bids[0]?.amount ?? 0)}
+                        <span className="block text-[10px] font-medium text-neutral-400">
+                          {t.auctionsPage.startedAt} {formatSAR(a.startPrice)}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] font-semibold text-neutral-400">
+                        {t.auctionsPage.noSale}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           </section>
         )}

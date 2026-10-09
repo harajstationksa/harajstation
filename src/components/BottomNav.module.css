@@ -1,132 +1,205 @@
-.dock {
-  pointer-events: auto;
+/* Liquid-glass phone dock: a floating capsule of tabs with a sliding glass
+   lens under the active one, and a separate round "post" button beside it.
+   Phones only — the component itself is hidden from md up. */
+
+.bar {
+  pointer-events: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 10px;
   margin-inline: auto;
   width: min(100%, 26rem);
-  background: #fffdfa;
-  border: 1px solid #ece3dd;
-  border-radius: 22px;
-  box-shadow:
-    0 10px 28px rgb(27 30 35 / 16%),
-    0 2px 7px rgb(27 30 35 / 7%);
-  transition:
-    width 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-radius 520ms ease,
-    box-shadow 520ms ease;
 }
-.compact {
-  width: min(100%, 264px);
-  border-radius: 18px;
-  box-shadow: 0 6px 18px rgb(27 30 35 / 13%);
-}
-.items {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  align-items: center;
-  gap: 2px;
-  height: 70px;
-  padding: 6px;
-  transition:
-    height 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    padding 520ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.compact .items {
-  height: 54px;
-  padding: 4px;
-}
-.item,
-.addLink {
+
+.glass {
   position: relative;
+  background: linear-gradient(
+    160deg,
+    rgb(255 255 255 / 62%) 0%,
+    rgb(255 255 255 / 30%) 45%,
+    rgb(255 255 255 / 42%) 100%
+  );
+  -webkit-backdrop-filter: blur(22px) saturate(190%);
+  backdrop-filter: blur(22px) saturate(190%);
+  border: 1px solid rgb(255 255 255 / 65%);
+  box-shadow:
+    inset 0 1px 1px rgb(255 255 255 / 95%),
+    inset 0 -1px 1px rgb(255 255 255 / 35%),
+    inset 0 0 18px rgb(255 255 255 / 25%),
+    0 14px 34px -10px rgb(30 15 5 / 35%),
+    0 3px 8px rgb(30 15 5 / 8%);
+}
+/* specular highlight */
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 20% 0%, rgb(255 255 255 / 75%), rgb(255 255 255 / 0%) 45%),
+    radial-gradient(80% 60% at 90% 110%, rgb(255 255 255 / 35%), rgb(255 255 255 / 0%) 60%);
+  mix-blend-mode: soft-light;
+}
+/* without backdrop blur the glass would be unreadable over photos */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background: rgb(255 253 250 / 96%);
+  }
+}
+
+.dock {
+  pointer-events: auto;
+  flex: 1;
+  min-width: 0;
+  max-width: 300px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  height: 66px;
+  padding: 0 6px;
+  border-radius: 999px;
+  transition:
+    height 450ms cubic-bezier(0.3, 1.2, 0.5, 1),
+    padding 450ms cubic-bezier(0.3, 1.2, 0.5, 1),
+    max-width 450ms cubic-bezier(0.3, 1.2, 0.5, 1);
+}
+.compact .dock {
+  height: 54px;
+  padding: 0 4px;
+  max-width: 250px;
+}
+
+.lens {
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  border-radius: 999px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgb(255 255 255 / 95%), rgb(255 255 255 / 55%));
+  box-shadow:
+    inset 0 1px 0 #fff,
+    inset 0 -2px 6px rgb(219 119 89 / 12%),
+    0 4px 14px -4px rgb(120 60 30 / 35%),
+    0 0 0 0.5px rgb(219 119 89 / 25%);
+  transition:
+    transform 550ms cubic-bezier(0.25, 1.45, 0.45, 1),
+    width 450ms ease,
+    height 450ms ease,
+    top 450ms ease,
+    opacity 200ms ease;
+}
+.lensMoving {
+  animation: squish 550ms ease;
+}
+@keyframes squish {
+  30% {
+    scale: 1.18 0.9;
+  }
+  60% {
+    scale: 0.96 1.04;
+  }
+  100% {
+    scale: 1 1;
+  }
+}
+
+.item {
+  position: relative;
+  z-index: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 2px;
   min-width: 0;
-  height: 56px;
-  border-radius: 15px;
+  height: 54px;
+  border-radius: 999px;
+  color: #3b322b;
   -webkit-tap-highlight-color: transparent;
   transition:
-    background-color 180ms ease,
-    color 180ms ease,
-    transform 180ms ease,
-    height 520ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.compact .item,
-.compact .addLink {
-  height: 44px;
-}
-.item {
-  flex-direction: column;
-  gap: 4px;
-  color: #62666b;
-  transition:
-    background-color 180ms ease,
-    color 180ms ease,
-    transform 180ms ease,
-    height 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    gap 520ms cubic-bezier(0.22, 1, 0.36, 1);
+    color 220ms ease,
+    height 450ms cubic-bezier(0.3, 1.2, 0.5, 1),
+    gap 450ms ease;
 }
 .compact .item {
+  height: 44px;
   gap: 0;
 }
-.item.active {
+.active {
   color: var(--color-primary-700);
-  background: #faeee7;
 }
 .icon {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
+  transition: transform 350ms cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.active .icon {
+  transform: scale(1.08);
 }
 .label {
-  max-height: 15px;
-  font-size: 10px;
+  max-height: 14px;
+  font-size: 10.5px;
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
-  opacity: 1;
-  transform: translateY(0);
   transition:
-    max-height 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 240ms ease 100ms,
-    transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.compact .label {
-  max-height: 0;
-  opacity: 0;
-  transform: translateY(-4px);
-  transition:
-    max-height 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 200ms ease,
-    transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+    max-height 450ms ease,
+    opacity 220ms ease;
 }
 .active .label {
   font-weight: 700;
 }
-.addButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 46px;
-  height: 46px;
-  border-radius: 15px;
-  background: var(--color-primary-600);
-  color: white;
-  box-shadow: 0 4px 10px rgb(166 74 48 / 20%);
+.compact .label {
+  max-height: 0;
+  opacity: 0;
+}
+
+.sell {
+  pointer-events: auto;
+  position: relative;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 66px;
+  height: 66px;
+  border-radius: 999px;
+  color: #fff;
+  background:
+    radial-gradient(120% 120% at 30% 15%, rgb(255 255 255 / 55%), rgb(255 255 255 / 0%) 40%),
+    linear-gradient(180deg, rgb(232 140 110 / 94%), rgb(196 96 63 / 94%));
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(180%);
+  border: 1px solid rgb(255 220 205 / 75%);
+  box-shadow:
+    inset 0 1px 1px rgb(255 255 255 / 80%),
+    inset 0 -2px 6px rgb(120 40 10 / 25%),
+    0 14px 30px -10px rgb(196 96 63 / 70%);
+  -webkit-tap-highlight-color: transparent;
   transition:
-    background-color 180ms ease,
-    transform 180ms ease,
-    width 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    height 520ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-radius 520ms ease;
+    width 450ms cubic-bezier(0.3, 1.2, 0.5, 1),
+    height 450ms cubic-bezier(0.3, 1.2, 0.5, 1),
+    transform 180ms ease;
 }
-.compact .addButton {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+.compact .sell {
+  width: 54px;
+  height: 54px;
 }
+.sellIcon {
+  width: 28px;
+  height: 28px;
+}
+.sell:active,
+.item:active .icon {
+  transform: scale(0.92);
+}
+
 .navigationHint {
   position: absolute;
-  bottom: 2px;
+  bottom: 3px;
   width: 12px;
   height: 3px;
   border-radius: 999px;
@@ -134,63 +207,56 @@
   opacity: 0;
   pointer-events: none;
 }
+.sell .navigationHint {
+  background: #fff;
+  bottom: 8px;
+}
 .navigationHint[data-pending="true"] {
   opacity: 1;
 }
 .item:has(.navigationHint[data-pending="true"]) {
   color: var(--color-primary-700);
-  background: #faeee7;
 }
-.item:active,
-.addLink:active .addButton {
-  transform: scale(0.95);
-}
+
 .item:focus-visible,
-.addLink:focus-visible {
+.sell:focus-visible {
   outline: 2px solid var(--color-primary-700);
   outline-offset: 2px;
 }
-@media (hover: hover) {
-  .item:hover {
-    background: #f8f2ee;
-    color: var(--color-primary-700);
-  }
-  .item.active:hover {
-    background: #faeee7;
-  }
-  .addLink:hover .addButton {
-    background: var(--color-primary-700);
-  }
-}
+
 @media (prefers-reduced-motion: reduce) {
   .dock,
-  .items,
+  .lens,
   .item,
-  .addLink,
-  .addButton,
-  .label {
+  .icon,
+  .label,
+  .sell {
     transition: none;
   }
-  .item:active,
-  .addLink:active .addButton {
+  .lensMoving {
+    animation: none;
+  }
+  .sell:active,
+  .item:active .icon,
+  .active .icon {
     transform: none;
   }
 }
+
 @media (forced-colors: active) {
-  .dock {
+  .glass,
+  .sell {
     background: Canvas;
     border-color: ButtonText;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
   .item,
-  .item.active {
+  .sell {
     color: LinkText;
   }
-  .item.active {
-    outline: 1px solid LinkText;
-  }
-  .addButton {
-    background: ButtonFace;
-    color: ButtonText;
-    border: 1px solid ButtonText;
+  .lens {
+    background: Highlight;
+    opacity: 0.3;
   }
 }
