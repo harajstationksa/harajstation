@@ -59,6 +59,9 @@ const EN: Record<string, string> = {
     "Complete the auctions you already won before placing new bids.",
   "لا يمكن حظر المزايدين في آخر 10 دقائق من المزاد — تواصل مع الدعم إن كانت هناك مخالفة":
     "Bidders cannot be blocked in the final 10 minutes. Contact support about violations.",
+  "راسل هذا المستخدم من خلال أحد إعلاناته أو تابعه أولاً":
+    "Message this user from one of their listings, or follow them first.",
+  "بدأت محادثات كثيرة اليوم — حاول غداً": "You started many chats today. Try again tomorrow.",
   "نشرت إعلانات كثيرة خلال وقت قصير — انتظر قليلاً":
     "You have published too many listings. Please wait.",
 };

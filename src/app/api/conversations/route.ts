@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { getSession } from "@/lib/auth";
-import { rateLimitGuard } from "@/lib/rate-limit";
+import { isRateLimited, rateLimitGuard } from "@/lib/rate-limit";
 import { directConversationKey, hasUserBlock, lockChatUsers } from "@/lib/conversation-policy";
 
 const schema = z.object({
@@ -41,10 +41,65 @@ export async function POST(req: Request) {
             { error: apiMessage(req, "المراسلة غير متاحة بين هذين الحسابين") },
             { status: 403 },
           );
-        const conv = await tx.conversation.upsert({
-          where: { directKey },
-          create: { buyerId: session.sub, sellerId: targetId, directKey },
-          update: {},
+        const existingDirect = await tx.conversation.findUnique({ where: { directKey } });
+        if (existingDirect) return NextResponse.json({ id: existingDirect.id });
+        // A direct chat needs an existing connection (a listing chat, a deal,
+        // an offer/bid or a follow) — strangers start from one of the listings,
+        // which keeps cold spam and off-platform payment scams out of inboxes.
+        const [convs, deals, offers, bids, follows] = await Promise.all([
+          tx.conversation.count({
+            where: {
+              OR: [
+                { buyerId: session.sub, sellerId: targetId },
+                { buyerId: targetId, sellerId: session.sub },
+              ],
+            },
+          }),
+          tx.transaction.count({
+            where: {
+              OR: [
+                { buyerId: session.sub, sellerId: targetId },
+                { buyerId: targetId, sellerId: session.sub },
+              ],
+            },
+          }),
+          tx.offer.count({
+            where: {
+              OR: [
+                { buyerId: session.sub, listing: { sellerId: targetId } },
+                { buyerId: targetId, listing: { sellerId: session.sub } },
+              ],
+            },
+          }),
+          tx.bid.count({
+            where: {
+              OR: [
+                { bidderId: session.sub, auction: { listing: { sellerId: targetId } } },
+                { bidderId: targetId, auction: { listing: { sellerId: session.sub } } },
+              ],
+            },
+          }),
+          tx.follow.count({
+            where: {
+              OR: [
+                { followerId: session.sub, sellerId: targetId },
+                { followerId: targetId, sellerId: session.sub },
+              ],
+            },
+          }),
+        ]);
+        if (!convs && !deals && !offers && !bids && !follows)
+          return NextResponse.json(
+            { error: apiMessage(req, "راسل هذا المستخدم من خلال أحد إعلاناته أو تابعه أولاً") },
+            { status: 403 },
+          );
+        if (await isRateLimited(`direct-chat:${session.sub}`, 20, 24 * 60 * 60_000))
+          return NextResponse.json(
+            { error: apiMessage(req, "بدأت محادثات كثيرة اليوم — حاول غداً") },
+            { status: 429 },
+          );
+        const conv = await tx.conversation.create({
+          data: { buyerId: session.sub, sellerId: targetId, directKey },
         });
         return NextResponse.json({ id: conv.id });
       }
