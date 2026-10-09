@@ -5,7 +5,7 @@ import { chmod, mkdir, unlink, writeFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
-import { SAFE_IMAGE_OPTIONS } from "./image-safety";
+import { SAFE_IMAGE_OPTIONS, withImageSlot } from "./image-safety";
 import { DeleteObjectsCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 export const MAX_FILE = 5 * 1024 * 1024; // 5MB
@@ -119,11 +119,13 @@ export async function saveImages(files: File[], subdir = ""): Promise<UploadResu
     }
     let webp: Buffer;
     try {
-      webp = await sharp(buf, SAFE_IMAGE_OPTIONS)
-        .rotate() // apply EXIF orientation before it is stripped
-        .resize(1600, 1600, { fit: "inside", withoutEnlargement: true })
-        .webp({ quality: 82 })
-        .toBuffer();
+      webp = await withImageSlot(() =>
+        sharp(buf, SAFE_IMAGE_OPTIONS)
+          .rotate() // apply EXIF orientation before it is stripped
+          .resize(1600, 1600, { fit: "inside", withoutEnlargement: true })
+          .webp({ quality: 82 })
+          .toBuffer(),
+      );
     } catch {
       await deleteImages(urls);
       return { ok: false, error: "تعذّرت معالجة الصورة — جرّب صورة أخرى" };
@@ -230,11 +232,13 @@ export async function savePrivateImage(
   }
   let webp: Buffer;
   try {
-    webp = await sharp(buf, SAFE_IMAGE_OPTIONS)
-      .rotate()
-      .resize(2000, 2000, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 88 })
-      .toBuffer();
+    webp = await withImageSlot(() =>
+      sharp(buf, SAFE_IMAGE_OPTIONS)
+        .rotate()
+        .resize(2000, 2000, { fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 88 })
+        .toBuffer(),
+    );
   } catch {
     return { ok: false, error: "تعذّرت معالجة الصورة — جرّب صورة أخرى" };
   }

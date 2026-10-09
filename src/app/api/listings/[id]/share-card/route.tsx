@@ -1,11 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { ImageResponse } from "next/og";
 import QRCode from "qrcode";
 import sharp from "sharp";
-import { SAFE_IMAGE_OPTIONS } from "@/lib/image-safety";
+import { SAFE_IMAGE_OPTIONS, withImageSlot } from "@/lib/image-safety";
+import { SITE } from "@/lib/seo";
 import { db } from "@/lib/db";
 import { formatSAR, parseImages } from "@/lib/utils";
 import { rateLimitGuard } from "@/lib/rate-limit";
@@ -107,13 +107,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  // Behind nginx the app binds 127.0.0.1:3000, so req.url's host is the
-  // internal address — the QR would point at localhost. Resolve the public
-  // origin from the proxy's forwarded headers, same as SharePanel does.
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? new URL(req.url).host;
-  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  const listingUrl = `${proto}://${host}/listings/${id}`;
+  // The QR must always point at the canonical site — never at a Host header
+  // a client chose (the card is cached publicly for five minutes).
+  const listingUrl = `${SITE}/listings/${id}`;
 
   // ── product photo → JPEG data URL ──
   let photo: string | null = null;
@@ -129,11 +125,13 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
         raw = Buffer.from("");
       }
       if (raw.length > 0) {
-        const jpeg = await sharp(raw, SAFE_IMAGE_OPTIONS)
-          .resize(1080, 760, { fit: "cover" })
-          .flatten({ background: "#f5f5f4" })
-          .jpeg({ quality: 82 })
-          .toBuffer();
+        const jpeg = await withImageSlot(() =>
+          sharp(raw, SAFE_IMAGE_OPTIONS)
+            .resize(1080, 760, { fit: "cover" })
+            .flatten({ background: "#f5f5f4" })
+            .jpeg({ quality: 82 })
+            .toBuffer(),
+        );
         photo = `data:image/jpeg;base64,${jpeg.toString("base64")}`;
       }
     }
