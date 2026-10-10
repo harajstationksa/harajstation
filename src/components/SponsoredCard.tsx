@@ -1,16 +1,16 @@
 import { PublicImage } from "@/components/PublicImage";
 import Link from "next/link";
-import { ArrowLeft, BadgeCheck, Camera, Gavel, MapPin, Megaphone } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Camera, Gavel, MapPin, Sparkles } from "lucide-react";
 import type { CardListing } from "@/lib/types";
 import { getT } from "@/lib/i18n";
 import { formatSAR, parseImages } from "@/lib/utils";
 
 /**
- * Sponsored listing card. Same skeleton as ListingCard (4:3 photo + body) so
- * it lines up in any grid, but unmistakably premium: a terracotta gradient
- * frame, an explicit «إعلان ممول» disclosure, a warm body and a full-width
- * call to action. The WHOLE card is one link, routed through `?spc=<id>` so
- * the campaign's click counter is credited.
+ * Sponsored listing card — built to stand out from the regular grid: soft
+ * rounded corners, a glowing terracotta-to-amber frame, the product photo
+ * filling the whole card, and the details set in white over a deep gradient.
+ * A light sweep runs across on hover. The WHOLE card is one link, routed
+ * through `?spc=<id>` so the campaign's click counter is credited.
  */
 export async function SponsoredCard({
   listing,
@@ -32,33 +32,35 @@ export async function SponsoredCard({
     <Link
       href={href}
       aria-label={`${t.card.sponsoredAd}: ${listing.title}`}
-      className="group relative flex h-full flex-col bg-linear-to-br from-primary-300 via-primary-500 to-primary-700 p-[1.5px] shadow-[0_8px_24px_-10px_rgba(166,74,48,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_34px_-12px_rgba(166,74,48,0.6)]"
+      className="group relative block h-full min-h-72 rounded-[1.6rem] bg-linear-to-br from-amber-300 via-primary-500 to-primary-700 p-[2px] shadow-[0_10px_30px_-12px_rgba(219,119,89,0.7)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_22px_44px_-14px_rgba(219,119,89,0.85)] sm:min-h-80"
     >
-      <div className="flex h-full flex-col overflow-hidden bg-white">
-        {/* photo */}
-        <div className="relative aspect-4/3 overflow-hidden bg-neutral-100">
-          <PublicImage
-            src={cover}
-            alt={listing.title}
-            loading="lazy"
-            className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-          />
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-linear-to-t from-black/50 to-transparent"
-          />
+      <div className="relative isolate flex h-full flex-col overflow-hidden rounded-[1.5rem] bg-neutral-900">
+        {/* full-bleed photo */}
+        <PublicImage
+          src={cover}
+          alt={listing.title}
+          loading="lazy"
+          className="absolute inset-0 -z-10 size-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
+        />
+        {/* depth: dark at the bottom for the text, light vignette at the top */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 bg-linear-to-t from-black/90 via-black/35 to-black/10"
+        />
+        {/* hover light sweep */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/2 -skew-x-12 bg-linear-to-r from-transparent via-white/25 to-transparent opacity-0 transition-all duration-700 group-hover:left-full group-hover:opacity-100"
+        />
 
-          {/* disclosure */}
-          <span className="absolute top-2.5 right-2.5 inline-flex items-center gap-1.5 bg-neutral-950/80 px-2.5 py-1 text-[11px] font-bold text-white shadow-md backdrop-blur-sm">
-            <Megaphone className="size-3.5 text-primary-300" />
+        {/* top row: disclosure + photo count */}
+        <div className="flex items-start justify-between gap-2 p-3">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-linear-to-l from-amber-400 to-primary-500 px-3 py-1 text-[11px] font-bold text-white shadow-lg shadow-primary-900/30 ring-1 ring-white/40">
+            <Sparkles className="size-3.5" aria-hidden />
             {t.card.sponsoredAd}
           </span>
-
-          <span className="absolute bottom-2.5 right-2.5 max-w-[65%] truncate text-[11px] font-semibold text-white drop-shadow">
-            {category}
-          </span>
           {images.length > 1 && (
-            <span className="absolute bottom-2 left-2.5 inline-flex items-center gap-1 bg-black/45 px-2 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm">
+            <span className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2.5 py-1 text-[11px] font-semibold text-white ring-1 ring-white/20 backdrop-blur-md">
               <Camera className="size-3" aria-hidden />
               <span className="tabular-nums">{images.length}</span>
               <span className="sr-only">{t.card.photos}</span>
@@ -66,46 +68,44 @@ export async function SponsoredCard({
           )}
         </div>
 
-        {/* body */}
-        <div className="flex flex-1 flex-col gap-1.5 bg-linear-to-b from-primary-50 to-white p-4">
-          {auction && (
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary-700">
-              <Gavel className="size-3.5" aria-hidden />
-              {t.auctionsPage.currentBid}
-            </span>
-          )}
-          <p className="font-display text-xl font-bold leading-tight text-primary-600">
-            {price != null ? formatSAR(price) : t.card.negotiable}
-          </p>
-          <h3 className="flex items-center gap-1 text-[15px] font-semibold leading-snug text-neutral-900">
+        {/* details over the photo */}
+        <div className="mt-auto space-y-2 p-3.5 sm:p-4">
+          <span className="inline-block max-w-full truncate rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold text-white/95 ring-1 ring-white/25 backdrop-blur-md">
+            {category}
+          </span>
+          <h3 className="flex items-start gap-1 text-[15px] font-bold leading-snug text-white sm:text-base">
             {listing.seller.idVerified && (
               <BadgeCheck
-                className="size-4 shrink-0 text-green-600"
+                className="mt-0.5 size-4 shrink-0 text-emerald-400"
                 aria-label={t.card.verifiedSeller}
               />
             )}
-            <span className="line-clamp-1">{listing.title}</span>
+            <span className="line-clamp-2">{listing.title}</span>
           </h3>
-          <p className="inline-flex min-w-0 items-center gap-1 text-xs text-neutral-500">
+          <p className="inline-flex items-center gap-1 text-xs text-white/70">
             <MapPin className="size-3.5 shrink-0" aria-hidden />
             <span className="truncate">{listing.city}</span>
-            {!auction && (
-              <>
-                <span className="text-neutral-300">·</span>
-                <span className="shrink-0">
-                  {t.card.conditions[listing.condition] ?? listing.condition}
-                </span>
-              </>
-            )}
           </p>
 
-          {/* call to action */}
-          <span className="mt-auto flex items-center justify-between border-t border-primary-100 pt-3 text-sm font-bold text-primary-700">
-            {t.card.viewAd}
-            <span className="flex size-8 items-center justify-center bg-primary-600 text-white transition-all duration-200 group-hover:bg-primary-700 rtl:group-hover:-translate-x-1 ltr:group-hover:translate-x-1">
-              <ArrowLeft className="size-4 ltr:rotate-180" aria-hidden />
+          <div className="flex items-end justify-between gap-2 pt-1">
+            <div className="min-w-0">
+              {auction && (
+                <p className="mb-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-amber-300">
+                  <Gavel className="size-3.5" aria-hidden />
+                  {t.auctionsPage.currentBid}
+                </p>
+              )}
+              <p className="font-display whitespace-nowrap text-lg font-extrabold leading-none text-white drop-shadow sm:text-2xl">
+                {price != null ? formatSAR(price) : t.card.negotiable}
+              </p>
+            </div>
+            <span
+              className="grid size-9 shrink-0 place-items-center rounded-full sm:size-10 bg-white text-primary-600 shadow-lg transition-all duration-300 group-hover:bg-primary-500 group-hover:text-white rtl:group-hover:-translate-x-1 ltr:group-hover:translate-x-1"
+              title={t.card.viewAd}
+            >
+              <ArrowLeft className="size-4.5 ltr:rotate-180 sm:size-5" aria-hidden />
             </span>
-          </span>
+          </div>
         </div>
       </div>
     </Link>
