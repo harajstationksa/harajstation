@@ -74,6 +74,7 @@ model User {
   following       Follow[]                 @relation("Following")
   followers       Follow[]                 @relation("Followers")
   pushSubs        PushSubscription[]
+  deviceTokens    DeviceToken[]
   proxyBids       ProxyBid[]
   auctionBlocks   AuctionBlock[]
   // manual ID verification (admin-reviewed) → «موثّق» badge
@@ -242,6 +243,22 @@ model PushSubscription {
   p256dh    String
   auth      String
   createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Native app push (Firebase Cloud Messaging). One row per installed app; a
+// token moves to whoever signs in on that device last. Dead tokens are pruned
+// when FCM answers UNREGISTERED / INVALID_ARGUMENT.
+model DeviceToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  // ANDROID | IOS
+  platform  String   @default("ANDROID")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@index([userId])
 }

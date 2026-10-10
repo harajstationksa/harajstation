@@ -2,21 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import {
-  featureListing,
-  bumpListing,
-  relistListing,
-  removeOwnListing,
-  lockListing,
-} from "@/lib/listing-policy";
-import { validAmount } from "@/lib/listing-validation";
+import { featureListing, bumpListing, relistListing, removeOwnListing } from "@/lib/listing-policy";
+import { markSoldWithBuyer } from "@/lib/sale";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { CONFIRM_WINDOW_DAYS, CONFIRM_WINDOW_HOURS } from "@/lib/constants";
-import { notify, notifyMany } from "@/lib/notify";
 import { claimDailyPoints } from "@/lib/points";
 import { isRateLimited } from "@/lib/rate-limit";
-import { formatSAR } from "@/lib/utils";
 
 export async function featureWithPointsAction(formData: FormData) {
   const user = await requireUser();
@@ -54,100 +45,16 @@ export async function bumpListingAction(formData: FormData) {
   revalidatePath("/");
 }
 
-/**
- * Mark sold WITH a chosen buyer: mirrors the auction flow — a STANDARD
- * transaction opens the mutual-confirmation window, which feeds
- * credibility, the successful-deals counter and mutual reviews. Selling
- * outside the platform (no buyer picked) just closes the listing.
- */
+/** «تم البيع» form on the site — shared rules live in lib/sale.ts. */
 export async function markSoldWithBuyerAction(formData: FormData) {
   const user = await requireUser();
-  const id = String(formData.get("listingId"));
-  const buyerId = String(formData.get("buyerId") ?? "").trim();
-  const amountRaw = Number(String(formData.get("amount") ?? "").trim());
-
-  const result = await db.$transaction(async (tx) => {
-    await lockListing(tx, id);
-    const listing = await tx.listing.findUnique({
-      where: { id },
-      include: { auction: true },
-    });
-    if (
-      !listing ||
-      listing.sellerId !== user.id ||
-      listing.status !== "ACTIVE" ||
-      listing.auction?.status === "LIVE"
-    )
-      return null;
-    let amount = 0,
-      txCreated = false;
-    if (buyerId && buyerId !== user.id) {
-      const [conv, offer] = await Promise.all([
-        tx.conversation.findFirst({ where: { listingId: id, buyerId } }),
-        tx.offer.findFirst({
-          where: { listingId: id, buyerId },
-          orderBy: { createdAt: "desc" },
-        }),
-      ]);
-      if (conv || offer) {
-        const accepted =
-          offer?.status === "ACCEPTED" ? (offer.counterAmount ?? offer.amount) : null;
-        amount = validAmount(amountRaw) ? amountRaw : (accepted ?? listing.price ?? 0);
-        if (validAmount(amount)) {
-          await tx.transaction.create({
-            data: {
-              listingId: id,
-              sellerId: user.id,
-              buyerId,
-              amount,
-              source: "STANDARD",
-              sellerAnswer: "YES",
-              deadline: new Date(Date.now() + CONFIRM_WINDOW_HOURS * 3600000),
-            },
-          });
-          txCreated = true;
-        }
-      }
-    }
-    await tx.listing.update({
-      where: { id },
-      data: { status: "SOLD", isFeatured: false, isPromoted: false },
-    });
-    const openOffers = await tx.offer.findMany({
-      where: {
-        listingId: id,
-        status: { in: ["PENDING", "COUNTERED"] },
-        ...(buyerId ? { buyerId: { not: buyerId } } : {}),
-      },
-      select: { id: true, buyerId: true },
-    });
-    await tx.offer.updateMany({
-      where: { id: { in: openOffers.map((o) => o.id) } },
-      data: { status: "REJECTED", decidedAt: new Date() },
-    });
-    return {
-      title: listing.title,
-      txCreated,
-      amount,
-      otherBuyers: openOffers.map((o) => o.buyerId),
-    };
-  });
-  if (!result) return;
-  if (result.txCreated)
-    await notify(
-      buyerId,
-      "CONFIRM",
-      "أكّد إتمام الصفقة",
-      `البائع أكّد بيع "${result.title}" لك بمبلغ ${formatSAR(result.amount)} — أكّد الاستلام خلال ${CONFIRM_WINDOW_DAYS} أيام.`,
-      "/dashboard/verifications",
-    );
-  await notifyMany(
-    result.otherBuyers,
-    "OFFER",
-    "انتهى العرض — تم البيع",
-    `تم بيع "${result.title}".`,
-    "/categories",
+  const result = await markSoldWithBuyer(
+    user.id,
+    String(formData.get("listingId")),
+    String(formData.get("buyerId") ?? ""),
+    Number(String(formData.get("amount") ?? "").trim()),
   );
+  if (!result.ok) return;
   revalidatePath("/dashboard/listings");
   revalidatePath("/");
   redirect(result.txCreated ? "/dashboard/verifications" : "/dashboard/listings");

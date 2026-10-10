@@ -58,7 +58,26 @@ export async function GET() {
       })),
       campaign: { dayOptions: campaignDays, pointsPerDay: campaignRate },
       featurePointCost: featureCost,
+      app: appRelease(),
     },
     { headers: { "Cache-Control": "no-store" } },
   );
+}
+
+/**
+ * Store release gate for the native app. MOBILE_MIN_VERSION blocks older
+ * installs (API contract changed); MOBILE_LATEST_VERSION only suggests an
+ * update. Versions are plain "1.2.3" strings.
+ */
+function appRelease() {
+  const version = (raw: string | undefined) =>
+    raw && /^\d+(\.\d+){0,2}$/.test(raw.trim()) ? raw.trim() : null;
+  return {
+    minVersion: version(process.env.MOBILE_MIN_VERSION),
+    latestVersion: version(process.env.MOBILE_LATEST_VERSION),
+    androidStoreUrl:
+      process.env.MOBILE_ANDROID_STORE_URL ??
+      "https://play.google.com/store/apps/details?id=com.harajstation.haraj_station",
+    iosStoreUrl: process.env.MOBILE_IOS_STORE_URL ?? null,
+  };
 }

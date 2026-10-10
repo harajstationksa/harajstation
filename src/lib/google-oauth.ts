@@ -90,16 +90,20 @@ export async function fetchProfile(
       maxTokenAge: "10m",
       clockTolerance: 10,
     });
-    if (
-      typeof payload.nonce !== "string" ||
-      !safeEqual(payload.nonce, nonce) ||
-      typeof payload.sub !== "string" ||
-      typeof payload.email !== "string"
-    )
-      return null;
+    if (typeof payload.nonce !== "string" || !safeEqual(payload.nonce, nonce)) return null;
     if (payload.azp && payload.azp !== process.env.GOOGLE_CLIENT_ID) return null;
-    let picture: string | undefined;
-    if (typeof payload.picture === "string") {
+    return profileFromClaims(payload);
+  } catch {
+    return null;
+  }
+}
+
+/** Map verified ID-token claims to a profile; null when required claims are missing. */
+function profileFromClaims(payload: Record<string, unknown>): GoogleProfile | null {
+  if (typeof payload.sub !== "string" || typeof payload.email !== "string") return null;
+  let picture: string | undefined;
+  if (typeof payload.picture === "string") {
+    try {
       const url = new URL(payload.picture);
       if (
         url.protocol === "https:" &&
@@ -107,17 +111,51 @@ export async function fetchProfile(
           url.hostname.endsWith(".googleusercontent.com"))
       )
         picture = url.href;
+    } catch {
+      picture = undefined;
     }
-    return {
-      sub: payload.sub,
-      email: payload.email.toLowerCase().trim(),
-      emailVerified: payload.email_verified === true,
-      name:
-        typeof payload.name === "string" && payload.name.trim()
-          ? payload.name.trim()
-          : payload.email.split("@")[0],
-      picture,
-    };
+  }
+  return {
+    sub: payload.sub,
+    email: payload.email.toLowerCase().trim(),
+    emailVerified: payload.email_verified === true,
+    name:
+      typeof payload.name === "string" && payload.name.trim()
+        ? payload.name.trim()
+        : payload.email.split("@")[0],
+    picture,
+  };
+}
+
+/** OAuth client IDs the native apps sign in with (comma-separated env). */
+function mobileClientIds() {
+  return (process.env.GOOGLE_MOBILE_CLIENT_IDS ?? "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+export function googleMobileConfigured() {
+  return !!process.env.GOOGLE_CLIENT_ID && mobileClientIds().length > 0;
+}
+
+/**
+ * Native sign-in: the app asks Google for an ID token whose audience is the
+ * site's web client (serverClientId) and whose authorized party is one of the
+ * registered Android/iOS clients. Verified against Google's keys, fresh only.
+ */
+export async function verifyMobileIdToken(idToken: string): Promise<GoogleProfile | null> {
+  if (!googleMobileConfigured()) return null;
+  try {
+    const { payload } = await jwtVerify(idToken, googleKeys, {
+      issuer: ["https://accounts.google.com", "accounts.google.com"],
+      audience: process.env.GOOGLE_CLIENT_ID!,
+      algorithms: ["RS256"],
+      maxTokenAge: "10m",
+      clockTolerance: 10,
+    });
+    if (typeof payload.azp !== "string" || !mobileClientIds().includes(payload.azp)) return null;
+    return profileFromClaims(payload);
   } catch {
     return null;
   }

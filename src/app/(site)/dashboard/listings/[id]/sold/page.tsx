@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BadgeCheck, ChevronRight, HandCoins, MessageSquare } from "lucide-react";
-import { db } from "@/lib/db";
+import { saleCandidates } from "@/lib/sale";
 import { requireUser } from "@/lib/auth";
 import { getT } from "@/lib/i18n";
 import { formatSAR, parseImages } from "@/lib/utils";
@@ -27,67 +27,10 @@ export default async function MarkSoldPage({ params }: { params: Promise<{ id: s
   const s = t.soldFlow;
   const { id } = await params;
 
-  const listing = await db.listing.findUnique({
-    where: { id },
-    include: { auction: true },
-  });
-  if (!listing || listing.sellerId !== user.id) notFound();
-  if (listing.status !== "ACTIVE" || (listing.auction && listing.auction.status === "LIVE")) {
-    notFound();
-  }
-
-  const [convs, offers] = await Promise.all([
-    db.conversation.findMany({
-      where: { listingId: id },
-      include: { buyer: { select: { id: true, name: true, avatarColor: true, avatarUrl: true } } },
-      orderBy: { createdAt: "desc" },
-      take: 30,
-    }),
-    db.offer.findMany({
-      where: { listingId: id },
-      include: { buyer: { select: { id: true, name: true, avatarColor: true, avatarUrl: true } } },
-      orderBy: { createdAt: "desc" },
-      take: 30,
-    }),
-  ]);
-
-  // one candidate per buyer; an accepted offer wins as the price signal
-  type Candidate = {
-    buyer: { id: string; name: string; avatarColor: string; avatarUrl: string | null };
-    viaChat: boolean;
-    offerAmount: number | null;
-    offerAccepted: boolean;
-  };
-  const byBuyer = new Map<string, Candidate>();
-  for (const c of convs) {
-    byBuyer.set(c.buyerId, {
-      buyer: c.buyer,
-      viaChat: true,
-      offerAmount: null,
-      offerAccepted: false,
-    });
-  }
-  for (const o of offers) {
-    const existing = byBuyer.get(o.buyerId);
-    const amount = o.status === "ACCEPTED" ? (o.counterAmount ?? o.amount) : o.amount;
-    const accepted = o.status === "ACCEPTED";
-    if (!existing) {
-      byBuyer.set(o.buyerId, {
-        buyer: o.buyer,
-        viaChat: false,
-        offerAmount: amount,
-        offerAccepted: accepted,
-      });
-    } else if (accepted || existing.offerAmount == null) {
-      existing.offerAmount = amount;
-      existing.offerAccepted = existing.offerAccepted || accepted;
-    }
-  }
-  const candidates = [...byBuyer.values()].sort(
-    (a, b) => Number(b.offerAccepted) - Number(a.offerAccepted),
-  );
-  const suggestedAmount =
-    candidates.find((c) => c.offerAccepted)?.offerAmount ?? listing.price ?? undefined;
+  const sale = await saleCandidates(user.id, id);
+  if (!sale) notFound();
+  const { listing, candidates } = sale;
+  const suggestedAmount = sale.suggestedAmount ?? undefined;
 
   const cover = parseImages(listing.images)[0];
 

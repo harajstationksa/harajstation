@@ -1,7 +1,4 @@
 import { NextResponse } from "next/server";
-import { randomUUID } from "node:crypto";
-import { db } from "@/lib/db";
-import { isValidDisplayName } from "@/lib/utils";
 import { SESSION_COOKIE, sessionCookieOptions, signSessionToken } from "@/lib/auth";
 import {
   fetchProfile,
@@ -15,14 +12,10 @@ import {
   oauthCookieOptions,
 } from "@/lib/google-oauth";
 import { rateLimitGuard } from "@/lib/rate-limit";
-import { getFreeTierConfig } from "@/lib/settings";
-import { generateReferralCode } from "@/lib/referral";
-import { STAFF_ROLES } from "@/lib/constants";
 import { emailConfigured } from "@/lib/email";
 import { startOtpChallenge } from "@/lib/login-otp";
 import { safeEqual } from "@/lib/crypto";
-
-const AVATAR_COLORS = ["#db7759", "#0ea5e9", "#8b5cf6", "#10b981", "#ec4899"];
+import { resolveGoogleUser } from "@/lib/google-account";
 
 function fail(reason: string) {
   return clearFlow(NextResponse.redirect(new URL(`/login?error=${reason}`, siteUrl())));
@@ -53,68 +46,9 @@ export async function GET(req: Request) {
 
   const profile = await fetchProfile(code, verifier, nonce);
   if (!profile) return fail("google");
-  // Google says it owns this address — that claim is the whole point of the flow
-  if (!profile.emailVerified) return fail("google_unverified");
-
-  // Provider subject (`sub`) is the stable identity. Email alone is never
-  // trusted to silently take over an existing, unverified password account.
-  let user = await db.user.findUnique({ where: { googleSub: profile.sub } });
-
-  if (!user) {
-    const emailOwner = await db.user.findUnique({
-      where: { email: profile.email },
-    });
-    if (emailOwner) {
-      if (STAFF_ROLES.includes(emailOwner.role)) return fail("staff");
-      const legacyGoogleAccount = emailOwner.passwordHash.startsWith("oauth:google:");
-      if (!emailOwner.emailVerifiedAt && !legacyGoogleAccount) {
-        return fail("google_link_required");
-      }
-      user = await db.user.update({
-        where: { id: emailOwner.id },
-        data: {
-          googleSub: profile.sub,
-          ...(legacyGoogleAccount && !emailOwner.emailVerifiedAt
-            ? { emailVerifiedAt: new Date() }
-            : {}),
-        },
-      });
-    }
-  }
-
-  if (!user) {
-    // same launch promo as email signup: free PRO for N days while the switch is on
-    const freeTier = await getFreeTierConfig();
-    const proGrant = freeTier.enabled
-      ? {
-          isPro: true,
-          proUntil: new Date(Date.now() + freeTier.days * 24 * 60 * 60 * 1000),
-        }
-      : {};
-
-    // Google names are free text; keep the same display-name rule as signup
-    const name = isValidDisplayName(profile.name)
-      ? profile.name.slice(0, 60)
-      : profile.email.split("@")[0].slice(0, 60) || "مستخدم";
-    user = await db.user.create({
-      data: {
-        name,
-        email: profile.email,
-        googleSub: profile.sub,
-        city: "الرياض", // editable from settings — Google doesn't tell us
-        // unusable hash: a social account can only ever sign in through Google
-        passwordHash: `oauth:google:${randomUUID()}`,
-        avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
-        avatarUrl: profile.picture ?? null,
-        emailVerifiedAt: new Date(),
-        referralCode: await generateReferralCode(),
-        ...proGrant,
-      },
-    });
-  }
-
-  if (user.isBanned) return fail("banned");
-  if (STAFF_ROLES.includes(user.role)) return fail("staff");
+  const account = await resolveGoogleUser(profile);
+  if (!account.ok) return fail(account.reason);
+  const user = account.user;
 
   // Respect the user's email 2FA preference for every provider. The opaque
   // challenge is harmless without the separately emailed six-digit code.

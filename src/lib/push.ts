@@ -1,6 +1,7 @@
 import { isAllowedPushEndpoint, safePushAgent } from "./push-policy";
 import webpush from "web-push";
 import { db } from "./db";
+import { sendFcmMany } from "./fcm";
 
 /**
  * Web Push delivery. Every in-app notification (see notify.ts) is mirrored to
@@ -37,6 +38,8 @@ export async function sendPush(userId: string, payload: PushPayload): Promise<vo
 
 /** Send a push notification to many users (deduplicated). */
 export async function sendPushMany(userIds: string[], payload: PushPayload): Promise<void> {
+  // installed Android/iOS apps — independent of the browser channel below
+  await sendFcmMany(userIds, payload).catch(() => {});
   {
     if (!ensureConfigured()) return;
     const ids = [...new Set(userIds)].filter(Boolean);
