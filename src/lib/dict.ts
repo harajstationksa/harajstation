@@ -55,6 +55,9 @@ const ar = {
     verifiedSeller: "بائع موثّق",
     negotiable: "على السوم",
     day: "يوم",
+    sponsoredAd: "إعلان ممول",
+    viewAd: "شاهد الإعلان",
+    photos: "صور",
     conditions: { NEW: "جديد", LIKE_NEW: "كالجديد", USED: "مستعمل" } as Record<string, string>,
   },
   auctionsPage: {
@@ -1234,6 +1237,9 @@ const en: typeof ar = {
     verifiedSeller: "Verified seller",
     negotiable: "Negotiable",
     day: "d",
+    sponsoredAd: "Sponsored",
+    viewAd: "View listing",
+    photos: "photos",
     conditions: { NEW: "New", LIKE_NEW: "Like New", USED: "Used" },
   },
   auctionsPage: {
