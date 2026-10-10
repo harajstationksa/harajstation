@@ -213,3 +213,19 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* in-flight navigation (set by NavigationProgress): fade the current content so
+   a click is visibly acknowledged while the next page renders */
+html[data-nav-pending] main {
+  opacity: 0.55;
+  transition: opacity 180ms ease 120ms;
+}
+main {
+  transition: opacity 150ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-nav-pending] main,
+  main {
+    transition: none;
+  }
+}

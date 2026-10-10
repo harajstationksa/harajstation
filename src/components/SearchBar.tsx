@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useLang } from "@/components/LangProvider";
 import { BadgeCheck, CircleUserRound, Gavel, LayoutGrid, Search, Store, Tag } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { announceNavigation } from "@/components/NavigationProgress";
 
 type Suggestion = {
   type: "listing" | "auction" | "category" | "store" | "user";
@@ -80,6 +81,7 @@ export function SearchBar({
 
   function go(href: string) {
     setOpen(false);
+    announceNavigation();
     router.push(href);
   }
 

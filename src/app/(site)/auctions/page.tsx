@@ -89,78 +89,93 @@ export default async function AuctionsPage({ searchParams }: { searchParams: Pro
     Date.UTC(riyadhNow.getUTCFullYear(), riyadhNow.getUTCMonth(), riyadhNow.getUTCDate()) -
       3 * 3600_000,
   );
-  const [live, ended, catRows, soonest, bidsToday, endingWithinHour] = await Promise.all([
-    db.listing.findMany({
-      where: liveWhere,
-      include: cardInclude,
-      orderBy:
-        sort === "newest"
-          ? { createdAt: "desc" as const }
-          : { auction: { endsAt: "asc" as const } },
-    }),
-    db.listing.findMany({
-      where: {
-        type: "AUCTION",
-        status: { in: ["ACTIVE", "SOLD", "EXPIRED"] },
-        seller: { isBanned: false },
-        auction: { status: { in: ["ENDED", "NO_SALE"] } },
-      },
-      include: cardInclude,
-      orderBy: { auction: { endsAt: "desc" } },
-      take: 4,
-    }),
-    // main categories that actually have live auctions → filter chips
-    db.listing.findMany({
-      where: {
-        type: "AUCTION",
-        seller: { isBanned: false },
-        status: "ACTIVE",
-        auction: { status: "LIVE", endsAt: { gt: now } },
-      },
-      select: {
-        category: {
-          select: {
-            id: true,
-            slug: true,
-            nameAr: true,
-            nameEn: true,
-            icon: true,
-            parent: {
-              select: {
-                id: true,
-                slug: true,
-                nameAr: true,
-                nameEn: true,
-                icon: true,
+  // Sponsored placements only depend on the URL, so they load together with
+  // the auction lists instead of after them.
+  const sponsoredPoolPromise = (async () => {
+    const chipCatIds = catSlug
+      ? (
+          await db.category.findMany({
+            where: { OR: [{ slug: catSlug }, { parent: { slug: catSlug } }] },
+            select: { id: true },
+          })
+        ).map((c) => c.id)
+      : undefined;
+    return getSponsored({ categoryIds: chipCatIds, city, take: 12 });
+  })();
+  const [live, ended, catRows, soonest, bidsToday, endingWithinHour, sponsoredPool] =
+    await Promise.all([
+      db.listing.findMany({
+        where: liveWhere,
+        include: cardInclude,
+        orderBy:
+          sort === "newest"
+            ? { createdAt: "desc" as const }
+            : { auction: { endsAt: "asc" as const } },
+      }),
+      db.listing.findMany({
+        where: {
+          type: "AUCTION",
+          status: { in: ["ACTIVE", "SOLD", "EXPIRED"] },
+          seller: { isBanned: false },
+          auction: { status: { in: ["ENDED", "NO_SALE"] } },
+        },
+        include: cardInclude,
+        orderBy: { auction: { endsAt: "desc" } },
+        take: 4,
+      }),
+      // main categories that actually have live auctions → filter chips
+      db.listing.findMany({
+        where: {
+          type: "AUCTION",
+          seller: { isBanned: false },
+          status: "ACTIVE",
+          auction: { status: "LIVE", endsAt: { gt: now } },
+        },
+        select: {
+          category: {
+            select: {
+              id: true,
+              slug: true,
+              nameAr: true,
+              nameEn: true,
+              icon: true,
+              parent: {
+                select: {
+                  id: true,
+                  slug: true,
+                  nameAr: true,
+                  nameEn: true,
+                  icon: true,
+                },
               },
             },
           },
         },
-      },
-    }),
-    // hero fallback — the live auctions closest to their hammer, regardless of
-    // filters (used only when no sponsored auctions exist)
-    db.listing.findMany({
-      where: {
-        type: "AUCTION",
-        seller: { isBanned: false },
-        status: "ACTIVE",
-        auction: { status: "LIVE", endsAt: { gt: now } },
-      },
-      include: cardInclude,
-      orderBy: { auction: { endsAt: "asc" } },
-      take: 3,
-    }),
-    // phone header stats
-    db.bid.count({ where: { createdAt: { gte: riyadhMidnight } } }),
-    db.auction.count({
-      where: {
-        status: "LIVE",
-        endsAt: { gt: now, lt: new Date(now.getTime() + 3600_000) },
-        listing: { status: "ACTIVE", seller: { isBanned: false } },
-      },
-    }),
-  ]);
+      }),
+      // hero fallback — the live auctions closest to their hammer, regardless of
+      // filters (used only when no sponsored auctions exist)
+      db.listing.findMany({
+        where: {
+          type: "AUCTION",
+          seller: { isBanned: false },
+          status: "ACTIVE",
+          auction: { status: "LIVE", endsAt: { gt: now } },
+        },
+        include: cardInclude,
+        orderBy: { auction: { endsAt: "asc" } },
+        take: 3,
+      }),
+      // phone header stats
+      db.bid.count({ where: { createdAt: { gte: riyadhMidnight } } }),
+      db.auction.count({
+        where: {
+          status: "LIVE",
+          endsAt: { gt: now, lt: new Date(now.getTime() + 3600_000) },
+          listing: { status: "ACTIVE", seller: { isBanned: false } },
+        },
+      }),
+      sponsoredPoolPromise,
+    ]);
 
   // JS sorts that need the aggregated bid data (small result sets)
   const currentBid = (l: (typeof live)[number]) =>
@@ -200,25 +215,13 @@ export default async function AuctionsPage({ searchParams }: { searchParams: Pro
 
   // sponsored placements — this surface is auctions-only: standard sale ads
   // never appear here, only funded AUCTION listings
-  const chipCatIds = catSlug
-    ? (
-        await db.category.findMany({
-          where: { OR: [{ slug: catSlug }, { parent: { slug: catSlug } }] },
-          select: { id: true },
-        })
-      ).map((c) => c.id)
-    : undefined;
-  const sponsoredPool = await getSponsored({
-    categoryIds: chipCatIds,
-    city,
-    take: 12,
-  });
   const sponsoredAuctions = sponsoredPool.filter((l) => l.type === "AUCTION");
   const sponsored = sponsoredAuctions.slice(0, 3);
   // hero carousel: up to 5 funded auctions — getSponsored reshuffles per
   // request, so the mix (and its order) changes on every reload
   const heroSponsored = sponsoredAuctions.slice(0, 5);
-  await recordImpressions(heroSponsored.map((l) => l.campaigns[0]?.id ?? ""));
+  // analytics write: never make the visitor wait for it
+  void recordImpressions(heroSponsored.map((l) => l.campaigns[0]?.id ?? ""));
   const sponsoredIds = new Set(sponsored.map((s) => s.id));
   // phone "ending soon" rail: the five filtered live auctions closest to close
   const railItems = [...live]

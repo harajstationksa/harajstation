@@ -56,22 +56,31 @@ const loadResults = cache(async (sp: SP) => {
   const q = str(sp.q);
   const sort = str(sp.sort);
 
-  let items;
-  let total;
-  if (q && !sort) {
-    const [ids, count] = await Promise.all([
-      relevancePage(sp, page, PAGE_SIZE),
-      db.listing.count({ where }),
-    ]);
-    const cards = await db.listing.findMany({
-      where: { ...where, id: { in: ids } },
-      include: cardInclude,
-    });
-    const byId = new Map(cards.map((card) => [card.id, card]));
-    items = ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []));
-    total = count;
-  } else {
-    [items, total] = await Promise.all([
+  // ── query understanding: which categories does this search imply? ──
+  // "ايفون" → هواتف ذكية: offered as a browse destination + used to focus ads
+  const impliedSlugs = q ? matchCategorySlugs(q).slice(0, 3) : [];
+  const norm = q ? q.trim() : "";
+
+  // The result page and the side panels (implied categories, matching stores
+  // and sellers) do not depend on each other, so they run concurrently —
+  // every sequential round trip to the database adds its full latency.
+  const resultsPromise = (async () => {
+    if (q && !sort) {
+      const [ids, count] = await Promise.all([
+        relevancePage(sp, page, PAGE_SIZE),
+        db.listing.count({ where }),
+      ]);
+      const cards = await db.listing.findMany({
+        where: { ...where, id: { in: ids } },
+        include: cardInclude,
+      });
+      const byId = new Map(cards.map((card) => [card.id, card]));
+      return {
+        items: ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])),
+        total: count,
+      };
+    }
+    const [rows, count] = await Promise.all([
       db.listing.findMany({
         where,
         include: cardInclude,
@@ -81,29 +90,26 @@ const loadResults = cache(async (sp: SP) => {
       }),
       db.listing.count({ where }),
     ]);
-  }
+    return { items: rows, total: count };
+  })();
 
-  // ── query understanding: which categories does this search imply? ──
-  // "ايفون" → هواتف ذكية: offered as a browse destination + used to focus ads
-  const impliedSlugs = q ? matchCategorySlugs(q).slice(0, 3) : [];
-  const norm = q ? q.trim() : "";
-  const suggestedCats = q
-    ? await db.category.findMany({
-        where: {
-          OR: [
-            { slug: { in: impliedSlugs } },
-            { nameAr: { contains: norm } },
-            { nameEn: { contains: norm } },
-          ],
-        },
-        take: 4,
-      })
-    : [];
-
-  // ── matching stores: a search for a shop by name should find the shop ──
-  const stores =
+  const [results, suggestedCats, stores, sellers] = await Promise.all([
+    resultsPromise,
+    q
+      ? db.category.findMany({
+          where: {
+            OR: [
+              { slug: { in: impliedSlugs } },
+              { nameAr: { contains: norm } },
+              { nameEn: { contains: norm } },
+            ],
+          },
+          take: 4,
+        })
+      : Promise.resolve([]),
+    // ── matching stores: a search for a shop by name should find the shop ──
     q && page === 1
-      ? await db.store.findMany({
+      ? db.store.findMany({
           where: {
             user: { isBanned: false },
             OR: [
@@ -127,12 +133,10 @@ const loadResults = cache(async (sp: SP) => {
           orderBy: [{ isVerified: "desc" }, { createdAt: "asc" }],
           take: 3,
         })
-      : [];
-
-  // ── matching sellers: searching a person's name should find their profile ──
-  const sellers =
+      : Promise.resolve([]),
+    // ── matching sellers: searching a person's name should find their profile ──
     q && page === 1
-      ? await db.user.findMany({
+      ? db.user.findMany({
           where: {
             isBanned: false,
             name: { contains: q, mode: "insensitive" },
@@ -147,7 +151,10 @@ const loadResults = cache(async (sp: SP) => {
           orderBy: [{ idVerified: "desc" }, { credibility: "desc" }],
           take: 3,
         })
-      : [];
+      : Promise.resolve([]),
+  ]);
+  let items = results.items;
+  const total = results.total;
 
   // sponsored ads inside search results, targeted to the search's categories —
   // a phone campaign surfaces for phone searches, never for unrelated ones
@@ -162,7 +169,8 @@ const loadResults = cache(async (sp: SP) => {
       });
       const sponsoredIds = new Set(sponsored.map((s) => s.id));
       items = items.filter((l) => !sponsoredIds.has(l.id));
-      await recordImpressions(sponsored.map((l) => l.campaigns[0]?.id ?? ""));
+      // analytics write: never make the visitor wait for it
+      void recordImpressions(sponsored.map((l) => l.campaigns[0]?.id ?? ""));
     }
   }
 

@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Loader2, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLang } from "./LangProvider";
+import { announceNavigation } from "@/components/NavigationProgress";
 
 export function ChatButton({
   listingId,
@@ -42,6 +43,7 @@ export function ChatButton({
     }
     if (res.ok) {
       const data = await res.json();
+      announceNavigation();
       router.push(`/dashboard/messages/${data.id}`);
     }
   }

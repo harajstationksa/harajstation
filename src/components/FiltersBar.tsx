@@ -7,6 +7,7 @@ import { CITIES } from "@/lib/constants";
 import { configForMain, typesForMain, type ListingType } from "@/lib/category-fields";
 import { cn } from "@/lib/utils";
 import { useLang } from "./LangProvider";
+import { announceNavigation } from "@/components/NavigationProgress";
 
 /**
  * `mainSlug` is the MAIN category being browsed, or null on pages that span all
@@ -62,6 +63,7 @@ export function FiltersBar({
     // a changed filter invalidates the page number — page 5 of the old result
     // set is usually empty in the new one
     params.delete("page");
+    announceNavigation();
     router.push(`${basePath}${params.size ? `?${params}` : ""}`);
     setOpen(false);
   }

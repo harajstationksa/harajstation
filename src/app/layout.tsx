@@ -6,6 +6,8 @@ import { JsonLd } from "@/components/JsonLd";
 import { LangProvider } from "@/components/LangProvider";
 import { NativeFormMessages } from "@/components/NativeFormMessages";
 import { PwaRegister } from "@/components/PwaRegister";
+import { Suspense } from "react";
+import { NavigationProgress } from "@/components/NavigationProgress";
 import "./globals.css";
 
 const cairo = Cairo({
@@ -75,6 +77,9 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col bg-neutral-50">
         {/* who the site is, and the search box Google can show inside a result */}
         <JsonLd data={[organizationLd(), websiteLd()]} />
+        <Suspense>
+          <NavigationProgress />
+        </Suspense>
         <LangProvider lang={lang}>
           <NativeFormMessages />
           {children}

@@ -85,6 +85,7 @@ export function AuctionFilterSheet({
       <form
         method="GET"
         action="/auctions"
+        onSubmit={() => setOpen(false)}
         role="dialog"
         aria-modal="true"
         aria-label={a.filterTitle}
